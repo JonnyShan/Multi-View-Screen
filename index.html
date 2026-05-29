@@ -74,6 +74,24 @@
 
   /* locked while a video plays: stays visible (totals shown), just not clickable */
   .zone.locked { pointer-events: none; cursor: default; }
+
+  /* live = choosing: glow + invite the click */
+  @keyframes glowL { 0%,100%{box-shadow:0 10px 30px rgba(0,0,0,.5)} 50%{box-shadow:0 10px 30px rgba(0,0,0,.5),0 0 30px 8px rgba(123,63,242,.75)} }
+  @keyframes glowR { 0%,100%{box-shadow:0 10px 30px rgba(0,0,0,.5)} 50%{box-shadow:0 10px 30px rgba(0,0,0,.5),0 0 30px 8px rgba(255,47,134,.75)} }
+  .zone.left.live  .panel { animation: glowL 1.2s ease-in-out infinite; }
+  .zone.right.live .panel { animation: glowR 1.2s ease-in-out infinite; }
+  .zone.live { cursor: pointer; }
+
+  /* "PICK ONE" prompt */
+  #prompt {
+    position: absolute; top: 14%; left: 50%; transform: translateX(-50%);
+    color: #fff; font-weight: 900; font-size: clamp(20px, 3vw, 40px); letter-spacing: 2px;
+    background: rgba(0,0,0,.45); padding: 10px 26px; border-radius: 999px;
+    pointer-events: none; opacity: 0; transition: opacity .3s;
+    text-shadow: 0 2px 8px rgba(0,0,0,.8);
+  }
+  #prompt.show { opacity: 1; animation: bob 1.2s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-7px)} }
   /* gone: fully hidden (used on the final video) */
   .zone.gone { opacity: 0; pointer-events: none; }
   .zone { transition: transform .15s, filter .15s, opacity .3s; }
@@ -172,6 +190,7 @@
     </div>
 
     <div id="clipBadge"></div>
+    <div id="prompt">👉 PICK ONE 👈</div>
 
     <div class="zone left"  id="zoneL">
       <div class="panel">
@@ -208,15 +227,15 @@
 </div>
 
 <script>
-// ---- Video sources (Dropbox raw links for direct playback) ----
+// ---- Video sources (local, faststart + compressed, served by GitHub Pages CDN) ----
 const SRC = {
-  v1:  "https://www.dropbox.com/scl/fi/sfm9f17bpmhdu6n8alhzd/Video-1.mp4?rlkey=si15afc9a7vw5c9ys4zpcgido&raw=1",
-  v11: "https://www.dropbox.com/scl/fi/lmxaqfvwjcopnhdr5xkgv/1.1.mp4?rlkey=rnay8l8cem78yhpgl3i68auya&raw=1",
-  v12: "https://www.dropbox.com/scl/fi/gg5cbouh98232av693a3g/1.2.mp4?rlkey=634n0k0hb9kzlnlv0sojx7dwk&raw=1",
-  v2:  "https://www.dropbox.com/scl/fi/t99xv3vi1taamrk73g63c/Video-2.mp4?rlkey=ha7nnwlj0csgzyesb1u7b0qg1&raw=1",
-  v21: "https://www.dropbox.com/scl/fi/vllsc1ooxy4ctavoke93e/2.1.mp4?rlkey=ka88x4t1ivhxrap7i3ypj37j8&raw=1",
-  v22: "https://www.dropbox.com/scl/fi/mz4g68efokawr1nzr7wyu/2.2.mp4?rlkey=hjozqd7l299cq5ixvd6aan2wi&raw=1",
-  v3:  "https://www.dropbox.com/scl/fi/h3sffjnel3wyfpirypv5y/Video-3.mp4?rlkey=e8oz4ebo45gwlgeh3nny43xvm&raw=1"
+  v1:  "videos/v1.mp4",
+  v11: "videos/v11.mp4",
+  v12: "videos/v12.mp4",
+  v2:  "videos/v2.mp4",
+  v21: "videos/v21.mp4",
+  v22: "videos/v22.mp4",
+  v3:  "videos/v3.mp4"
 };
 
 // Stages: each = background video + the clip each box plays.
@@ -300,10 +319,14 @@ function showMain() {
 }
 
 // toggle clickability (boxes stay visible either way)
+const promptEl = document.getElementById('prompt');
 function setChoosing(on) {
   choosing = on;
   zoneL.classList.toggle('locked', !on);
   zoneR.classList.toggle('locked', !on);
+  zoneL.classList.toggle('live', on);
+  zoneR.classList.toggle('live', on);
+  promptEl.classList.toggle('show', on);
 }
 // fully show/hide the boxes (hidden only on the final video)
 function showBoxes(on) {
