@@ -571,7 +571,7 @@ function buildCustomer(){
   const head=new THREE.Mesh(new THREE.SphereGeometry(6,14,14),M(0xf0c89a)); head.position.y=42; head.castShadow=true; g.add(head);
   return g;
 }
-const customerFig = buildCustomer(); customerFig.visible=false; scene.add(customerFig);
+const customerFig = buildCustomer(); customerFig.scale.setScalar(0.5); customerFig.visible=false; scene.add(customerFig);
 
 // ===================== pickup/delivery FX =====================
 const fxPool=[];
@@ -605,7 +605,7 @@ hold("steerL",()=>touch.steer=-1,()=>{ if(touch.steer===-1)touch.steer=0; });
 hold("steerR",()=>touch.steer=1,()=>{ if(touch.steer===1)touch.steer=0; });
 
 // ===================== orders FSM =====================
-function timeBonus(t){ return Math.round(Math.max(0,t)*2); }
+function timeBonus(t){ return Math.round(Math.max(0,t)*0.05); } // small "fast" tip
 const PICKUP_R=58, DROP_R=48;
 const orders={
   state:"idle", current:null, gap:1.0, money:0, lastMsg:"", msgT:0,
@@ -628,7 +628,7 @@ const orders={
     const customer=randomCustomerPoint();
     const dist=Math.hypot(customer.x-rest.x, customer.z-rest.z);
     this.current={ restaurant:rest, customer, name:food.name, emoji:food.emoji,
-      payout:Math.round(30+dist/12), timeLimit:Math.round(38+dist/55), timeLeft:Math.round(38+dist/55) };
+      payout:Math.round(5+dist/700), timeLimit:Math.round(38+dist/55), timeLeft:Math.round(38+dist/55) };
     this.state="offered";
   },
   accept(){ if(this.state==="offered"){ this.state="accepted"; this.flash("Go to "+this.current.restaurant.name); } },
