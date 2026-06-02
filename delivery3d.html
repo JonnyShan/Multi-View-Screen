@@ -856,8 +856,9 @@ function makeCar(){
   [[24,7],[24,-7]].forEach(([x,z])=>{ const l=new THREE.Mesh(new THREE.BoxGeometry(3,4,5),hlm); l.position.set(x,11,z); g.add(l); });
   return g;
 }
+const ENABLE_TRAFFIC=false; // moving traffic OFF for now — set true to bring the cars back
 const traffic=[];
-for (let i=0;i<14;i++){
+if(ENABLE_TRAFFIC) for (let i=0;i<14;i++){
   const axis = i%2===0 ? "x" : "z";
   const line = (1+Math.floor(Math.random()*(COLS-1)))*TILE;
   const dir = Math.random()<0.5 ? 1 : -1;
