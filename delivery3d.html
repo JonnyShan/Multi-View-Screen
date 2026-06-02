@@ -127,8 +127,18 @@
   }, 6000);
 </script>
 
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+
 <script type="module">
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 
 // ===================== world grid =====================
 const TILE = 270, COLS = 9, ROWS = 9;
@@ -229,9 +239,19 @@ sun.shadow.camera.top = 420; sun.shadow.camera.bottom = -420;
 sun.shadow.bias = -0.0004;
 scene.add(sun);
 scene.add(sun.target);
+const fill = new THREE.DirectionalLight(0xbcd4ff, 0.5); // cool fill to soften shadowed faces
+fill.position.set(-0.5, 0.8, -0.6).multiplyScalar(600);
+scene.add(fill);
+
+// post-processing: subtle bloom so lights / signs / bright highlights glow
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.5, 0.92);
+composer.addPass(bloom);
 
 window.addEventListener("resize", ()=>{
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
 });
@@ -413,7 +433,7 @@ for (const s of restaurants){ const spr=makeLabelSprite(s.emoji,s.name); spr.pos
 // ===================== street props: lights, trees, parked cars =====================
 const poleGeo=new THREE.CylinderGeometry(2.4,2.4,86,8), poleMat=new THREE.MeshStandardMaterial({color:0x33373d,roughness:0.7});
 const armGeo=new THREE.BoxGeometry(26,3,3), lampGeo=new THREE.BoxGeometry(14,6,8);
-const bulbGeo=new THREE.SphereGeometry(4,8,8), bulbMat=new THREE.MeshStandardMaterial({color:0xfff2c0,emissive:0xffe9a0,emissiveIntensity:0.9});
+const bulbGeo=new THREE.SphereGeometry(4,8,8), bulbMat=new THREE.MeshStandardMaterial({color:0xfff2c0,emissive:0xffe9a0,emissiveIntensity:1.9});
 function streetlight(x,z){
   const g=new THREE.Group();
   const pole=new THREE.Mesh(poleGeo,poleMat); pole.position.y=43; pole.castShadow=true; g.add(pole);
@@ -472,8 +492,8 @@ function buildMoped(){
   // mirrors
   [-1,1].forEach(s=>{ const mm=new THREE.Mesh(new THREE.BoxGeometry(2,2,7), M(0x222)); mm.position.set(26,44,5*s); g.add(mm); });
   // headlight + taillight
-  const hl=new THREE.Mesh(new THREE.BoxGeometry(4,7,9), M(0xffe9a8,0.3)); hl.material.emissive=new THREE.Color(0xfff2c0); hl.material.emissiveIntensity=0.6; hl.position.set(27,24,0); g.add(hl);
-  const tl=new THREE.Mesh(new THREE.BoxGeometry(3,5,8), M(0xff3030,0.4)); tl.material.emissive=new THREE.Color(0xff2020); tl.material.emissiveIntensity=0.6; tl.position.set(-28,26,0); g.add(tl);
+  const hl=new THREE.Mesh(new THREE.BoxGeometry(4,7,9), M(0xffe9a8,0.3)); hl.material.emissive=new THREE.Color(0xfff2c0); hl.material.emissiveIntensity=1.9; hl.position.set(27,24,0); g.add(hl);
+  const tl=new THREE.Mesh(new THREE.BoxGeometry(3,5,8), M(0xff3030,0.4)); tl.material.emissive=new THREE.Color(0xff2020); tl.material.emissiveIntensity=1.6; tl.position.set(-28,26,0); g.add(tl);
   // wheels with rims
   const wheelGeo=new THREE.CylinderGeometry(10,10,7,18), rimGeo=new THREE.CylinderGeometry(5,5,7.4,12);
   [[18],[-18]].forEach(([wx])=>{
@@ -531,9 +551,17 @@ const pin = makeLabelSprite("🏪",""); pin.visible=false; scene.add(pin);
 const pad = new THREE.Mesh(new THREE.RingGeometry(28,40,28),
   new THREE.MeshBasicMaterial({ color:0xff9d2e, transparent:true, opacity:0.7, side:THREE.DoubleSide, depthWrite:false }));
 pad.rotation.x=-Math.PI/2; pad.position.y=1.2; pad.visible=false; scene.add(pad);
+const arrowMat = new THREE.MeshBasicMaterial({ color:0xff9d2e, fog:false, toneMapped:false });
+const arrowEdgeMat = new THREE.MeshBasicMaterial({ color:0x222222, fog:false, toneMapped:false });
 const arrow = new THREE.Group();
-const arrowCone = new THREE.Mesh(new THREE.ConeGeometry(7,18,16), new THREE.MeshBasicMaterial({color:0xff9d2e, fog:false}));
-arrowCone.rotation.z=-Math.PI/2; arrow.add(arrowCone); arrow.visible=false; scene.add(arrow);
+// flat GPS-style arrow lying horizontal, tip toward +x
+const aShape = new THREE.Shape();
+aShape.moveTo(-13,3.5); aShape.lineTo(3,3.5); aShape.lineTo(3,9.5); aShape.lineTo(19,0);
+aShape.lineTo(3,-9.5); aShape.lineTo(3,-3.5); aShape.lineTo(-13,-3.5); aShape.closePath();
+const aGeo = new THREE.ExtrudeGeometry(aShape, {depth:4, bevelEnabled:false}); aGeo.center();
+const aMesh = new THREE.Mesh(aGeo, arrowMat); aMesh.rotation.x = -Math.PI/2; // lay flat, points +x
+const aEdge = new THREE.Mesh(aGeo, arrowEdgeMat); aEdge.rotation.x = -Math.PI/2; aEdge.scale.set(1.18,1.18,0.6); aEdge.position.y=-0.6; // dark rim
+arrow.add(aEdge, aMesh); arrow.visible=false; scene.add(arrow);
 // customer figure at dropoff
 function buildCustomer(){
   const g=new THREE.Group(); const M=(c)=>new THREE.MeshStandardMaterial({color:c,roughness:0.85});
@@ -667,7 +695,8 @@ function updateMarkers(dt){
     pin.visible=true; pin.material.map.image && (pin.position.set(tgt.x,96+Math.sin(pulse)*6,tgt.z));
     pad.visible=true; pad.position.set(tgt.x,1.2,tgt.z); pad.material.color.setHex(col);
     pad.scale.setScalar(1+Math.sin(pulse)*0.08);
-    arrow.visible=true; arrowCone.material.color.setHex(col); arrow.position.set(moped.x,56,moped.z);
+    arrow.visible=true; arrowMat.color.setHex(col);
+    arrow.position.set(moped.x, 46+Math.sin(pulse*2)*3, moped.z);
     arrow.rotation.y=-Math.atan2(tgt.z-moped.z, tgt.x-moped.x);
     if(carrying){ customerFig.visible=true; customerFig.position.set(tgt.x,0,tgt.z);
       customerFig.rotation.y=Math.atan2(moped.x-tgt.x, moped.z-tgt.z);
@@ -698,7 +727,7 @@ function frame(t){
   readInput(); moped.update(dt); updateCamera(dt);
   if(started){ orders.update(dt); syncPopup(); }
   updateMarkers(dt); updateFX(dt); syncHud(); drawMinimap();
-  renderer.render(scene,camera);
+  composer.render();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
