@@ -507,7 +507,7 @@ const moped = {
     this.heading += input.steer*this.TURN*dt*grip*Math.sign(this.speed||1);
     this.x += Math.cos(this.heading)*this.speed*dt;
     this.z += Math.sin(this.heading)*this.speed*dt;
-    const res = resolveCollision(this.x, this.z, 22); this.x=res.x; this.z=res.z;
+    const res = resolveCollision(this.x, this.z, 12); this.x=res.x; this.z=res.z;
     this.x = Math.max(14, Math.min(WORLD_W-14, this.x));
     this.z = Math.max(14, Math.min(WORLD_H-14, this.z));
     this.group.position.set(this.x, 0, this.z);
@@ -520,6 +520,7 @@ const moped = {
   }
 };
 moped.group.castShadow = true;
+moped.group.scale.setScalar(0.5); // 2x smaller character
 scene.add(moped.group);
 
 // ===================== markers: beam, pin, arrow, pad, customer figure =====================
@@ -666,7 +667,7 @@ function updateMarkers(dt){
     pin.visible=true; pin.material.map.image && (pin.position.set(tgt.x,96+Math.sin(pulse)*6,tgt.z));
     pad.visible=true; pad.position.set(tgt.x,1.2,tgt.z); pad.material.color.setHex(col);
     pad.scale.setScalar(1+Math.sin(pulse)*0.08);
-    arrow.visible=true; arrowCone.material.color.setHex(col); arrow.position.set(moped.x,98,moped.z);
+    arrow.visible=true; arrowCone.material.color.setHex(col); arrow.position.set(moped.x,56,moped.z);
     arrow.rotation.y=-Math.atan2(tgt.z-moped.z, tgt.x-moped.x);
     if(carrying){ customerFig.visible=true; customerFig.position.set(tgt.x,0,tgt.z);
       customerFig.rotation.y=Math.atan2(moped.x-tgt.x, moped.z-tgt.z);
@@ -677,10 +678,10 @@ function updateMarkers(dt){
 function updateCamera(dt){
   const fx=Math.cos(moped.heading), fz=Math.sin(moped.heading);
   const sp=Math.abs(moped.speed)/moped.MAX;
-  const DIST=200+sp*40, HEIGHT=120;
+  const DIST=190+sp*36, HEIGHT=112;
   camPos.set(moped.x-fx*DIST, HEIGHT, moped.z-fz*DIST);
   camera.position.lerp(camPos, Math.min(1,dt*5)||1);
-  lookAt.set(moped.x+fx*60, 30, moped.z+fz*60); camera.lookAt(lookAt);
+  lookAt.set(moped.x+fx*55, 18, moped.z+fz*55); camera.lookAt(lookAt);
   camera.fov = 60 + sp*8; camera.updateProjectionMatrix();
   // follow shadow frustum to the moped for crisp local shadows
   sun.position.set(moped.x+220, 520, moped.z+160);
