@@ -131,9 +131,9 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
 // ---------- world grid (shared with 2D version, y -> z) ----------
-const TILE = 120, COLS = 14, ROWS = 14;
+const TILE = 270, COLS = 9, ROWS = 9;
 const WORLD_W = TILE*COLS, WORLD_H = TILE*ROWS;
-const ROAD = 34; // half-gap to gridline; building footprint = TILE - 2*ROAD
+const ROAD = 103; // half-gap to gridline; road band = 2*ROAD = 206 (~3x wider), building = TILE - 2*ROAD = 64
 
 const FOODS = [
   {name:"Cheese Burger", emoji:"🍔"}, {name:"Hot Dog", emoji:"🌭"},
@@ -155,7 +155,7 @@ function buildGrid(){
       blocks.push({x,z,w,d});
     }
   }
-  const picks = [[1,1],[5,2],[10,1],[2,6],[8,7],[12,5],[4,11],[10,11]];
+  const picks = [[1,1],[5,1],[7,2],[2,4],[5,4],[8,5],[1,7],[6,7]];
   const names = ["Burger Barn","Dog House","Pizza Plaza","Sushi Spot","Taco Time","Cluck Hut","Ramen Bar","Sweet Stop"];
   const emojis = ["🍔","🌭","🍕","🍣","🌮","🍗","🍜","🍩"];
   picks.forEach((p,i)=>{ const [c,r]=p; restaurants.push({ x:c*TILE+TILE/2, z:r*TILE+TILE/2, name:names[i], emoji:emojis[i] }); });
@@ -169,6 +169,31 @@ function blockAt(px, pz, pad){
     if (px > b.x-pad && px < b.x+b.w+pad && pz > b.z-pad && pz < b.z+b.d+pad) return b;
   }
   return null;
+}
+// Circle-vs-building resolution with wall sliding. Buildings fill every non-road
+// cell, so pushing the moped (radius R) out of buildings = keeping it on the road.
+// Sliding along edges/corners lets a left turn flow into the cross street instead
+// of catching. One pass is enough: roads (206) are far wider than R, so the moped
+// can never overlap two buildings at once.
+function resolveCollision(px, pz, R){
+  for (const b of blocks){
+    const cx = Math.max(b.x, Math.min(px, b.x+b.w));
+    const cz = Math.max(b.z, Math.min(pz, b.z+b.d));
+    const dx = px-cx, dz = pz-cz;
+    const d2 = dx*dx + dz*dz;
+    if (d2 < R*R){
+      if (d2 > 1e-6){
+        const d = Math.sqrt(d2), push = R-d;
+        px += (dx/d)*push; pz += (dz/d)*push;
+      } else { // center inside building: eject through nearest edge
+        const left=px-b.x, right=(b.x+b.w)-px, top=pz-b.z, bot=(b.z+b.d)-pz;
+        const m=Math.min(left,right,top,bot);
+        if (m===left) px=b.x-R; else if (m===right) px=b.x+b.w+R;
+        else if (m===top) pz=b.z-R; else pz=b.z+b.d+R;
+      }
+    }
+  }
+  return {x:px, z:pz};
 }
 function randomCustomerPoint(){
   for (let i=0;i<200;i++){
@@ -216,7 +241,7 @@ function makeGroundTexture(){
   g.fillStyle = "#5a5f66";                                                 // road bands
   for (let c=0;c<=COLS;c++){ const X=c*TILE; g.fillRect(X-ROAD, 0, ROAD*2, WORLD_H); }
   for (let r=0;r<=ROWS;r++){ const Y=r*TILE; g.fillRect(0, Y-ROAD, WORLD_W, ROAD*2); }
-  g.strokeStyle = "rgba(255,235,120,.8)"; g.lineWidth = 4; g.setLineDash([24,20]); // dashed lane lines
+  g.strokeStyle = "rgba(255,235,120,.85)"; g.lineWidth = 7; g.setLineDash([46,34]); // dashed center lines
   g.beginPath();
   for (let c=0;c<=COLS;c++){ const X=c*TILE; g.moveTo(X,0); g.lineTo(X,WORLD_H); }
   for (let r=0;r<=ROWS;r++){ const Y=r*TILE; g.moveTo(0,Y); g.lineTo(WORLD_W,Y); }
@@ -313,10 +338,10 @@ const moped = {
     this.speed = Math.max(-this.MAX*0.4, Math.min(this.MAX, this.speed));
     const grip = Math.min(1, Math.abs(this.speed)/80);
     this.heading += input.steer * this.TURN * dt * grip * Math.sign(this.speed || 1);
-    const nx = this.x + Math.cos(this.heading)*this.speed*dt;
-    const nz = this.z + Math.sin(this.heading)*this.speed*dt;
-    if (!blockAt(nx, this.z, 12)) this.x = nx; else this.speed *= 0.4;
-    if (!blockAt(this.x, nz, 12)) this.z = nz; else this.speed *= 0.4;
+    this.x += Math.cos(this.heading)*this.speed*dt;
+    this.z += Math.sin(this.heading)*this.speed*dt;
+    const res = resolveCollision(this.x, this.z, 22); // slide along buildings -> stay on road
+    this.x = res.x; this.z = res.z;
     this.x = Math.max(12, Math.min(WORLD_W-12, this.x));
     this.z = Math.max(12, Math.min(WORLD_H-12, this.z));
     this.group.position.set(this.x, 0, this.z);
