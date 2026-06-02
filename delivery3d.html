@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Moped Delivery 3D</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#9fd3ff;
+    font-family:-apple-system, system-ui, sans-serif; user-select:none; -webkit-user-select:none; touch-action:none; }
+  #game { position:fixed; inset:0; display:block; }
+
+  /* minimap */
+  #mini { position:fixed; top:52px; left:14px; width:120px; height:120px; z-index:15;
+    border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.4); }
+
+  /* touch controls */
+  #touch { position:fixed; inset:auto 0 0 0; pointer-events:none; z-index:25; }
+  .pad { position:fixed; bottom:22px; display:flex; gap:16px; pointer-events:none; }
+  .pad.left { left:22px; } .pad.right { right:22px; }
+  .btn {
+    pointer-events:auto; width:84px; height:84px; border-radius:50%;
+    border:none; font:700 18px system-ui; color:#fff;
+    background:rgba(20,20,30,.42); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px);
+    box-shadow:0 6px 16px rgba(0,0,0,.35), inset 0 0 0 2px rgba(255,255,255,.25);
+    touch-action:none; cursor:pointer;
+  }
+  .btn:active { transform:scale(.94); background:rgba(20,20,30,.6); }
+  .btn.gas { background:rgba(40,170,80,.6); width:96px; height:96px; }
+  .btn.brake { background:rgba(190,60,60,.55); }
+  @media (hover:hover) and (pointer:fine){ #touch{ opacity:.5; } }
+
+  /* HUD */
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:20; color:#fff; }
+  #topbar { position:fixed; top:14px; left:0; right:0; display:flex; justify-content:space-between;
+    padding:0 16px; font:800 16px system-ui; text-shadow:0 2px 6px rgba(0,0,0,.6); }
+  .chip { background:rgba(20,20,30,.5); padding:8px 14px; border-radius:20px; }
+  .chip.hidden { display:none; }
+  #banner { position:fixed; top:150px; left:0; right:0; text-align:center;
+    font:800 22px system-ui; text-shadow:0 2px 8px rgba(0,0,0,.7); transition:opacity .3s; opacity:0; }
+
+  /* order popup */
+  #popup { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.35); z-index:30; }
+  #popup.hidden { display:none; }
+  .card { width:min(86vw,320px); background:#fff; border-radius:22px; padding:22px;
+    text-align:center; box-shadow:0 20px 50px rgba(0,0,0,.5); color:#222; }
+  .card .emoji { font-size:64px; }
+  .card .pname { font-weight:800; font-size:24px; margin-top:6px; }
+  .card .price { color:#888; font-weight:700; margin-top:4px; }
+  .card .ptimer { margin:12px 0; font-weight:700; color:#444; }
+  .card .row { display:flex; gap:12px; }
+  .card button { flex:1; padding:14px 0; border:none; border-radius:12px;
+    font:800 16px system-ui; color:#fff; cursor:pointer; }
+  .card .dec { background:#e8607a; } .card .acc { background:#2faf5a; }
+
+  /* start + error overlays */
+  #start, #err { position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(160deg,#1b5e34,#0f3d22); color:#fff; text-align:center; }
+  #start.hidden, #err.hidden { display:none; }
+  #err { background:#3a1414; }
+  .scard { width:min(88vw,360px); padding:10px; }
+  .scard h1 { font-size:34px; margin-bottom:14px; }
+  .scard p { opacity:.9; line-height:1.5; margin-bottom:10px; }
+  .scard .hint { font-size:13px; opacity:.7; }
+  #startBtn { margin-top:18px; padding:16px 44px; border:none; border-radius:14px;
+    background:#2faf5a; color:#fff; font:800 18px system-ui; cursor:pointer; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<canvas id="mini" width="120" height="120"></canvas>
+
+<div id="hud">
+  <div id="banner"></div>
+  <div id="topbar">
+    <div id="orderInfo" class="chip hidden"><span id="oiEmoji">🍔</span> <span id="oiName">—</span> · <span id="oiTimer">00:00</span></div>
+    <div id="money" class="chip">💵 $0</div>
+  </div>
+</div>
+
+<div id="touch">
+  <div class="pad left">
+    <button class="btn" id="steerL">◄</button>
+    <button class="btn" id="steerR">►</button>
+  </div>
+  <div class="pad right">
+    <button class="btn brake" id="brake">BRK</button>
+    <button class="btn gas" id="gas">GAS</button>
+  </div>
+</div>
+
+<div id="popup" class="hidden">
+  <div class="card">
+    <div class="emoji" id="pEmoji">🍔</div>
+    <div class="pname" id="pName">Cheese Burger</div>
+    <div class="price" id="pPrice">$10</div>
+    <div class="ptimer">⏱ <span id="pTimer">00:23</span></div>
+    <div class="row">
+      <button id="decline" class="dec">DECLINE</button>
+      <button id="accept" class="acc">ACCEPT</button>
+    </div>
+  </div>
+</div>
+
+<div id="start">
+  <div class="scard">
+    <h1>🛵 Moped Delivery 3D</h1>
+    <p>Accept orders, ride to the restaurant, then deliver to the customer before the timer runs out. Earn cash for fast drops!</p>
+    <p class="hint">Drive: GAS + ◄ ► &nbsp;(or arrow keys / WASD)</p>
+    <button id="startBtn">START</button>
+  </div>
+</div>
+
+<div id="err" class="hidden">
+  <div class="scard">
+    <h1>⚠️ 3D engine didn't load</h1>
+    <p>This game loads Three.js from a CDN and needs an internet connection. Check your connection and reload.</p>
+  </div>
+</div>
+
+<script>
+  // Watchdog: if the module below fails to init (e.g. offline CDN), show the error overlay.
+  window.__ok = false;
+  setTimeout(function(){
+    if (!window.__ok) document.getElementById("err").classList.remove("hidden");
+  }, 5000);
+</script>
+
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+
+// ---------- world grid (shared with 2D version, y -> z) ----------
+const TILE = 120, COLS = 14, ROWS = 14;
+const WORLD_W = TILE*COLS, WORLD_H = TILE*ROWS;
+const ROAD = 34; // half-gap to gridline; building footprint = TILE - 2*ROAD
+
+const FOODS = [
+  {name:"Cheese Burger", emoji:"🍔"}, {name:"Hot Dog", emoji:"🌭"},
+  {name:"Pizza Slice", emoji:"🍕"}, {name:"Sushi Roll", emoji:"🍣"},
+  {name:"Tacos", emoji:"🌮"}, {name:"Fried Chicken", emoji:"🍗"},
+  {name:"Ramen", emoji:"🍜"}, {name:"Donut", emoji:"🍩"},
+];
+const PALETTE = [0xc9b18c,0xb58f6a,0x9fb0c2,0xcaa6a0,0xa8bba0,0xd0c3a3,0xb9c2cf,0xcdb59a];
+
+const blocks = [];      // {x,z,w,d} footprints (world top-left + size)
+const restaurants = []; // {x,z,name,emoji}
+
+function buildGrid(){
+  for (let r=0;r<ROWS;r++){
+    for (let c=0;c<COLS;c++){
+      const x = c*TILE + ROAD, z = r*TILE + ROAD;
+      const w = TILE - ROAD*2, d = TILE - ROAD*2;
+      if (w<=0||d<=0) continue;
+      blocks.push({x,z,w,d});
+    }
+  }
+  const picks = [[1,1],[5,2],[10,1],[2,6],[8,7],[12,5],[4,11],[10,11]];
+  const names = ["Burger Barn","Dog House","Pizza Plaza","Sushi Spot","Taco Time","Cluck Hut","Ramen Bar","Sweet Stop"];
+  const emojis = ["🍔","🌭","🍕","🍣","🌮","🍗","🍜","🍩"];
+  picks.forEach((p,i)=>{ const [c,r]=p; restaurants.push({ x:c*TILE+TILE/2, z:r*TILE+TILE/2, name:names[i], emoji:emojis[i] }); });
+}
+function isRestaurantTile(cx, cz){
+  return restaurants.some(s => Math.abs(s.x-cx)<2 && Math.abs(s.z-cz)<2);
+}
+function blockAt(px, pz, pad){
+  pad = pad||0;
+  for (const b of blocks){
+    if (px > b.x-pad && px < b.x+b.w+pad && pz > b.z-pad && pz < b.z+b.d+pad) return b;
+  }
+  return null;
+}
+function randomCustomerPoint(){
+  for (let i=0;i<200;i++){
+    const onVertical = Math.random()<0.5;
+    const c = 1 + Math.floor(Math.random()*(COLS-1));
+    const r = 1 + Math.floor(Math.random()*(ROWS-1));
+    const x = onVertical ? c*TILE : c*TILE + TILE/2;
+    const z = onVertical ? r*TILE + TILE/2 : r*TILE;
+    if (!blockAt(x,z,6) && x>40 && z>40 && x<WORLD_W-40 && z<WORLD_H-40) return {x,z};
+  }
+  return {x:TILE, z:TILE};
+}
+buildGrid();
+
+// ---------- three.js setup ----------
+const canvas = document.getElementById("game");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9fd3ff);
+scene.fog = new THREE.Fog(0x9fd3ff, 420, 1500);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1, 4000);
+camera.position.set(WORLD_W/2, 200, WORLD_H/2 + 300);
+
+scene.add(new THREE.HemisphereLight(0xcfeaff, 0x6a7a55, 1.0));
+const sun = new THREE.DirectionalLight(0xfff2d8, 1.1);
+sun.position.set(0.6, 1.4, 0.5).multiplyScalar(600);
+scene.add(sun);
+
+window.addEventListener("resize", ()=>{
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+});
+
+// ---------- ground (baked road-grid canvas texture) ----------
+function makeGroundTexture(){
+  const cv = document.createElement("canvas");
+  cv.width = WORLD_W; cv.height = WORLD_H;
+  const g = cv.getContext("2d");
+  g.fillStyle = "#3aa15a"; g.fillRect(0,0,WORLD_W,WORLD_H);               // grass
+  g.fillStyle = "#5a5f66";                                                 // road bands
+  for (let c=0;c<=COLS;c++){ const X=c*TILE; g.fillRect(X-ROAD, 0, ROAD*2, WORLD_H); }
+  for (let r=0;r<=ROWS;r++){ const Y=r*TILE; g.fillRect(0, Y-ROAD, WORLD_W, ROAD*2); }
+  g.strokeStyle = "rgba(255,235,120,.8)"; g.lineWidth = 4; g.setLineDash([24,20]); // dashed lane lines
+  g.beginPath();
+  for (let c=0;c<=COLS;c++){ const X=c*TILE; g.moveTo(X,0); g.lineTo(X,WORLD_H); }
+  for (let r=0;r<=ROWS;r++){ const Y=r*TILE; g.moveTo(0,Y); g.lineTo(WORLD_W,Y); }
+  g.stroke();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(WORLD_W, WORLD_H),
+  new THREE.MeshLambertMaterial({ map: makeGroundTexture() })
+);
+ground.rotation.x = -Math.PI/2;
+ground.position.set(WORLD_W/2, 0, WORLD_H/2);
+scene.add(ground);
+
+// ---------- buildings ----------
+function addBuildings(){
+  for (const b of blocks){
+    const cx = b.x + b.w/2, cz = b.z + b.d/2;
+    const restaurant = isRestaurantTile(cx, cz);
+    const h = restaurant ? 70 : 40 + Math.random()*120;
+    const color = restaurant ? 0xefe2c0 : PALETTE[Math.floor(Math.random()*PALETTE.length)];
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(b.w, h, b.d),
+      new THREE.MeshLambertMaterial({ color })
+    );
+    mesh.position.set(cx, h/2, cz);
+    scene.add(mesh);
+    // simple roof trim
+    const trim = new THREE.Mesh(
+      new THREE.BoxGeometry(b.w+4, 6, b.d+4),
+      new THREE.MeshLambertMaterial({ color: restaurant ? 0xd23b3b : 0x8a8a8a })
+    );
+    trim.position.set(cx, h+1, cz);
+    scene.add(trim);
+  }
+}
+addBuildings();
+
+// ---------- emoji / label billboard sprites ----------
+function makeLabelSprite(emoji, label){
+  const cv = document.createElement("canvas"); cv.width = 256; cv.height = 256;
+  const g = cv.getContext("2d");
+  g.font = "120px serif"; g.textAlign="center"; g.textBaseline="middle";
+  g.fillText(emoji, 128, 110);
+  if (label){
+    g.font = "bold 34px system-ui"; g.lineWidth = 6; g.strokeStyle = "rgba(0,0,0,.65)";
+    g.strokeText(label, 128, 210); g.fillStyle = "#fff"; g.fillText(label, 128, 210);
+  }
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent:true, depthTest:false }));
+  spr.scale.set(90, 90, 1);
+  return spr;
+}
+for (const s of restaurants){
+  const spr = makeLabelSprite(s.emoji, s.name);
+  spr.position.set(s.x, 120, s.z);
+  scene.add(spr);
+}
+
+// ---------- moped ----------
+function buildMoped(){
+  const g = new THREE.Group();
+  const mat = (c)=> new THREE.MeshLambertMaterial({ color:c });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(46,14,20), mat(0xe23b3b)); body.position.y = 16; g.add(body);
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(20,6,16), mat(0x222222)); seat.position.set(-4,24,0); g.add(seat);
+  const dbox = new THREE.Mesh(new THREE.BoxGeometry(20,26,22), mat(0xc52f2f)); dbox.position.set(-16,28,0); g.add(dbox);
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(8,20,16), mat(0xe23b3b)); nose.position.set(20,20,0); g.add(nose);
+  const light = new THREE.Mesh(new THREE.BoxGeometry(4,6,8), mat(0xffe9a8)); light.position.set(25,18,0); g.add(light);
+  const wheelGeo = new THREE.CylinderGeometry(9,9,8,16);
+  const wf = new THREE.Mesh(wheelGeo, mat(0x1a1a1a)); wf.rotation.x = Math.PI/2; wf.position.set(18,9,0); g.add(wf);
+  const wr = new THREE.Mesh(wheelGeo, mat(0x1a1a1a)); wr.rotation.x = Math.PI/2; wr.position.set(-18,9,0); g.add(wr);
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(12,22,14), mat(0x3a4a8c)); torso.position.set(-2,36,0); g.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(6,12,12), mat(0xf0c89a)); head.position.set(-2,52,0); g.add(head);
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(6.6,12,12,0,Math.PI*2,0,Math.PI/2), mat(0xd23b3b)); helmet.position.set(-2,52,0); g.add(helmet);
+  // blob shadow
+  const sh = new THREE.Mesh(new THREE.CircleGeometry(24,20), new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0.22 }));
+  sh.rotation.x = -Math.PI/2; sh.position.y = 0.6; g.add(sh);
+  return g;
+}
+const moped = {
+  x: TILE, z: TILE, heading: 0, speed: 0,
+  MAX: 300, ACCEL: 420, FRICTION: 260, BRAKE: 600, TURN: 2.8,
+  group: buildMoped(),
+  update(dt){
+    this.speed += input.gas * this.ACCEL * dt;
+    this.speed -= input.brake * this.BRAKE * dt;
+    if (input.gas === 0 && input.brake === 0){
+      const f = this.FRICTION * dt;
+      this.speed = this.speed > 0 ? Math.max(0, this.speed - f) : Math.min(0, this.speed + f);
+    }
+    this.speed = Math.max(-this.MAX*0.4, Math.min(this.MAX, this.speed));
+    const grip = Math.min(1, Math.abs(this.speed)/80);
+    this.heading += input.steer * this.TURN * dt * grip * Math.sign(this.speed || 1);
+    const nx = this.x + Math.cos(this.heading)*this.speed*dt;
+    const nz = this.z + Math.sin(this.heading)*this.speed*dt;
+    if (!blockAt(nx, this.z, 12)) this.x = nx; else this.speed *= 0.4;
+    if (!blockAt(this.x, nz, 12)) this.z = nz; else this.speed *= 0.4;
+    this.x = Math.max(12, Math.min(WORLD_W-12, this.x));
+    this.z = Math.max(12, Math.min(WORLD_H-12, this.z));
+    this.group.position.set(this.x, 0, this.z);
+    this.group.rotation.y = -this.heading;
+  }
+};
+scene.add(moped.group);
+
+// ---------- nav markers ----------
+const beam = new THREE.Mesh(
+  new THREE.CylinderGeometry(10,10,400,16,1,true),
+  new THREE.MeshBasicMaterial({ color:0xff9d2e, transparent:true, opacity:0.4, side:THREE.DoubleSide, depthWrite:false })
+);
+beam.visible = false; scene.add(beam);
+const pin = makeLabelSprite("🏪",""); pin.visible = false; scene.add(pin);
+
+const arrow = new THREE.Group();
+const arrowCone = new THREE.Mesh(new THREE.ConeGeometry(7,18,16), new THREE.MeshBasicMaterial({ color:0xff9d2e }));
+arrowCone.rotation.z = -Math.PI/2; // point +x
+arrow.add(arrowCone); arrow.visible = false; scene.add(arrow);
+
+// ---------- input (keyboard + touch) ----------
+const keys = Object.create(null);
+window.addEventListener("keydown", e => { keys[e.key.toLowerCase()] = true; });
+window.addEventListener("keyup",   e => { keys[e.key.toLowerCase()] = false; });
+const input = { gas:0, steer:0, brake:0 };
+const touch = { gas:false, brake:false, steer:0 };
+function readInput(){
+  const up = keys["arrowup"]||keys["w"], down = keys["arrowdown"]||keys["s"];
+  const left = keys["arrowleft"]||keys["a"], right = keys["arrowright"]||keys["d"];
+  input.gas = up?1:0; input.brake = down?1:0; input.steer = (right?1:0)-(left?1:0);
+  if (touch.gas) input.gas = 1;
+  if (touch.brake) input.brake = 1;
+  if (touch.steer) input.steer = touch.steer;
+}
+function hold(id, on, off){
+  const el = document.getElementById(id);
+  const set = fn => e => { e.preventDefault(); fn(); };
+  el.addEventListener("pointerdown", set(on));
+  el.addEventListener("pointerup", set(off));
+  el.addEventListener("pointercancel", set(off));
+  el.addEventListener("pointerleave", set(off));
+}
+hold("gas", ()=>touch.gas=true, ()=>touch.gas=false);
+hold("brake", ()=>touch.brake=true, ()=>touch.brake=false);
+hold("steerL", ()=>touch.steer=-1, ()=>{ if(touch.steer===-1) touch.steer=0; });
+hold("steerR", ()=>touch.steer=1, ()=>{ if(touch.steer===1) touch.steer=0; });
+
+// ---------- orders FSM (ported from 2D, y -> z) ----------
+function timeBonus(timeLeft){ return Math.round(Math.max(0, timeLeft)*2); }
+const PICKUP_R = 50, DROP_R = 44;
+const orders = {
+  state:"idle", current:null, gap:1.0, money:0, lastMsg:"", msgT:0,
+  update(dt){
+    if (this.state === "idle"){ this.gap -= dt; if (this.gap <= 0) this.offer(); }
+    else if (this.state === "accepted" || this.state === "carrying"){
+      const o = this.current; o.timeLeft -= dt;
+      if (o.timeLeft <= 0){ this.fail(); if(this.msgT>0) this.msgT-=dt; return; }
+      const tgt = this.state === "accepted" ? o.restaurant : o.customer;
+      const r = this.state === "accepted" ? PICKUP_R : DROP_R;
+      if (Math.hypot(moped.x-tgt.x, moped.z-tgt.z) < r){
+        if (this.state === "accepted"){ this.state="carrying"; this.flash("Order picked up — deliver it!"); }
+        else this.deliver();
+      }
+    }
+    if (this.msgT > 0) this.msgT -= dt;
+  },
+  offer(){
+    const rest = restaurants[Math.floor(Math.random()*restaurants.length)];
+    const food = FOODS[Math.floor(Math.random()*FOODS.length)];
+    const customer = randomCustomerPoint();
+    const dist = Math.hypot(customer.x-rest.x, customer.z-rest.z);
+    const payout = Math.round(30 + dist/12);
+    const timeLimit = Math.round(35 + dist/60);
+    this.current = { restaurant:rest, customer, name:food.name, emoji:food.emoji, payout, timeLimit, timeLeft:timeLimit };
+    this.state = "offered";
+  },
+  accept(){ if(this.state==="offered"){ this.state="accepted"; this.flash("Head to "+this.current.restaurant.name); } },
+  decline(){ if(this.state==="offered"){ this.state="idle"; this.gap=0.8; this.current=null; } },
+  deliver(){ const earned = this.current.payout + timeBonus(this.current.timeLeft); this.money += earned;
+             this.flash("Delivered! +$"+earned); this.current=null; this.state="idle"; this.gap=1.6; },
+  fail(){ this.flash("Too slow — order lost"); this.current=null; this.state="idle"; this.gap=1.6; },
+  flash(msg){ this.lastMsg=msg; this.msgT=2.2; },
+  target(){ if(this.state==="accepted")return this.current.restaurant; if(this.state==="carrying")return this.current.customer; return null; }
+};
+
+// ---------- DOM overlays ----------
+const popup = document.getElementById("popup");
+document.getElementById("accept").addEventListener("click", ()=>orders.accept());
+document.getElementById("decline").addEventListener("click", ()=>orders.decline());
+function syncPopup(){
+  if (orders.state === "offered"){
+    const o = orders.current;
+    document.getElementById("pEmoji").textContent = o.emoji;
+    document.getElementById("pName").textContent = o.name;
+    document.getElementById("pPrice").textContent = "$"+o.payout;
+    document.getElementById("pTimer").textContent = "00:"+String(Math.max(0,Math.ceil(o.timeLeft))).padStart(2,"0");
+    popup.classList.remove("hidden");
+  } else popup.classList.add("hidden");
+}
+const elMoney = document.getElementById("money");
+const elBanner = document.getElementById("banner");
+const elOrder = document.getElementById("orderInfo");
+function syncHud(){
+  elMoney.textContent = "💵 $" + orders.money;
+  if (orders.state === "accepted" || orders.state === "carrying"){
+    const o = orders.current;
+    document.getElementById("oiEmoji").textContent = o.emoji;
+    document.getElementById("oiName").textContent = o.name;
+    document.getElementById("oiTimer").textContent = "00:"+String(Math.max(0,Math.ceil(o.timeLeft))).padStart(2,"0");
+    elOrder.classList.remove("hidden");
+  } else elOrder.classList.add("hidden");
+  if (orders.msgT > 0){ elBanner.textContent = orders.lastMsg; elBanner.style.opacity = 1; }
+  else elBanner.style.opacity = 0;
+}
+
+// ---------- minimap ----------
+const mini = document.getElementById("mini");
+const mctx = mini.getContext("2d");
+function drawMinimap(){
+  const W=120,H=120, sc=W/WORLD_W, scy=H/WORLD_H;
+  mctx.clearRect(0,0,W,H);
+  mctx.fillStyle="rgba(43,47,54,.85)"; mctx.fillRect(0,0,W,H);
+  mctx.fillStyle="#caa24a";
+  for (const r of restaurants) mctx.fillRect(r.x*sc-1.5, r.z*scy-1.5, 3, 3);
+  const tgt = orders.target();
+  if (tgt){ mctx.fillStyle = orders.state==="carrying"?"#2faf5a":"#ff9d2e";
+    mctx.beginPath(); mctx.arc(tgt.x*sc, tgt.z*scy, 3.5, 0, Math.PI*2); mctx.fill(); }
+  // player triangle (heading)
+  mctx.save(); mctx.translate(moped.x*sc, moped.z*scy); mctx.rotate(moped.heading);
+  mctx.fillStyle="#e23b3b"; mctx.beginPath(); mctx.moveTo(5,0); mctx.lineTo(-3,-3); mctx.lineTo(-3,3); mctx.closePath(); mctx.fill();
+  mctx.restore();
+}
+
+// ---------- markers update + chase camera ----------
+let pulse = 0;
+const camPos = new THREE.Vector3(WORLD_W/2, 200, WORLD_H/2 + 300);
+const lookAt = new THREE.Vector3();
+function updateMarkers(dt){
+  pulse += dt*3;
+  const tgt = orders.target();
+  if (tgt){
+    const carrying = orders.state === "carrying";
+    const col = carrying ? 0x2faf5a : 0xff9d2e;
+    beam.visible = true; beam.material.color.setHex(col);
+    beam.material.opacity = 0.3 + (Math.sin(pulse)*0.5+0.5)*0.3;
+    beam.position.set(tgt.x, 200, tgt.z);
+    pin.visible = true; pin.position.set(tgt.x, 90 + Math.sin(pulse)*6, tgt.z);
+    // direction arrow above moped
+    arrow.visible = true; arrowCone.material.color.setHex(col);
+    arrow.position.set(moped.x, 98, moped.z);
+    arrow.rotation.y = -Math.atan2(tgt.z-moped.z, tgt.x-moped.x);
+  } else { beam.visible = false; pin.visible = false; arrow.visible = false; }
+}
+function updateCamera(dt){
+  const fx = Math.cos(moped.heading), fz = Math.sin(moped.heading);
+  const DIST = 190, HEIGHT = 115;
+  camPos.set(moped.x - fx*DIST, HEIGHT, moped.z - fz*DIST);
+  const a = Math.min(1, dt*5);
+  camera.position.lerp(camPos, a || 1);
+  lookAt.set(moped.x + fx*50, 26, moped.z + fz*50);
+  camera.lookAt(lookAt);
+}
+
+// ---------- start gate + loop ----------
+let started = false;
+document.getElementById("startBtn").addEventListener("click", ()=>{
+  started = true; document.getElementById("start").classList.add("hidden");
+});
+
+let last = 0;
+function frame(t){
+  const dt = last ? Math.min((t-last)/1000, 0.05) : 0;
+  last = t;
+  readInput();
+  moped.update(dt);
+  updateCamera(dt);
+  if (started){ orders.update(dt); syncPopup(); }
+  updateMarkers(dt);
+  syncHud();
+  drawMinimap();
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__ok = true;
+</script>
+</body>
+</html>
