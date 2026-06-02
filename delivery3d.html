@@ -775,11 +775,13 @@ function syncPopup(){
     popup.classList.remove("hidden");
   } else popup.classList.add("hidden");
 }
-const elMoney=document.getElementById("money"), elBanner=document.getElementById("banner"), elOrder=document.getElementById("orderInfo"), elStreak=document.getElementById("streak");
+const elMoney=document.getElementById("money"), elBanner=document.getElementById("banner"), elOrder=document.getElementById("orderInfo"), elStreak=document.getElementById("streak"), elShift=document.getElementById("shift");
 function syncHud(){
   elMoney.textContent="💵 $"+orders.money;
   if(orders.streak>1){ elStreak.textContent="🔥 Streak x"+orders.streak; elStreak.classList.remove("hidden"); }
   else elStreak.classList.add("hidden");
+  if(gstate==="playing"){ const s=Math.max(0,Math.ceil(shiftT)); elShift.textContent="⏱ "+Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); elShift.classList.remove("hidden"); }
+  else elShift.classList.add("hidden");
   if(orders.state==="accepted"||orders.state==="carrying"){ const o=orders.current;
     document.getElementById("oiEmoji").textContent=o.emoji; document.getElementById("oiName").textContent=o.name;
     document.getElementById("oiTimer").textContent="00:"+String(Math.max(0,Math.ceil(o.timeLeft))).padStart(2,"0");
@@ -927,9 +929,74 @@ function updateDayNight(dt){
   if (skyDome) skyDome.material.color.copy(tmpCol.copy(domeNight).lerp(domeDay, day));
 }
 
-// ===================== start gate + loop =====================
-let started=false;
-document.getElementById("startBtn").addEventListener("click",()=>{ started=true; document.getElementById("start").classList.add("hidden"); Sound.init(); Sound.resume(); });
+// ===================== green route path (follows roads to target) =====================
+const routeMat=new THREE.MeshBasicMaterial({color:0x4be06a,transparent:true,opacity:0.5,depthWrite:false,fog:false,toneMapped:false});
+const segGeo=new THREE.BoxGeometry(1,1,1);
+const routeSegs=[]; for(let i=0;i<48;i++){ const m=new THREE.Mesh(segGeo,routeMat); m.visible=false; scene.add(m); routeSegs.push(m); }
+function hideRoute(){ for(const m of routeSegs) m.visible=false; }
+function roadPath(from,to){
+  const cn=x=>Math.max(0,Math.min(COLS,Math.round(x/TILE))), rn=z=>Math.max(0,Math.min(ROWS,Math.round(z/TILE)));
+  const fc=cn(from.x), fr=rn(from.z), tc=cn(to.x), tr=rn(to.z);
+  const pts=[{x:from.x,z:from.z},{x:fc*TILE,z:fr*TILE}];
+  let c=fc, sc=tc>fc?1:-1; while(c!==tc){ c+=sc; pts.push({x:c*TILE,z:fr*TILE}); }
+  let r=fr, sr=tr>fr?1:-1; while(r!==tr){ r+=sr; pts.push({x:tc*TILE,z:r*TILE}); }
+  pts.push({x:to.x,z:to.z}); return pts;
+}
+function buildRoute(pts){ let si=0;
+  for(let i=0;i<pts.length-1 && si<routeSegs.length;i++){ const a=pts[i],b=pts[i+1],dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
+    if(len<2) continue; const m=routeSegs[si++]; m.visible=true; m.position.set((a.x+b.x)/2,1.6,(a.z+b.z)/2);
+    m.scale.set(len+13,1.0,15); m.rotation.y=-Math.atan2(dz,dx); }
+  for(let i=si;i<routeSegs.length;i++) routeSegs[i].visible=false;
+}
+let routeT=0;
+function updateRoute(dt){
+  const tgt = gstate==="playing" ? orders.target() : null;
+  if(!tgt){ hideRoute(); return; }
+  routeT-=dt; if(routeT>0) return; routeT=0.3;
+  buildRoute(roadPath({x:moped.x,z:moped.z}, tgt));
+}
+
+// ===================== save / upgrades / shift =====================
+const SAVE="md3d_";
+function load(k,d){ try{ const v=localStorage.getItem(SAVE+k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
+function persist(k,v){ try{ localStorage.setItem(SAVE+k, JSON.stringify(v)); }catch(e){} }
+let bank=load("bank",0), best=load("best",0), ups=load("ups",{speed:0,tip:0,timer:0});
+const SHIFT_BASE=120;
+function applyUpgrades(){ moped.MAX = 320 + ups.speed*45; tipMult = 1 + ups.tip*0.18; }
+function shiftLen(){ return SHIFT_BASE + ups.timer*25; }
+applyUpgrades();
+
+const UPDEFS=[{key:"speed",name:"Faster Moped",desc:"+ top speed"},{key:"tip",name:"Better Tips",desc:"+ earnings per drop"},{key:"timer",name:"Longer Shift",desc:"+ shift time"}];
+function upCost(k){ return 20*(ups[k]+1); }
+function renderUps(){
+  const c=document.getElementById("ups"); c.innerHTML="";
+  for(const u of UPDEFS){ const cost=upCost(u.key); const div=document.createElement("div"); div.className="up";
+    const lbl=document.createElement("div"); lbl.className="lbl"; lbl.innerHTML=u.name+" <small>Lv "+ups[u.key]+" · "+u.desc+"</small>";
+    const btn=document.createElement("button"); btn.textContent="$"+cost; btn.disabled=bank<cost;
+    btn.addEventListener("click",()=>{ if(bank>=cost){ bank-=cost; ups[u.key]++; persist("bank",bank); persist("ups",ups); applyUpgrades(); Sound.buy(); document.getElementById("sumBank").textContent="$"+bank; renderUps(); } });
+    div.appendChild(lbl); div.appendChild(btn); c.appendChild(div);
+  }
+}
+
+// ===================== game state / shift flow =====================
+let gstate="start", started=false, shiftT=shiftLen();
+function startShift(){
+  gstate="playing"; started=true; shiftT=shiftLen();
+  orders.money=0; orders.earned=0; orders.deliveries=0; orders.streak=0; orders.state="idle"; orders.current=null; orders.gap=1.0;
+  document.getElementById("start").classList.add("hidden"); document.getElementById("summary").classList.add("hidden");
+  Sound.init(); Sound.resume();
+}
+function endShift(){
+  gstate="ended"; started=false; orders.state="idle"; orders.current=null;
+  bank+=orders.earned; if(orders.earned>best) best=orders.earned; persist("bank",bank); persist("best",best);
+  document.getElementById("sumDeliv").textContent=orders.deliveries;
+  document.getElementById("sumEarn").textContent="$"+orders.earned;
+  document.getElementById("sumBank").textContent="$"+bank;
+  document.getElementById("sumBest").textContent="$"+best;
+  renderUps(); document.getElementById("summary").classList.remove("hidden");
+}
+document.getElementById("startBtn").addEventListener("click", startShift);
+document.getElementById("againBtn").addEventListener("click", startShift);
 const muteBtn=document.getElementById("mute"), autoBtn=document.getElementById("auto");
 muteBtn.addEventListener("click",()=>{ Sound.init(); Sound.resume(); const m=Sound.toggleMute(); muteBtn.textContent=m?"🔇":"🔊"; });
 autoBtn.addEventListener("click",()=>{ autoGas=!autoGas; autoBtn.classList.toggle("on",autoGas); });
@@ -939,6 +1006,8 @@ function frame(t){
   const dt=last?Math.min((t-last)/1000,0.05):0; last=t;
   readInput(); moped.update(dt); updateTraffic(dt); updatePedestrians(dt); updateDayNight(dt); updateCamera(dt);
   if(started){ orders.update(dt); syncPopup(); Sound.engine(Math.min(1,Math.abs(moped.speed)/moped.MAX)); }
+  if(gstate==="playing"){ shiftT-=dt; if(shiftT<=0){ shiftT=0; endShift(); } }
+  updateRoute(dt);
   updateMarkers(dt); updateFX(dt); updateFloats(dt); syncHud(); drawMinimap();
   composer.render();
   requestAnimationFrame(frame);
