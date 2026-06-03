@@ -400,7 +400,14 @@ function generateCity(S, E){
       ? { axis, line: ri(0, GH-1), pos: 0.35 + Math.random()*(GW-1.7), side: Math.random()<.5?1:-1, color: choice(CARCOL) }
       : { axis, line: ri(0, GW-1), pos: 0.35 + Math.random()*(GH-1.7), side: Math.random()<.5?1:-1, color: choice(CARCOL) });
   }
-  return { S, E, startBlk, endBlk, shops, houses, parks, towers, field, cars, parkedCars, pal, wpal, endRoof: choice(COL.roofs) };
+  // manhole covers scattered on the roads
+  const manholes = [];
+  for (let i = 0; i < Math.round(GW*GH/9); i++){
+    manholes.push(Math.random() < 0.5
+      ? { x: ri(0, GW-1), y: 0.4 + Math.random()*(GH-1.8) }
+      : { x: 0.4 + Math.random()*(GW-1.8), y: ri(0, GH-1) });
+  }
+  return { S, E, startBlk, endBlk, shops, houses, parks, towers, field, cars, parkedCars, manholes, pal, wpal, endRoof: choice(COL.roofs) };
 }
 
 // =================== route generation ===================
@@ -548,13 +555,19 @@ function buildStatic(){
   ag.addColorStop(0, '#494e58'); ag.addColorStop(1, '#373b44');
   octx.fillStyle = ag; rr(octx, bx0, by0, bw, bh, brad); octx.fill();
 
+  // white lane-edge lines flanking each street
+  octx.lineCap = 'butt'; octx.strokeStyle = 'rgba(255,255,255,.26)'; octx.lineWidth = Math.max(1, TW*0.018); octx.beginPath();
+  for (let gx = 0; gx < GW; gx++) for (const o of [-0.085, 0.085]){ const a=iso(gx+o,0), b=iso(gx+o,GH-1); octx.moveTo(a.x,a.y); octx.lineTo(b.x,b.y); }
+  for (let gy = 0; gy < GH; gy++) for (const o of [-0.085, 0.085]){ const a=iso(0,gy+o), b=iso(GW-1,gy+o); octx.moveTo(a.x,a.y); octx.lineTo(b.x,b.y); }
+  octx.stroke();
   // yellow centre dashes down every street
-  octx.strokeStyle = '#e9c44a'; octx.lineWidth = Math.max(1.4, TW*0.03); octx.lineCap = 'butt';
+  octx.strokeStyle = '#e9c44a'; octx.lineWidth = Math.max(1.4, TW*0.03);
   octx.setLineDash([TW*0.18, TW*0.22]); octx.beginPath();
   for (let gx = 0; gx < GW; gx++){ const a=iso(gx,0), b=iso(gx,GH-1); octx.moveTo(a.x,a.y); octx.lineTo(b.x,b.y); }
   for (let gy = 0; gy < GH; gy++){ const a=iso(0,gy), b=iso(GW-1,gy); octx.moveTo(a.x,a.y); octx.lineTo(b.x,b.y); }
   octx.stroke(); octx.setLineDash([]);
   drawCrosswalks();
+  drawStreetProps();
   buildSprites();                               // (re)build the house atlas for this city's palette + size
 
   // flat ground for every lot
@@ -590,8 +603,9 @@ function rr(c, x, y, w, h, r){
 function diamondPts(gx0, gy0, gx1, gy1){ return [iso(gx0,gy0), iso(gx1,gy0), iso(gx1,gy1), iso(gx0,gy1)]; }
 // a lot: concrete sidewalk diamond + inset lawn (roads show through the gaps)
 function drawLot(bx, by, park){
-  octx.fillStyle = '#b7bcc5'; poly(octx, diamondPts(bx+0.12, by+0.12, bx+0.88, by+0.88));
-  octx.fillStyle = park ? '#54b365' : COL.lot; poly(octx, diamondPts(bx+0.22, by+0.22, bx+0.78, by+0.78));
+  octx.fillStyle = '#b7bcc5'; poly(octx, diamondPts(bx+0.12, by+0.12, bx+0.88, by+0.88));               // sidewalk
+  octx.fillStyle = 'rgba(255,255,255,.10)'; poly(octx, diamondPts(bx+0.12, by+0.12, bx+0.88, by+0.5));   // kerb highlight
+  octx.fillStyle = park ? '#54b365' : COL.lot; poly(octx, diamondPts(bx+0.22, by+0.22, bx+0.78, by+0.78)); // lawn
 }
 // a 3D box from a grid footprint + pixel height; returns top-face + base corners
 function isoBox(gx0, gy0, gx1, gy1, h, top, left, right){
@@ -639,6 +653,18 @@ function drawCrosswalks(){
     }
   }
 }
+// manhole covers + street lamps on the kerbs
+function drawStreetProps(){
+  octx.fillStyle = 'rgba(0,0,0,.3)';
+  for (const m of (city.manholes || [])){ const p = iso(m.x, m.y); octx.beginPath(); octx.ellipse(p.x, p.y, TW*0.07, TW*0.035, 0, 0, Math.PI*2); octx.fill(); }
+  for (let gx = 1; gx < GW-1; gx++) for (let gy = 1; gy < GH-1; gy++){
+    if ((gx*2 + gy) % 5 !== 0) continue;
+    const base = iso(gx+0.12, gy+0.12), headY = base.y - TW*0.34;
+    octx.fillStyle = 'rgba(255,227,154,.22)'; octx.beginPath(); octx.arc(base.x, headY, TW*0.11, 0, Math.PI*2); octx.fill();   // glow
+    octx.strokeStyle = '#33373f'; octx.lineWidth = Math.max(1.5, TW*0.028); octx.beginPath(); octx.moveTo(base.x, base.y); octx.lineTo(base.x, headY); octx.stroke();
+    octx.fillStyle = '#ffe39a'; octx.beginPath(); octx.arc(base.x, headY, TW*0.05, 0, Math.PI*2); octx.fill();
+  }
+}
 // iso tree: shadow on the ground, trunk, layered canopy (billboard)
 function drawTree(gx, gy, scale){
   const b = iso(gx, gy, 0);
@@ -669,13 +695,14 @@ function buildSprites(){
     const pitched = isEnd ? true : floors <= 2;               // low = pitched house, tall = flat block
     const body = isEnd ? '#f4f1ea' : LP_BODY[i % LP_BODY.length];
     const roof = isEnd ? COL.endRoof : LP_ROOF[i % LP_ROOF.length];
-    paintHouseSprite(i * SPR.U, SPR.U, { floors, pitched, body, roof });
+    const glass = (i % 3 === 0) ? 'rgba(255,206,120,.9)' : 'rgba(150,210,220,.92)';   // some warm-lit
+    paintHouseSprite(i * SPR.U, SPR.U, { floors, pitched, body, roof, glass, prop: i % 3, shop: !pitched && i % 2 === 0 });
   }
 }
 // window grid on a wall face (parallelogram top tA->tB, bottom bA->bB)
-function faceWin(tA, tB, bB, bA, rows, cols){
+function faceWin(tA, tB, bB, bA, rows, cols, glass){
   rows = Math.min(rows, 5);
-  sctx.fillStyle = 'rgba(150,210,220,.92)';
+  sctx.fillStyle = glass || 'rgba(150,210,220,.92)';
   for (let r = 0; r < rows; r++) for (let cI = 0; cI < cols; cI++){
     const u0=(cI+0.26)/cols, u1=(cI+0.74)/cols, v0=(r+0.24)/rows, v1=(r+0.72)/rows;
     const a=bil(tA,tB,bB,bA,u0,v0), b=bil(tA,tB,bB,bA,u1,v0), d=bil(tA,tB,bB,bA,u1,v1), e=bil(tA,tB,bB,bA,u0,v1);
@@ -695,8 +722,12 @@ function paintHouseSprite(ox, U, v){
   // two flat-shaded walls + window grids
   g.fillStyle = shade(body,-0.32); quad([bE,bS,tS,tE]);   // right wall (darkest)
   g.fillStyle = shade(body,-0.14); quad([bS,bW,tW,tS]);   // left wall
-  faceWin(tE,tS,bS,bE, v.floors, 2);
-  faceWin(tS,tW,bW,bS, v.floors, 2);
+  faceWin(tE,tS,bS,bE, v.floors, 2, v.glass);
+  faceWin(tS,tW,bW,bS, v.floors, 2, v.glass);
+  // ground floor: awning (shops) + door on the front-left wall
+  const fw = (u,vv) => bil(tS,tW,bW,bS, u, vv);
+  if (v.shop){ g.fillStyle = shade(roof, 0.06); quad([fw(0.1,0.6), fw(0.9,0.6), fw(0.9,0.72), fw(0.1,0.72)]); }
+  g.fillStyle = shade(body,-0.46); quad([fw(0.4,0.7), fw(0.6,0.7), fw(0.6,1), fw(0.4,1)]);
   // roof
   if (v.pitched){                                         // hip roof to a peak
     const apex = { x: cxp, y: tN.y - 0.18*U };
@@ -704,11 +735,15 @@ function paintHouseSprite(ox, U, v){
     g.fillStyle=shade(roof, 0.02); quad([tN,tE,apex]);
     g.fillStyle=shade(roof,-0.12); quad([tE,tS,apex]);
     g.fillStyle=shade(roof,-0.24); quad([tS,tW,apex]);
-  } else {                                                // flat roof + parapet + rooftop unit
+  } else {                                                // flat roof + parapet + a rooftop fixture
     g.fillStyle=roof; quad([tN,tE,tS,tW]);
     g.fillStyle=shade(roof,-0.22); quad([tS,tE,{x:tE.x,y:tE.y+U*0.022},{x:tS.x,y:tS.y+U*0.022}]);
-    g.fillStyle=shade(body,-0.06); g.fillRect(cxp - 0.07*U, tN.y + 0.05*U, 0.14*U, 0.06*U);
+    if (v.prop === 2){ g.fillStyle='#2b3a55'; for (let p=0;p<2;p++) g.fillRect(cxp-0.11*U+p*0.12*U, tN.y+0.06*U, 0.1*U, 0.07*U); }       // solar
+    else if (v.prop === 1){ g.fillStyle=shade(body,-0.1); g.fillRect(cxp-0.05*U, tN.y+0.05*U, 0.1*U, 0.12*U); g.fillStyle=shade(body,0.06); g.beginPath(); g.ellipse(cxp, tN.y+0.05*U, 0.05*U, 0.025*U, 0, 0, Math.PI*2); g.fill(); }  // water tank
+    else { g.fillStyle=shade(body,-0.06); g.fillRect(cxp-0.07*U, tN.y+0.05*U, 0.14*U, 0.06*U); }                                        // AC unit
   }
+  // rim light on the sun-facing top edge
+  g.strokeStyle='rgba(255,255,255,.3)'; g.lineWidth=Math.max(1,U*0.01); g.beginPath(); g.moveTo(tS.x,tS.y); g.lineTo(tW.x,tW.y); g.stroke();
   // crisp low-poly edges
   g.strokeStyle='rgba(0,0,0,.22)'; g.lineWidth=Math.max(1,U*0.008); g.lineJoin='round';
   g.beginPath(); g.moveTo(bS.x,bS.y); g.lineTo(tS.x,tS.y); g.moveTo(bE.x,bE.y); g.lineTo(tE.x,tE.y); g.moveTo(bW.x,bW.y); g.lineTo(tW.x,tW.y); g.stroke();
