@@ -871,12 +871,12 @@ const Sound = (function(){
       const revUp = (g>0.5 && sp<0.06) ? 0.5 : 0;            // rev in place when stopped on throttle
       const target = 0.08 + Math.max(Math.max(0,Math.min(1,sp))*0.92, revUp);
       rpm += (target - rpm) * (target>rpm ? 0.11 : 0.05);
-      if(sampReady){ // real engine: pitch by RPM, crossfade idle<->accel by load
-        const rate=0.72+rpm*1.18;
-        idleSrc.playbackRate.setTargetAtTime(rate,t,0.06); accelSrc.playbackRate.setTargetAtTime(rate,t,0.06);
-        const mix=Math.max(0,Math.min(1,(rpm-0.12)/0.7 + (g>0.5?0.15:0)));
-        idleG.gain.setTargetAtTime((1-mix)*0.9, t, 0.08); accelG.gain.setTargetAtTime(mix*1.0, t, 0.08);
-        if(prevGas>0.5 && g<=0.5 && rpm>0.42) playBuf(decelBuf, 0.55);
+      if(sampReady){ // electric motor: whine pitch sweeps with RPM, idle quiet at rest
+        const rate=0.6+rpm*1.7;                                   // wider sweep = electric whine
+        idleSrc.playbackRate.setTargetAtTime(rate,t,0.05); accelSrc.playbackRate.setTargetAtTime(rate,t,0.05);
+        const mix=Math.max(0,Math.min(1,(rpm-0.1)/0.62 + (g>0.5?0.2:0)));
+        idleG.gain.setTargetAtTime((1-mix)*0.5, t, 0.08); accelG.gain.setTargetAtTime(mix*1.0, t, 0.08);
+        if(prevGas>0.5 && g<=0.5 && rpm>0.4) playBuf(decelBuf, 0.5);   // regen whine-down
         prevGas=g; return;
       }
       const base = 30 + rpm*150;                                 // firing fundamental (synth fallback)
