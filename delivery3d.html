@@ -1281,14 +1281,14 @@ function renderPaints(){ const c=document.getElementById("paints"); if(!c) retur
 let gstate="start", started=false, shiftT=shiftLen();
 function startShift(){
   gstate="playing"; started=true; shiftT=shiftLen();
-  orders.reset(); applyUpgrades(); setWeather(Math.random()<0.35);
+  orders.reset(); applyUpgrades(); setWeather(false); // weather disabled (no rain/snow)
   document.getElementById("start").classList.add("hidden"); document.getElementById("summary").classList.add("hidden");
   Sound.init(); Sound.resume(); Sound.setVolume(savedVol); Sound.ambience(true);
 }
 function endShift(){
   gstate="ended"; started=false; orders.active.length=0; orders.offered=null; Sound.ambience(false); setWeather(false);
   bank+=orders.earned; if(orders.earned>best) best=orders.earned;
-  scores.push(orders.earned); scores.sort((a,b)=>b-a); scores=scores.slice(0,5);
+  scores.push(orders.earned); scores.sort((a,b)=>b-a); scores=scores.slice(0,10); // top 10
   persist("bank",bank); persist("best",best); persist("scores",scores); persist("totDeliv",totalDeliv);
   document.getElementById("sumDeliv").textContent=orders.deliveries;
   document.getElementById("sumEarn").textContent="$"+orders.earned;
