@@ -28,11 +28,11 @@ print("opaque px:", int(opaque.sum()), "of", W * H)
 
 # ---- 2. manual regions (generous; tight-cropped below). x0,y0,x1,y1 ----
 REGIONS = {
-    "sub":       (20,   40,  790,  300),
-    "ubereats":  (1020, 20, 1480,  450),
-    "banana":    (20,  390,  400,  920),
-    "eggs":      (410, 350,  870,  900),
-    "groceries": (880, 420, 1530,  970),
+    "sub":       (40,   85,  850,  430),
+    "ubereats":  (860,  30, 1275,  460),
+    "banana":    (40,  460,  410, 1040),
+    "eggs":      (412, 435,  808, 1040),
+    "groceries": (812, 590, 1400, 1040),
 }
 
 def tight_bbox(mask, x0, y0, x1, y1):
