@@ -112,6 +112,12 @@
     background:#2faf5a; cursor:pointer; white-space:nowrap; }
   .up button:disabled { background:#444; opacity:.6; cursor:default; }
   #againBtn { margin-top:6px; padding:15px 44px; border:none; border-radius:14px; background:#2faf5a; color:#fff; font:800 18px system-ui; cursor:pointer; }
+  .plabel { text-align:left; font:800 13px system-ui; opacity:.8; margin:8px 0 3px; }
+  #paints { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-start; margin-bottom:4px; }
+  #paints .swatch { width:40px; height:40px; border-radius:10px; border:2px solid rgba(255,255,255,.25);
+    color:#fff; font:800 11px system-ui; text-shadow:0 1px 2px rgba(0,0,0,.8); cursor:pointer; }
+  #paints .swatch.eq { border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,.5); }
+  #scores .srow { display:flex; justify-content:space-between; margin:2px 0; font:700 13px system-ui; opacity:.92; }
 </style>
 </head>
 <body>
@@ -185,6 +191,10 @@
     <div class="stat">Bank: <b id="sumBank">$0</b></div>
     <div class="stat best">Best shift: <span id="sumBest">$0</span></div>
     <div class="ups" id="ups"></div>
+    <div class="plabel">🎨 Paint shop</div>
+    <div id="paints"></div>
+    <div class="plabel">🏆 Best shifts</div>
+    <div id="scores"></div>
     <button id="againBtn">NEXT SHIFT</button>
   </div>
 </div>
@@ -557,12 +567,13 @@ function buildMoped(){
   // floorboard
   const board=new THREE.Mesh(new THREE.BoxGeometry(24,3,16), M(DARK,0.7)); board.position.set(-2,12,0); g.add(board);
   // rounded rear body (stretched sphere) + underseat block
-  const rear=new THREE.Mesh(new THREE.SphereGeometry(12.5,18,14), M(RED,0.38,0.12)); rear.scale.set(1.55,1.05,1.0); rear.position.set(-12,22,0); rear.castShadow=true; g.add(rear);
-  addToGroup(g, new THREE.BoxGeometry(18,14,15), M(RED,0.38,0.12), -10,17,0);
+  const bodyMat=M(RED,0.38,0.12); g.userData.bodyMat=bodyMat;   // recolored by the paint shop
+  const rear=new THREE.Mesh(new THREE.SphereGeometry(12.5,18,14), bodyMat); rear.scale.set(1.55,1.05,1.0); rear.position.set(-12,22,0); rear.castShadow=true; g.add(rear);
+  addToGroup(g, new THREE.BoxGeometry(18,14,15), bodyMat, -10,17,0);
   // front leg-shield (curved, tilted) + headset
-  const shield=new THREE.Mesh(new THREE.SphereGeometry(11,16,14), M(RED,0.38,0.12)); shield.scale.set(0.55,1.25,0.95); shield.position.set(16,24,0); shield.castShadow=true; g.add(shield);
+  const shield=new THREE.Mesh(new THREE.SphereGeometry(11,16,14), bodyMat); shield.scale.set(0.55,1.25,0.95); shield.position.set(16,24,0); shield.castShadow=true; g.add(shield);
   // front fender hugging the wheel
-  const fender=new THREE.Mesh(new THREE.TorusGeometry(9,2.6,8,16,Math.PI), M(RED,0.4,0.1)); fender.rotation.set(Math.PI/2,0,Math.PI); fender.position.set(16,11,0); g.add(fender);
+  const fender=new THREE.Mesh(new THREE.TorusGeometry(9,2.6,8,16,Math.PI), bodyMat); fender.rotation.set(Math.PI/2,0,Math.PI); fender.position.set(16,11,0); g.add(fender);
   // seat (rounded)
   const seat=new THREE.Mesh(new THREE.SphereGeometry(7,14,12), M(0x161616,0.6)); seat.scale.set(1.7,0.55,1.05); seat.position.set(-7,31,0); seat.castShadow=true; g.add(seat);
   // steering column + handlebar + round headlight housing
@@ -603,7 +614,7 @@ const moped = {
     if (input.gas===0 && input.brake===0){ const f=this.FRICTION*dt; this.speed = this.speed>0?Math.max(0,this.speed-f):Math.min(0,this.speed+f); }
     this.speed = Math.max(-this.MAX*0.4, Math.min(this.MAX, this.speed));
     const grip = Math.min(1, Math.abs(this.speed)/80);
-    this.heading += input.steer*this.TURN*dt*grip*Math.sign(this.speed||1);
+    this.heading += input.steer*this.TURN*dt*grip*(wet?0.78:1)*Math.sign(this.speed||1);
     this.x += Math.cos(this.heading)*this.speed*dt;
     this.z += Math.sin(this.heading)*this.speed*dt;
     const res = resolveCollision(this.x, this.z, 12); this.x=res.x; this.z=res.z;
@@ -902,9 +913,10 @@ const orders={
     const food=FOODS[Math.floor(Math.random()*FOODS.length)];
     const customer=randomCustomerPoint();
     const dist=Math.hypot(customer.x-rest.x, customer.z-rest.z);
-    const tl=Math.round(40+dist/52);
+    const T=Math.min(tierNow()-1,6);                          // higher tier: tighter timers, better pay
+    const tl=Math.round((40+dist/52)*(1-T*0.025));
     this.offered={ restaurant:rest, customer, name:food.name, emoji:food.emoji,
-      payout:Math.round(5+dist/700), timeLimit:tl, timeLeft:tl, picked:false, offerT:9 };
+      payout:Math.round((5+dist/700)*(1+T*0.06)), timeLimit:tl, timeLeft:tl, picked:false, offerT:9 };
   },
   accept(){ if(this.offered && this.active.length<this.bagCap){ this.active.push(this.offered); this.offered=null; this.gap=0.5;
     this.flash("Accepted — bag "+this.active.length+"/"+this.bagCap); } },
@@ -913,7 +925,7 @@ const orders={
     const fast=o.timeLeft>o.timeLimit*0.4; this.streak=fast?this.streak+1:0;
     const mult=1+Math.min(this.streak,6)*0.12;               // streak combo bonus
     const e=Math.round((o.payout+timeBonus(o.timeLeft))*mult*tipMult);
-    this.money+=e; this.earned+=e; this.deliveries++;
+    this.money+=e; this.earned+=e; this.deliveries++; totalDeliv++;
     this.flash("Delivered! +$"+e+(this.streak>1?"  🔥x"+this.streak:""));
     spawnPop(o.customer.x,o.customer.z,0x2faf5a); spawnFloat(o.customer.x,o.customer.z,"+$"+e,0x6cf08a);
     Sound.deliverAt(o.customer.x,o.customer.z); vibe(40); this.active.splice(i,1); },
@@ -944,7 +956,7 @@ function syncHud(){
   elMoney.textContent="💵 $"+orders.money;
   if(orders.streak>1){ elStreak.textContent="🔥 Streak x"+orders.streak; elStreak.classList.remove("hidden"); }
   else elStreak.classList.add("hidden");
-  if(gstate==="playing"){ const s=Math.max(0,Math.ceil(shiftT)); elShift.textContent="⏱ "+Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); elShift.classList.remove("hidden"); }
+  if(gstate==="playing"){ const s=Math.max(0,Math.ceil(shiftT)); elShift.textContent=(wet?"🌧 ":"")+"⏱ "+Math.floor(s/60)+":"+String(s%60).padStart(2,"0")+" · Tier "+tierNow(); elShift.classList.remove("hidden"); }
   else elShift.classList.add("hidden");
   if(orders.active.length){
     let html='<div class="bagh">🛍️ BAG '+orders.active.length+'/'+orders.bagCap+'</div>';
@@ -1028,9 +1040,9 @@ function makeCar(){
   [[24,7],[24,-7]].forEach(([x,z])=>{ const l=new THREE.Mesh(new THREE.BoxGeometry(3,4,5),hlm); l.position.set(x,11,z); g.add(l); });
   return g;
 }
-const ENABLE_TRAFFIC=false; // moving traffic OFF for now — set true to bring the cars back
+const ENABLE_TRAFFIC=true; // moving traffic on (gentle bumps + camera shake)
 const traffic=[];
-if(ENABLE_TRAFFIC) for (let i=0;i<14;i++){
+if(ENABLE_TRAFFIC) for (let i=0;i<11;i++){
   const axis = i%2===0 ? "x" : "z";
   const line = (1+Math.floor(Math.random()*(COLS-1)))*TILE;
   const dir = Math.random()<0.5 ? 1 : -1;
@@ -1102,6 +1114,22 @@ function updateDayNight(dt){
   if (skyDome) skyDome.material.color.copy(tmpCol.copy(domeNight).lerp(domeDay, day));
 }
 
+// ===================== weather (rain + wet roads) =====================
+let wet=false;
+const RAINN=700, rainGeo=new THREE.BufferGeometry(), rainPos=new Float32Array(RAINN*3);
+for(let i=0;i<RAINN;i++){ rainPos[i*3]=Math.random()*640-320; rainPos[i*3+1]=Math.random()*420; rainPos[i*3+2]=Math.random()*640-320; }
+rainGeo.setAttribute("position", new THREE.BufferAttribute(rainPos,3));
+const rain=new THREE.Points(rainGeo, new THREE.PointsMaterial({color:0xbcd2ea,size:2.4,transparent:true,opacity:0.5,depthWrite:false,fog:false}));
+rain.visible=false; scene.add(rain);
+function setWeather(on){ wet=on; renderer.toneMappingExposure = on ? 0.84 : 1.08; }
+function updateRain(dt){
+  if(!wet){ if(rain.visible) rain.visible=false; return; }
+  rain.visible=true; rain.position.set(moped.x,0,moped.z);
+  const p=rainGeo.attributes.position.array;
+  for(let i=0;i<RAINN;i++){ p[i*3+1]-=620*dt; if(p[i*3+1]<0) p[i*3+1]=420; }
+  rainGeo.attributes.position.needsUpdate=true;
+}
+
 // ===================== green route path (follows roads to target) =====================
 const routeMat=new THREE.MeshBasicMaterial({color:0x4be06a,transparent:true,opacity:0.5,depthWrite:false,fog:false,toneMapped:false});
 const segGeo=new THREE.BoxGeometry(1,1,1);
@@ -1137,6 +1165,13 @@ function load(k,d){ try{ const v=localStorage.getItem(SAVE+k); return v==null?d:
 function persist(k,v){ try{ localStorage.setItem(SAVE+k, JSON.stringify(v)); }catch(e){} }
 let bank=load("bank",0), best=load("best",0), ups=load("ups",{speed:0,tip:0,timer:0,bag:0});
 if(ups.bag==null) ups.bag=0;
+let scores=load("scores",[]), totalDeliv=load("totDeliv",0);
+let paintOwned=load("paintOwned",[0]), paintEq=load("paintEq",0);
+function tierNow(){ return 1+Math.floor(totalDeliv/15); }
+const PAINTS=[{c:0xe23b3b,name:"Red",cost:0},{c:0x2f6fae,name:"Blue",cost:40},{c:0x2faf5a,name:"Green",cost:40},{c:0xf0a93a,name:"Orange",cost:60},{c:0x9b59d0,name:"Purple",cost:70},{c:0x222831,name:"Black",cost:90}];
+function applyPaint(){ const c=PAINTS[paintEq]?PAINTS[paintEq].c:0xe23b3b;
+  if(moped.group.userData.bodyMat) moped.group.userData.bodyMat.color.setHex(c);
+  if(typeof pvMoped!=="undefined" && pvMoped && pvMoped.userData.bodyMat) pvMoped.userData.bodyMat.color.setHex(c); }
 const SHIFT_BASE=120;
 function applyUpgrades(){ moped.MAX = 320 + (ups.speed||0)*45; tipMult = 1 + (ups.tip||0)*0.18; orders.bagCap = Math.min(MAXBAG, 2 + (ups.bag||0)); }
 function shiftLen(){ return SHIFT_BASE + (ups.timer||0)*25; }
@@ -1160,23 +1195,40 @@ function renderUps(){
     div.appendChild(lbl); div.appendChild(btn); c.appendChild(div);
   }
 }
+function renderScores(){ const c=document.getElementById("scores"); if(!c) return;
+  c.innerHTML = scores.length ? scores.map((s,i)=>'<div class="srow"><span>'+(i+1)+'.</span><b>$'+s+'</b></div>').join('') : '<div class="srow" style="opacity:.6">no shifts yet</div>';
+}
+function renderPaints(){ const c=document.getElementById("paints"); if(!c) return; c.innerHTML="";
+  PAINTS.forEach((p,i)=>{ const owned=paintOwned.indexOf(i)>=0, eq=paintEq===i;
+    const b=document.createElement("button"); b.className="swatch"+(eq?" eq":"");
+    b.style.background="#"+p.c.toString(16).padStart(6,"0");
+    b.title=p.name+(owned?"":" — $"+p.cost); b.textContent = eq?"✓":(owned?"":"$"+p.cost);
+    b.addEventListener("click",()=>{
+      if(owned){ paintEq=i; persist("paintEq",paintEq); applyPaint(); renderPaints(); }
+      else if(bank>=p.cost){ bank-=p.cost; paintOwned.push(i); paintEq=i; persist("bank",bank); persist("paintOwned",paintOwned); persist("paintEq",paintEq); applyPaint(); Sound.buy(); document.getElementById("sumBank").textContent="$"+bank; renderPaints(); }
+    });
+    c.appendChild(b);
+  });
+}
 
 // ===================== game state / shift flow =====================
 let gstate="start", started=false, shiftT=shiftLen();
 function startShift(){
   gstate="playing"; started=true; shiftT=shiftLen();
-  orders.reset(); applyUpgrades();
+  orders.reset(); applyUpgrades(); setWeather(Math.random()<0.35);
   document.getElementById("start").classList.add("hidden"); document.getElementById("summary").classList.add("hidden");
   Sound.init(); Sound.resume(); Sound.ambience(true);
 }
 function endShift(){
-  gstate="ended"; started=false; orders.active.length=0; orders.offered=null; Sound.ambience(false);
-  bank+=orders.earned; if(orders.earned>best) best=orders.earned; persist("bank",bank); persist("best",best);
+  gstate="ended"; started=false; orders.active.length=0; orders.offered=null; Sound.ambience(false); setWeather(false);
+  bank+=orders.earned; if(orders.earned>best) best=orders.earned;
+  scores.push(orders.earned); scores.sort((a,b)=>b-a); scores=scores.slice(0,5);
+  persist("bank",bank); persist("best",best); persist("scores",scores); persist("totDeliv",totalDeliv);
   document.getElementById("sumDeliv").textContent=orders.deliveries;
   document.getElementById("sumEarn").textContent="$"+orders.earned;
   document.getElementById("sumBank").textContent="$"+bank;
   document.getElementById("sumBest").textContent="$"+best;
-  renderUps(); document.getElementById("summary").classList.remove("hidden");
+  renderUps(); renderScores(); renderPaints(); document.getElementById("summary").classList.remove("hidden");
 }
 document.getElementById("startBtn").addEventListener("click", startShift);
 document.getElementById("againBtn").addEventListener("click", startShift);
@@ -1200,6 +1252,7 @@ pvDisc.rotation.x=-Math.PI/2; pvScene.add(pvDisc);
 function sizePV(){ const w=pvCanvas.clientWidth||280, h=pvCanvas.clientHeight||190; if(w&&h){ pvRenderer.setSize(w,h,false); pvCam.aspect=w/h; pvCam.updateProjectionMatrix(); } }
 sizePV(); window.addEventListener("resize", sizePV);
 function renderPreview(dt){ if(gstate!=="start") return; pvMoped.rotation.y += dt*0.8; pvRenderer.render(pvScene,pvCam); }
+applyPaint(); // apply the saved paint colour to both the main + preview moped
 
 let last=0;
 function frame(t){
@@ -1217,7 +1270,7 @@ function frame(t){
     if(skidding){ skidT-=dt; if(skidT<=0){ dropSkid(); skidT=0.05; } } else skidT=0;
     Sound.screech(skidding, Math.min(1,sp/300));
   } else Sound.screech(false,0);
-  updateSmoke(dt); updateSkids(dt);
+  updateSmoke(dt); updateSkids(dt); updateRain(dt);
   speedlines.style.opacity = (gstate==="playing") ? (Math.max(0,Math.min(1,(Math.abs(moped.speed)/moped.MAX-0.7)/0.3))*0.6).toFixed(2) : "0";
   updateRoute(dt);
   updateMarkers(dt); updateFX(dt); updateFloats(dt); syncHud(); drawMinimap();
