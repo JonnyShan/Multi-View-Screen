@@ -34,6 +34,10 @@ REGIONS = {
     "eggs":      (412, 435,  808, 1040),
     "groceries": (812, 590, 1400, 1040),
 }
+# Sprites with no legitimate white content: strip ALL near-white pixels to
+# transparent (kills enclosed holes the border flood can't reach, e.g. the
+# Uber Eats bag handle loop). Do NOT add sub/eggs here — they have real whites.
+KILL_WHITE = {"ubereats"}
 
 def tight_bbox(mask, x0, y0, x1, y1):
     sub = mask[y0:y1, x0:x1]
@@ -74,6 +78,11 @@ out = {}
 full = Image.fromarray(rgba, "RGBA")
 for name, bb in boxes.items():
     crop = full.crop(bb)
+    if name in KILL_WHITE:
+        ca = np.asarray(crop).copy()
+        nearwhite = (ca[:, :, 0] > 235) & (ca[:, :, 1] > 235) & (ca[:, :, 2] > 235)
+        ca[nearwhite, 3] = 0
+        crop = Image.fromarray(ca, "RGBA")
     crop.save(f"assets/{name}.png")
     cw, ch, mat = quantize(name, bb)
     out[name] = {"cells": int(cw), "rows": int(ch), "matrix": mat, "px": [int(bb[2]-bb[0]), int(bb[3]-bb[1])]}
