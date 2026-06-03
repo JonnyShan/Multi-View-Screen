@@ -39,20 +39,26 @@
   #banner { position:fixed; top:150px; left:0; right:0; text-align:center;
     font:800 22px system-ui; text-shadow:0 2px 8px rgba(0,0,0,.7); transition:opacity .3s; opacity:0; }
 
-  /* order popup */
-  #popup { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,.35); z-index:30; }
+  /* order offer (non-modal card, bottom-center — keep driving while it's up) */
+  #popup { position:fixed; left:50%; bottom:128px; transform:translateX(-50%); z-index:30; pointer-events:none; }
   #popup.hidden { display:none; }
-  .card { width:min(86vw,320px); background:#fff; border-radius:22px; padding:22px;
-    text-align:center; box-shadow:0 20px 50px rgba(0,0,0,.5); color:#222; }
-  .card .emoji { font-size:64px; }
-  .card .pname { font-weight:800; font-size:24px; margin-top:6px; }
-  .card .price { color:#888; font-weight:700; margin-top:4px; }
-  .card .ptimer { margin:12px 0; font-weight:700; color:#444; }
-  .card .row { display:flex; gap:12px; }
-  .card button { flex:1; padding:14px 0; border:none; border-radius:12px;
-    font:800 16px system-ui; color:#fff; cursor:pointer; }
+  .card { width:min(80vw,300px); background:#fff; border-radius:18px; padding:12px 16px 14px; pointer-events:auto;
+    text-align:center; box-shadow:0 12px 34px rgba(0,0,0,.5); color:#222; }
+  .card .emoji { font-size:38px; line-height:1; }
+  .card .pname { font-weight:800; font-size:18px; margin-top:2px; }
+  .card .price { color:#888; font-weight:700; font-size:13px; }
+  .card .ptimer { margin:6px 0 8px; font-weight:700; color:#444; font-size:12px; }
+  .card .row { display:flex; gap:10px; }
+  .card button { flex:1; padding:11px 0; border:none; border-radius:10px; font:800 14px system-ui; color:#fff; cursor:pointer; }
   .card .dec { background:#e8607a; } .card .acc { background:#2faf5a; }
+
+  /* bag: stacked active orders, left column under the minimap */
+  #bag { position:fixed; left:14px; top:180px; z-index:20; display:flex; flex-direction:column; gap:5px; pointer-events:none; }
+  #bag .bagh { font:800 11px system-ui; color:#cfe6f2; opacity:.85; text-shadow:0 1px 3px rgba(0,0,0,.7); margin-bottom:1px; }
+  #bag .job { font:700 12px system-ui; color:#fff; background:rgba(20,20,30,.52); padding:5px 9px; border-radius:13px;
+    text-shadow:0 1px 3px rgba(0,0,0,.6); white-space:nowrap; }
+  #bag .job.pick { box-shadow:inset 0 0 0 1.5px rgba(255,206,74,.8); }
+  #bag .job.drop { box-shadow:inset 0 0 0 1.5px rgba(123,224,152,.85); }
 
   /* start + error overlays */
   #start, #err { position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
@@ -129,6 +135,7 @@
 </div>
 <div id="streak" class="hidden"></div>
 <div id="shift" class="hidden">⏱ 2:30</div>
+<div id="bag"></div>
 
 <div id="popup" class="hidden">
   <div class="card">
@@ -596,27 +603,22 @@ moped.group.castShadow = true;
 moped.group.scale.setScalar(0.5); // 2x smaller character
 scene.add(moped.group);
 
-// ===================== markers: beam, pin, arrow, pad, customer figure =====================
-const beam = new THREE.Mesh(new THREE.CylinderGeometry(11,11,420,18,1,true),
-  new THREE.MeshBasicMaterial({ color:0xff9d2e, transparent:true, opacity:0.4, side:THREE.DoubleSide, depthWrite:false, fog:false }));
-beam.visible=false; scene.add(beam);
-const pinShop = makeLabelSprite("🏪","",false); pinShop.visible=false; scene.add(pinShop);
-const pinDrop = makeLabelSprite("🙋","",false); pinDrop.visible=false; scene.add(pinDrop);
-const pad = new THREE.Mesh(new THREE.RingGeometry(28,40,28),
-  new THREE.MeshBasicMaterial({ color:0xff9d2e, transparent:true, opacity:0.7, side:THREE.DoubleSide, depthWrite:false }));
-pad.rotation.x=-Math.PI/2; pad.position.y=1.2; pad.visible=false; scene.add(pad);
+// ===================== nav markers (one beam/pad/pin/figure per bag slot) =====================
+const MAXBAG = 4;
+const beamGeo = new THREE.CylinderGeometry(11,11,420,18,1,true);
+const padGeo  = new THREE.RingGeometry(28,40,28);
+// single flat GPS-style arrow (points to the nearest target)
 const arrowMat = new THREE.MeshBasicMaterial({ color:0xff9d2e, fog:false, toneMapped:false });
 const arrowEdgeMat = new THREE.MeshBasicMaterial({ color:0x222222, fog:false, toneMapped:false });
 const arrow = new THREE.Group();
-// flat GPS-style arrow lying horizontal, tip toward +x
 const aShape = new THREE.Shape();
 aShape.moveTo(-13,3.5); aShape.lineTo(3,3.5); aShape.lineTo(3,9.5); aShape.lineTo(19,0);
 aShape.lineTo(3,-9.5); aShape.lineTo(3,-3.5); aShape.lineTo(-13,-3.5); aShape.closePath();
 const aGeo = new THREE.ExtrudeGeometry(aShape, {depth:4, bevelEnabled:false}); aGeo.center();
-const aMesh = new THREE.Mesh(aGeo, arrowMat); aMesh.rotation.x = -Math.PI/2; // lay flat, points +x
-const aEdge = new THREE.Mesh(aGeo, arrowEdgeMat); aEdge.rotation.x = -Math.PI/2; aEdge.scale.set(1.18,1.18,0.6); aEdge.position.y=-0.6; // dark rim
+const aMesh = new THREE.Mesh(aGeo, arrowMat); aMesh.rotation.x = -Math.PI/2;
+const aEdge = new THREE.Mesh(aGeo, arrowEdgeMat); aEdge.rotation.x = -Math.PI/2; aEdge.scale.set(1.18,1.18,0.6); aEdge.position.y=-0.6;
 arrow.add(aEdge, aMesh); arrow.visible=false; scene.add(arrow);
-// customer figure at dropoff
+// customer figure builder
 function buildCustomer(){
   const g=new THREE.Group(); const M=(c)=>new THREE.MeshStandardMaterial({color:c,roughness:0.85});
   const legs=new THREE.Mesh(new THREE.BoxGeometry(10,18,8),M(0x394b6b)); legs.position.y=9; legs.castShadow=true; g.add(legs);
@@ -625,7 +627,18 @@ function buildCustomer(){
   const head=new THREE.Mesh(new THREE.SphereGeometry(6,14,14),M(0xf0c89a)); head.position.y=42; head.castShadow=true; g.add(head);
   return g;
 }
-const customerFig = buildCustomer(); customerFig.scale.setScalar(0.5); customerFig.visible=false; scene.add(customerFig);
+// per-job marker slots
+const slots=[];
+for(let i=0;i<MAXBAG;i++){
+  const beam=new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({color:0xff9d2e,transparent:true,opacity:0.4,side:THREE.DoubleSide,depthWrite:false,fog:false}));
+  beam.visible=false; scene.add(beam);
+  const pad=new THREE.Mesh(padGeo, new THREE.MeshBasicMaterial({color:0xff9d2e,transparent:true,opacity:0.7,side:THREE.DoubleSide,depthWrite:false}));
+  pad.rotation.x=-Math.PI/2; pad.position.y=1.2; pad.visible=false; scene.add(pad);
+  const pinShop=makeLabelSprite("🏪","",false); pinShop.visible=false; scene.add(pinShop);
+  const pinDrop=makeLabelSprite("🙋","",false); pinDrop.visible=false; scene.add(pinDrop);
+  const fig=buildCustomer(); fig.scale.setScalar(0.5); fig.visible=false; scene.add(fig);
+  slots.push({beam,pad,pinShop,pinDrop,fig});
+}
 
 // ===================== pickup/delivery FX =====================
 const fxPool=[];
@@ -751,20 +764,24 @@ hold("brake",()=>touch.brake=true,()=>touch.brake=false);
 hold("steerL",()=>touch.steer=-1,()=>{ if(touch.steer===-1)touch.steer=0; });
 hold("steerR",()=>touch.steer=1,()=>{ if(touch.steer===1)touch.steer=0; });
 
-// ===================== orders FSM =====================
+// ===================== orders: stacked bag of jobs =====================
 function timeBonus(t){ return Math.round(Math.max(0,t)*0.05); } // small "fast" tip
 const PICKUP_R=58, DROP_R=48;
 const orders={
-  state:"idle", current:null, gap:1.0, money:0, lastMsg:"", msgT:0, streak:0, earned:0, deliveries:0,
+  active:[], offered:null, gap:1.0, money:0, lastMsg:"", msgT:0, streak:0, earned:0, deliveries:0, bagCap:2,
   update(dt){
-    if(this.state==="idle"){ this.gap-=dt; if(this.gap<=0) this.offer(); }
-    else if(this.state==="accepted"||this.state==="carrying"){
-      const o=this.current; o.timeLeft-=dt;
-      if(o.timeLeft<=0){ this.fail(); if(this.msgT>0)this.msgT-=dt; return; }
-      const tgt=this.target(), r=this.state==="accepted"?PICKUP_R:DROP_R;
+    // generate an offer when the bag has room and none is pending
+    if(!this.offered && this.active.length<this.bagCap){ this.gap-=dt; if(this.gap<=0) this.offer(); }
+    // pending offer ticks down + auto-declines if ignored
+    if(this.offered){ this.offered.offerT-=dt; if(this.offered.offerT<=0) this.decline(); }
+    // active jobs: timers + arrivals (iterate backwards — we splice)
+    for(let i=this.active.length-1;i>=0;i--){
+      const o=this.active[i]; o.timeLeft-=dt;
+      if(o.timeLeft<=0){ this.failJob(i); continue; }
+      const tgt=o.picked?o.customer:o.restaurant.door, r=o.picked?DROP_R:PICKUP_R;
       if(Math.hypot(moped.x-tgt.x, moped.z-tgt.z)<r){
-        if(this.state==="accepted"){ this.state="carrying"; this.flash("Food picked up — deliver it!"); spawnPop(tgt.x,tgt.z,0xff9d2e); Sound.pickup(); vibe(25); }
-        else this.deliver();
+        if(!o.picked){ o.picked=true; this.flash("Picked up "+o.name); spawnPop(tgt.x,tgt.z,0xff9d2e); Sound.pickup(); vibe(25); }
+        else this.deliverJob(i);
       }
     }
     if(this.msgT>0) this.msgT-=dt;
@@ -774,26 +791,28 @@ const orders={
     const food=FOODS[Math.floor(Math.random()*FOODS.length)];
     const customer=randomCustomerPoint();
     const dist=Math.hypot(customer.x-rest.x, customer.z-rest.z);
-    this.current={ restaurant:rest, customer, name:food.name, emoji:food.emoji,
-      payout:Math.round(5+dist/700), timeLimit:Math.round(38+dist/55), timeLeft:Math.round(38+dist/55) };
-    this.state="offered";
+    const tl=Math.round(40+dist/52);
+    this.offered={ restaurant:rest, customer, name:food.name, emoji:food.emoji,
+      payout:Math.round(5+dist/700), timeLimit:tl, timeLeft:tl, picked:false, offerT:9 };
   },
-  accept(){ if(this.state==="offered"){ this.state="accepted"; this.flash("Go to "+this.current.restaurant.name); } },
-  decline(){ if(this.state==="offered"){ this.state="idle"; this.gap=0.8; this.current=null; } },
-  deliver(){ const o=this.current;
-    const fast = o.timeLeft > o.timeLimit*0.4;
-    this.streak = fast ? this.streak+1 : 0;
-    const mult = 1 + Math.min(this.streak,6)*0.12;            // streak combo bonus
-    const e = Math.round((o.payout + timeBonus(o.timeLeft)) * mult * tipMult);
+  accept(){ if(this.offered && this.active.length<this.bagCap){ this.active.push(this.offered); this.offered=null; this.gap=0.5;
+    this.flash("Accepted — bag "+this.active.length+"/"+this.bagCap); } },
+  decline(){ if(this.offered){ this.offered=null; this.gap=0.9; } },
+  deliverJob(i){ const o=this.active[i];
+    const fast=o.timeLeft>o.timeLimit*0.4; this.streak=fast?this.streak+1:0;
+    const mult=1+Math.min(this.streak,6)*0.12;               // streak combo bonus
+    const e=Math.round((o.payout+timeBonus(o.timeLeft))*mult*tipMult);
     this.money+=e; this.earned+=e; this.deliveries++;
-    this.flash("Delivered! +$"+e + (this.streak>1?"  🔥x"+this.streak:""));
+    this.flash("Delivered! +$"+e+(this.streak>1?"  🔥x"+this.streak:""));
     spawnPop(o.customer.x,o.customer.z,0x2faf5a); spawnFloat(o.customer.x,o.customer.z,"+$"+e,0x6cf08a);
-    Sound.deliver(); vibe(40);
-    this.current=null; this.state="idle"; this.gap=1.6; },
-  fail(){ this.streak=0; this.flash("Too slow — order lost"); Sound.fail(); vibe([60,40,60]);
-    this.current=null; this.state="idle"; this.gap=1.6; },
+    Sound.deliver(); vibe(40); this.active.splice(i,1); },
+  failJob(i){ const o=this.active[i]; this.streak=0;
+    this.flash((o.picked?"Spoiled — ":"Lost — ")+o.name); Sound.fail(); vibe([60,40,60]); this.active.splice(i,1); },
   flash(m){ this.lastMsg=m; this.msgT=2.2; },
-  target(){ if(this.state==="accepted")return this.current.restaurant.door; if(this.state==="carrying")return this.current.customer; return null; }
+  // nearest active job's current target (for arrow / route / minimap focus)
+  nearestTarget(){ let pt=null,bd=1e9,pk=false; for(const o of this.active){ const t=o.picked?o.customer:o.restaurant.door;
+    const d=Math.hypot(moped.x-t.x,moped.z-t.z); if(d<bd){bd=d;pt=t;pk=o.picked;} } return pt?{pt,picked:pk}:null; },
+  reset(){ this.active.length=0; this.offered=null; this.gap=1.0; this.streak=0; this.money=0; this.earned=0; this.deliveries=0; }
 };
 
 // ===================== DOM overlays =====================
@@ -801,25 +820,27 @@ const popup=document.getElementById("popup");
 document.getElementById("accept").addEventListener("click",()=>orders.accept());
 document.getElementById("decline").addEventListener("click",()=>orders.decline());
 function syncPopup(){
-  if(orders.state==="offered"){ const o=orders.current;
+  const o=orders.offered;
+  if(o){
     document.getElementById("pEmoji").textContent=o.emoji; document.getElementById("pName").textContent=o.name;
-    document.getElementById("pPrice").textContent="$"+o.payout;
-    document.getElementById("pTimer").textContent="00:"+String(Math.max(0,Math.ceil(o.timeLeft))).padStart(2,"0");
+    document.getElementById("pPrice").textContent="$"+o.payout+" · "+o.timeLimit+"s to deliver";
+    document.getElementById("pTimer").textContent="decide: "+Math.max(0,Math.ceil(o.offerT))+"s";
     popup.classList.remove("hidden");
   } else popup.classList.add("hidden");
 }
-const elMoney=document.getElementById("money"), elBanner=document.getElementById("banner"), elOrder=document.getElementById("orderInfo"), elStreak=document.getElementById("streak"), elShift=document.getElementById("shift");
+const elMoney=document.getElementById("money"), elBanner=document.getElementById("banner"), elBag=document.getElementById("bag"), elStreak=document.getElementById("streak"), elShift=document.getElementById("shift");
 function syncHud(){
   elMoney.textContent="💵 $"+orders.money;
   if(orders.streak>1){ elStreak.textContent="🔥 Streak x"+orders.streak; elStreak.classList.remove("hidden"); }
   else elStreak.classList.add("hidden");
   if(gstate==="playing"){ const s=Math.max(0,Math.ceil(shiftT)); elShift.textContent="⏱ "+Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); elShift.classList.remove("hidden"); }
   else elShift.classList.add("hidden");
-  if(orders.state==="accepted"||orders.state==="carrying"){ const o=orders.current;
-    document.getElementById("oiEmoji").textContent=o.emoji; document.getElementById("oiName").textContent=o.name;
-    document.getElementById("oiTimer").textContent="00:"+String(Math.max(0,Math.ceil(o.timeLeft))).padStart(2,"0");
-    elOrder.classList.remove("hidden");
-  } else elOrder.classList.add("hidden");
+  if(orders.active.length){
+    let html='<div class="bagh">🛍️ BAG '+orders.active.length+'/'+orders.bagCap+'</div>';
+    for(const o of orders.active){ const s=Math.max(0,Math.ceil(o.timeLeft));
+      html+='<div class="job '+(o.picked?'drop':'pick')+'">'+o.emoji+' '+(o.picked?'🏠':'🏪')+' '+Math.floor(s/60)+':'+String(s%60).padStart(2,"0")+'</div>'; }
+    elBag.innerHTML=html;
+  } else if(elBag.innerHTML) elBag.innerHTML="";
   if(orders.msgT>0){ elBanner.textContent=orders.lastMsg; elBanner.style.opacity=1; } else elBanner.style.opacity=0;
 }
 
@@ -832,8 +853,8 @@ function drawMinimap(){
   for(let c=0;c<=COLS;c++){ mctx.moveTo(c*TILE*sc,0); mctx.lineTo(c*TILE*sc,H); }
   for(let r=0;r<=ROWS;r++){ mctx.moveTo(0,r*TILE*scy); mctx.lineTo(W,r*TILE*scy); } mctx.stroke();
   mctx.fillStyle="#caa24a"; for(const s of restaurants){ mctx.fillRect(s.x*sc-2,s.z*scy-2,4,4); }
-  const tgt=orders.target(); if(tgt){ mctx.fillStyle=orders.state==="carrying"?"#2faf5a":"#ff9d2e";
-    mctx.beginPath(); mctx.arc(tgt.x*sc,tgt.z*scy,4,0,7); mctx.fill(); }
+  for(const o of orders.active){ const t=o.picked?o.customer:o.restaurant.door;
+    mctx.fillStyle=o.picked?"#2faf5a":"#ff9d2e"; mctx.beginPath(); mctx.arc(t.x*sc,t.z*scy,3.5,0,7); mctx.fill(); }
   mctx.save(); mctx.translate(moped.x*sc,moped.z*scy); mctx.rotate(moped.heading);
   mctx.fillStyle="#e23b3b"; mctx.beginPath(); mctx.moveTo(6,0); mctx.lineTo(-4,-4); mctx.lineTo(-4,4); mctx.closePath(); mctx.fill(); mctx.restore();
 }
@@ -841,28 +862,34 @@ function drawMinimap(){
 // ===================== markers + camera + glow =====================
 let pulse=0; const camPos=new THREE.Vector3(WORLD_W/2,220,WORLD_H/2+320), lookAt=new THREE.Vector3();
 function updateMarkers(dt){
-  pulse+=dt*3; const tgt=orders.target(); const carrying=orders.state==="carrying";
-  // shop glow when it's the active pickup
+  pulse+=dt*3;
+  // glow shops that still owe a pickup
   for(const sr of shopRefs){
-    const active = orders.state==="accepted" && orders.current && orders.current.restaurant===sr.restaurant;
+    const active = orders.active.some(o=>!o.picked && o.restaurant===sr.restaurant);
     const e = active ? (0.35+0.25*(Math.sin(pulse)*0.5+0.5)) : 0;
     for(const m of sr.glow){ m.emissiveIntensity = active ? e : 0; }
   }
-  if(tgt){ const col=carrying?0x2faf5a:0xff9d2e;
-    beam.visible=true; beam.position.set(tgt.x,210,tgt.z); beam.material.color.setHex(col);
-    beam.material.opacity=0.28+(Math.sin(pulse)*0.5+0.5)*0.3;
-    const pin = carrying ? pinDrop : pinShop, otherPin = carrying ? pinShop : pinDrop;
-    otherPin.visible=false; pin.visible=true; pin.position.set(tgt.x,96+Math.sin(pulse)*6,tgt.z);
-    pad.visible=true; pad.position.set(tgt.x,1.2,tgt.z); pad.material.color.setHex(col);
-    pad.scale.setScalar(1+Math.sin(pulse)*0.08);
-    arrow.visible=true; arrowMat.color.setHex(col);
+  // per-job markers
+  for(let i=0;i<slots.length;i++){
+    const s=slots[i], o=orders.active[i];
+    if(!o){ s.beam.visible=s.pad.visible=s.pinShop.visible=s.pinDrop.visible=s.fig.visible=false; continue; }
+    const tgt=o.picked?o.customer:o.restaurant.door, col=o.picked?0x2faf5a:0xff9d2e;
+    s.beam.visible=true; s.beam.position.set(tgt.x,210,tgt.z); s.beam.material.color.setHex(col);
+    s.beam.material.opacity=0.24+(Math.sin(pulse)*0.5+0.5)*0.3;
+    s.pad.visible=true; s.pad.position.set(tgt.x,1.2,tgt.z); s.pad.material.color.setHex(col); s.pad.scale.setScalar(1+Math.sin(pulse)*0.08);
+    s.pinShop.visible=!o.picked; s.pinDrop.visible=o.picked;
+    (o.picked?s.pinDrop:s.pinShop).position.set(tgt.x,96+Math.sin(pulse)*6,tgt.z);
+    if(o.picked){ s.fig.visible=true; s.fig.position.set(tgt.x,0,tgt.z);
+      s.fig.rotation.y=Math.atan2(moped.x-tgt.x, moped.z-tgt.z);
+      if(s.fig.userData.arm) s.fig.userData.arm.rotation.z=-0.9+Math.sin(pulse*2)*0.5; }
+    else s.fig.visible=false;
+  }
+  // arrow -> nearest target
+  const nt=orders.nearestTarget();
+  if(nt){ arrow.visible=true; arrowMat.color.setHex(nt.picked?0x2faf5a:0xff9d2e);
     arrow.position.set(moped.x, 46+Math.sin(pulse*2)*3, moped.z);
-    arrow.rotation.y=-Math.atan2(tgt.z-moped.z, tgt.x-moped.x);
-    if(carrying){ customerFig.visible=true; customerFig.position.set(tgt.x,0,tgt.z);
-      customerFig.rotation.y=Math.atan2(moped.x-tgt.x, moped.z-tgt.z);
-      if(customerFig.userData.arm) customerFig.userData.arm.rotation.z=-0.9+Math.sin(pulse*2)*0.5; } // wave
-    else customerFig.visible=false;
-  } else { beam.visible=false; pinShop.visible=false; pinDrop.visible=false; pad.visible=false; arrow.visible=false; customerFig.visible=false; }
+    arrow.rotation.y=-Math.atan2(nt.pt.z-moped.z, nt.pt.x-moped.x); }
+  else arrow.visible=false;
 }
 function updateCamera(dt){
   const fx=Math.cos(moped.heading), fz=Math.sin(moped.heading);
@@ -984,30 +1011,38 @@ function buildRoute(pts){ let si=0;
 }
 let routeT=0;
 function updateRoute(dt){
-  const tgt = gstate==="playing" ? orders.target() : null;
-  if(!tgt){ hideRoute(); return; }
+  const nt = gstate==="playing" ? orders.nearestTarget() : null;
+  if(!nt){ hideRoute(); return; }
   routeT-=dt; if(routeT>0) return; routeT=0.3;
-  buildRoute(roadPath({x:moped.x,z:moped.z}, tgt));
+  buildRoute(roadPath({x:moped.x,z:moped.z}, nt.pt));
 }
 
 // ===================== save / upgrades / shift =====================
 const SAVE="md3d_";
 function load(k,d){ try{ const v=localStorage.getItem(SAVE+k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
 function persist(k,v){ try{ localStorage.setItem(SAVE+k, JSON.stringify(v)); }catch(e){} }
-let bank=load("bank",0), best=load("best",0), ups=load("ups",{speed:0,tip:0,timer:0});
+let bank=load("bank",0), best=load("best",0), ups=load("ups",{speed:0,tip:0,timer:0,bag:0});
+if(ups.bag==null) ups.bag=0;
 const SHIFT_BASE=120;
-function applyUpgrades(){ moped.MAX = 320 + ups.speed*45; tipMult = 1 + ups.tip*0.18; }
-function shiftLen(){ return SHIFT_BASE + ups.timer*25; }
+function applyUpgrades(){ moped.MAX = 320 + (ups.speed||0)*45; tipMult = 1 + (ups.tip||0)*0.18; orders.bagCap = Math.min(MAXBAG, 2 + (ups.bag||0)); }
+function shiftLen(){ return SHIFT_BASE + (ups.timer||0)*25; }
 applyUpgrades();
 
-const UPDEFS=[{key:"speed",name:"Faster Moped",desc:"+ top speed"},{key:"tip",name:"Better Tips",desc:"+ earnings per drop"},{key:"timer",name:"Longer Shift",desc:"+ shift time"}];
-function upCost(k){ return 20*(ups[k]+1); }
+const UPDEFS=[
+  {key:"bag",name:"Bigger Bag",desc:"+ orders you can carry"},
+  {key:"speed",name:"Faster Moped",desc:"+ top speed"},
+  {key:"tip",name:"Better Tips",desc:"+ earnings per drop"},
+  {key:"timer",name:"Longer Shift",desc:"+ shift time"},
+];
+function upCost(k){ return 20*((ups[k]||0)+1); }
 function renderUps(){
   const c=document.getElementById("ups"); c.innerHTML="";
-  for(const u of UPDEFS){ const cost=upCost(u.key); const div=document.createElement("div"); div.className="up";
-    const lbl=document.createElement("div"); lbl.className="lbl"; lbl.innerHTML=u.name+" <small>Lv "+ups[u.key]+" · "+u.desc+"</small>";
-    const btn=document.createElement("button"); btn.textContent="$"+cost; btn.disabled=bank<cost;
-    btn.addEventListener("click",()=>{ if(bank>=cost){ bank-=cost; ups[u.key]++; persist("bank",bank); persist("ups",ups); applyUpgrades(); Sound.buy(); document.getElementById("sumBank").textContent="$"+bank; renderUps(); } });
+  for(const u of UPDEFS){ const lvl=ups[u.key]||0, cost=upCost(u.key);
+    const maxed = u.key==="bag" && lvl>=(MAXBAG-2);
+    const div=document.createElement("div"); div.className="up";
+    const lbl=document.createElement("div"); lbl.className="lbl"; lbl.innerHTML=u.name+" <small>Lv "+lvl+" · "+u.desc+"</small>";
+    const btn=document.createElement("button"); btn.textContent=maxed?"MAX":"$"+cost; btn.disabled=maxed||bank<cost;
+    btn.addEventListener("click",()=>{ if(!maxed && bank>=cost){ bank-=cost; ups[u.key]=lvl+1; persist("bank",bank); persist("ups",ups); applyUpgrades(); Sound.buy(); document.getElementById("sumBank").textContent="$"+bank; renderUps(); } });
     div.appendChild(lbl); div.appendChild(btn); c.appendChild(div);
   }
 }
@@ -1016,12 +1051,12 @@ function renderUps(){
 let gstate="start", started=false, shiftT=shiftLen();
 function startShift(){
   gstate="playing"; started=true; shiftT=shiftLen();
-  orders.money=0; orders.earned=0; orders.deliveries=0; orders.streak=0; orders.state="idle"; orders.current=null; orders.gap=1.0;
+  orders.reset(); applyUpgrades();
   document.getElementById("start").classList.add("hidden"); document.getElementById("summary").classList.add("hidden");
   Sound.init(); Sound.resume();
 }
 function endShift(){
-  gstate="ended"; started=false; orders.state="idle"; orders.current=null;
+  gstate="ended"; started=false; orders.active.length=0; orders.offered=null;
   bank+=orders.earned; if(orders.earned>best) best=orders.earned; persist("bank",bank); persist("best",best);
   document.getElementById("sumDeliv").textContent=orders.deliveries;
   document.getElementById("sumEarn").textContent="$"+orders.earned;
