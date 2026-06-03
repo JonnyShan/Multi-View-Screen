@@ -133,18 +133,16 @@
   .nameEntry.hidden { display: none; }
   .nameEntry input { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.25); color: #fff; border-radius: 8px; padding: 9px 11px; font-size: 15px; width: 150px; }
   .nameEntry button { background: var(--green); color: #000; border: none; border-radius: 8px; padding: 9px 16px; font-weight: 800; cursor: pointer; }
-  /* intro video */
-  #introOv { padding: 0; background: #000; z-index: 60; }
-  #introVid { width: 100%; height: 100%; object-fit: cover; }
-  .introBtn {
-    position: absolute; bottom: calc(22px + env(safe-area-inset-bottom));
-    background: rgba(0,0,0,.55); color: #fff; border: 1px solid rgba(255,255,255,.3);
-    border-radius: 999px; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer;
-    backdrop-filter: blur(4px); z-index: 2;
+  /* title splash (start screen) */
+  #startOv { padding: 0; background: #000; cursor: pointer; overflow: hidden; }
+  #titleImg { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #startOv.ready #titleImg { animation: splashPulse 1.9s ease-in-out infinite; }
+  @keyframes splashPulse { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.09); } }
+  #startVeil {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.72); color: #fff; font-weight: 800; font-size: 17px; letter-spacing: 1.5px;
   }
-  #introUnmute { left: 18px; }
-  .introBtn.skip { right: 18px; }
-  .introBtn:active { transform: scale(.96); }
+  #startOv.ready #startVeil { display: none; }
 </style>
 </head>
 <body>
@@ -174,19 +172,10 @@
     <button class="btn drop" id="bDrop" aria-label="Drop">⬇</button>
   </div>
 
-  <!-- Start -->
+  <!-- Start (title splash — tap to play) -->
   <div class="overlay" id="startOv">
-    <h1>Pack the <span class="e">Bag</span> 🛍️</h1>
-    <p>Stack the food into the bag as tightly as you can. Rows <b>don't clear</b> — fill clean, no gaps, all the way to the top.</p>
-    <div class="keys">
-      <b>← →</b> move &nbsp;·&nbsp; <b>↑</b> rotate &nbsp;·&nbsp; <b>↓</b> soft drop &nbsp;·&nbsp; <b>space</b> hard drop<br/>
-      on phone use the buttons below
-    </div>
-    <div class="lb">
-      <div class="lbTitle">🏆 Top 5</div>
-      <ol id="lbListStart"></ol>
-    </div>
-    <button class="cta" id="startBtn" disabled>Loading…</button>
+    <img id="titleImg" src="assets/title.png" alt="Uber Stacker — Stack. Match. Deliver." />
+    <div id="startVeil">Loading…</div>
   </div>
 
   <!-- Win -->
@@ -216,14 +205,6 @@
     <button class="cta" id="resumeBtn">Resume</button>
   </div>
 
-  <!-- Intro video (autoplays on load, then reveals the start screen) -->
-  <div class="overlay" id="introOv">
-    <video id="introVid" playsinline muted autoplay preload="auto">
-      <source src="assets/intro.mp4" type="video/mp4" />
-    </video>
-    <button class="introBtn" id="introUnmute">🔇 Sound</button>
-    <button class="introBtn skip" id="introSkip">Skip ▸</button>
-  </div>
 </div>
 
 <script>
@@ -325,7 +306,6 @@
   let score = 0, bags = 0;
   let state = "start"; // start | playing | paused | won
   let pendingScore = null, savedThisRound = false;
-  let introDone = false;
   // juice
   const particles = [], popups = [];
   let shakeMag = 0, lockSquash = null, lastT = 0;
@@ -813,7 +793,6 @@
   }
 
   document.addEventListener("keydown", (e) => {
-    if (!introDone && (e.key === "Enter" || e.key === " " || e.key === "Escape")) { endIntro(); e.preventDefault(); return; }
     if (document.activeElement && document.activeElement.id === "nameInput") return;
     if ((state === "start" || state === "won") && (e.key === "Enter" || e.key === " ")) { start(); e.preventDefault(); return; }
     if (e.key === "p" || e.key === "P") { togglePause(); e.preventDefault(); return; }
@@ -853,7 +832,6 @@
     else if (!tmoved) rotate();
   });
 
-  document.getElementById("startBtn").addEventListener("click", start);
   document.getElementById("againBtn").addEventListener("click", start);
   document.getElementById("resumeBtn").addEventListener("click", togglePause);
   document.getElementById("saveScore").addEventListener("click", commitScore);
@@ -865,26 +843,8 @@
   window.addEventListener("orientationchange", () => setTimeout(fit, 200));
   window.addEventListener("blur", () => { if (state === "playing") togglePause(); });
 
-  // ---------- Intro video ----------
-  const introOv = document.getElementById("introOv");
-  const introVid = document.getElementById("introVid");
-  const introUnmute = document.getElementById("introUnmute");
-  function endIntro() {
-    if (introDone) return;
-    introDone = true;
-    introOv.classList.add("hidden");
-    try { introVid.pause(); } catch (e) {}
-  }
-  introVid.addEventListener("ended", endIntro);
-  document.getElementById("introSkip").addEventListener("click", endIntro);
-  introUnmute.addEventListener("click", (e) => {
-    e.stopPropagation();
-    introVid.muted = !introVid.muted;
-    introUnmute.textContent = introVid.muted ? "🔇 Sound" : "🔊 On";
-    introVid.play().catch(() => {});
-  });
-  // muted autoplay is allowed without a gesture; if it's still blocked, the Skip button handles it
-  introVid.play().catch(() => {});
+  // ---------- Start splash: tap the title to play ----------
+  document.getElementById("startOv").addEventListener("click", () => start());
 
   // ---------- Init ----------
   try { muted = localStorage.getItem("ptb_muted") === "1"; muteBtn.textContent = muted ? "🔇" : "🔊"; } catch (e) {}
@@ -897,11 +857,9 @@
   loadSprites().then(() => {
     ready = true;
     drawNext();
-    const sb = document.getElementById("startBtn");
-    sb.disabled = false; sb.textContent = "Start packing";
+    document.getElementById("startOv").classList.add("ready");
   }).catch((src) => {
-    const sb = document.getElementById("startBtn");
-    sb.textContent = "Failed to load art";
+    document.getElementById("startVeil").textContent = "Failed to load art";
     console.error("sprite load failed:", src);
   });
 })();
