@@ -663,16 +663,34 @@ function updateFloats(dt){ for(const f of floatPool){ if(!f.spr.visible) continu
 // haptics
 function vibe(ms){ if(navigator.vibrate){ try{ navigator.vibrate(ms); }catch(e){} } }
 
-// ===================== sound (WebAudio, lazily on first gesture) =====================
+// ===================== sound (WebAudio motorbike engine, lazily on first gesture) =====================
 const Sound = (function(){
-  let ctx=null, master=null, engGain=null, engOsc=null, engFilter=null, muted=false, ready=false;
+  let ctx=null, master=null, muted=false, ready=false;
+  let eg=null, lp=null, o1=null, o2=null, o3=null, sub=null, nbp=null, nGain=null, lfo=null, lfoGain=null;
+  function noiseBuf(){ const len=Math.floor(ctx.sampleRate*1.2); const b=ctx.createBuffer(1,len,ctx.sampleRate);
+    const d=b.getChannelData(0); for(let i=0;i<len;i++) d[i]=Math.random()*2-1; return b; }
   function init(){
     if(ready) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
     ctx=new AC(); master=ctx.createGain(); master.gain.value=0.5; master.connect(ctx.destination);
-    engGain=ctx.createGain(); engGain.gain.value=0;
-    engFilter=ctx.createBiquadFilter(); engFilter.type="lowpass"; engFilter.frequency.value=950;
-    engOsc=ctx.createOscillator(); engOsc.type="sawtooth"; engOsc.frequency.value=55;
-    engOsc.connect(engGain); engGain.connect(engFilter); engFilter.connect(master); engOsc.start();
+    // --- engine tone: two detuned saws (firing harmonics) + square sub, through an RPM-tracked lowpass ---
+    eg=ctx.createGain(); eg.gain.value=0;
+    lp=ctx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=400; lp.Q.value=7;
+    o1=ctx.createOscillator(); o1.type="sawtooth"; o1.frequency.value=55;
+    o2=ctx.createOscillator(); o2.type="sawtooth"; o2.frequency.value=55; o2.detune.value=11;
+    o3=ctx.createOscillator(); o3.type="square";   o3.frequency.value=110; const o3g=ctx.createGain(); o3g.gain.value=0.35;
+    sub=ctx.createOscillator(); sub.type="square";  sub.frequency.value=27;  const subg=ctx.createGain(); subg.gain.value=0.6;
+    o1.connect(lp); o2.connect(lp); o3.connect(o3g); o3g.connect(lp); sub.connect(subg); subg.connect(lp);
+    lp.connect(eg); eg.connect(master);
+    o1.start(); o2.start(); o3.start(); sub.start();
+    // --- exhaust grit: looping noise through a bandpass that tracks RPM ---
+    const ns=ctx.createBufferSource(); ns.buffer=noiseBuf(); ns.loop=true;
+    nbp=ctx.createBiquadFilter(); nbp.type="bandpass"; nbp.frequency.value=300; nbp.Q.value=0.7;
+    nGain=ctx.createGain(); nGain.gain.value=0;
+    ns.connect(nbp); nbp.connect(nGain); nGain.connect(master); ns.start();
+    // --- "chug" LFO modulating engine amplitude (lumpy at idle, smooth at revs) ---
+    lfo=ctx.createOscillator(); lfo.type="sine"; lfo.frequency.value=9;
+    lfoGain=ctx.createGain(); lfoGain.gain.value=0;
+    lfo.connect(lfoGain); lfoGain.connect(eg.gain); lfo.start();
     ready=true;
   }
   function resume(){ if(ctx && ctx.state==="suspended") ctx.resume(); }
@@ -685,8 +703,23 @@ const Sound = (function(){
   }
   return {
     init, resume,
-    engine(sp){ if(!ready||muted) return; engGain.gain.setTargetAtTime(0.05+sp*0.11, ctx.currentTime, 0.12);
-      engOsc.frequency.setTargetAtTime(52+sp*135, ctx.currentTime, 0.08); },
+    engine(sp){
+      if(!ready||muted) return; const t=ctx.currentTime;
+      const rpm = 0.12 + sp*0.88;                 // idle floor .. redline
+      const base = 26 + rpm*150;                  // firing fundamental (Hz)
+      o1.frequency.setTargetAtTime(base, t, 0.06);
+      o2.frequency.setTargetAtTime(base, t, 0.06);
+      o3.frequency.setTargetAtTime(base*2, t, 0.06);
+      sub.frequency.setTargetAtTime(base*0.5, t, 0.06);
+      lp.frequency.setTargetAtTime(320 + rpm*3400, t, 0.08);   // brighter as it revs
+      eg.gain.setTargetAtTime(0.06 + rpm*0.16, t, 0.1);
+      nbp.frequency.setTargetAtTime(240 + rpm*1600, t, 0.1);
+      nGain.gain.setTargetAtTime(0.018 + rpm*0.055, t, 0.1);
+      lfo.frequency.setTargetAtTime(base*0.5, t, 0.08);        // chug at half firing rate
+      lfoGain.gain.setTargetAtTime((1-rpm)*0.055, t, 0.1);     // lumpy idle, smooth at speed
+    },
+    engineOff(){ if(!ready) return; const t=ctx.currentTime;
+      eg.gain.setTargetAtTime(0, t, 0.25); nGain.gain.setTargetAtTime(0, t, 0.25); },
     pickup(){ blip(680,0.1,"square",0.28); setTimeout(()=>blip(900,0.12,"square",0.28),95); },
     deliver(){ [0,90,170].forEach((d,i)=>setTimeout(()=>blip(880+i*200,0.1,"triangle",0.3),d)); },
     fail(){ blip(170,0.32,"sawtooth",0.28); },
@@ -1006,8 +1039,10 @@ let last=0;
 function frame(t){
   const dt=last?Math.min((t-last)/1000,0.05):0; last=t;
   readInput(); moped.update(dt); updateTraffic(dt); updatePedestrians(dt); updateDayNight(dt); updateCamera(dt);
-  if(started){ orders.update(dt); syncPopup(); Sound.engine(Math.min(1,Math.abs(moped.speed)/moped.MAX)); }
-  if(gstate==="playing"){ shiftT-=dt; if(shiftT<=0){ shiftT=0; endShift(); } }
+  if(started){ orders.update(dt); syncPopup(); }
+  if(gstate==="playing"){ shiftT-=dt; if(shiftT<=0){ shiftT=0; endShift(); }
+    Sound.engine(Math.min(1,Math.abs(moped.speed)/moped.MAX)); }
+  else Sound.engineOff();
   updateRoute(dt);
   updateMarkers(dt); updateFX(dt); updateFloats(dt); syncHud(); drawMinimap();
   composer.render();
