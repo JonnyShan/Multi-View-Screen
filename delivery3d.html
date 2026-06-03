@@ -223,6 +223,7 @@ import * as THREE from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 // ===================== world grid =====================
 const TILE = 270, COLS = 9, ROWS = 9;
@@ -309,6 +310,10 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xbfe0f5);
 scene.fog = new THREE.Fog(0xcfe6f2, 900, 2200);
+
+// PBR reflections — neutral studio env makes chrome mirror + clearcoat paint pop
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth/window.innerHeight, 1, 6000);
 camera.position.set(WORLD_W/2, 220, WORLD_H/2 + 320);
@@ -562,22 +567,36 @@ function buildMoped(){
   const g=new THREE.Group();
   const M=(c,rough,metal)=>new THREE.MeshStandardMaterial({color:c,roughness:rough==null?0.55:rough,metalness:metal||0});
   const RED=0xe23b3b, REDD=0xc62f2f, DARK=0x20262e, CHROME=0xccd3da;
-  // wheels: torus tire + chrome rim
-  const tireGeo=new THREE.TorusGeometry(8.5,3.1,10,20), rimGeo=new THREE.CylinderGeometry(6,6,3.5,16);
+  const chromeMat=new THREE.MeshStandardMaterial({color:CHROME,roughness:0.16,metalness:0.95}); // mirror chrome (env-lit)
+  // wheels: torus tire + spoked chrome rim + brake disc + hub — axle along X so group.rotation.x spins them
+  const wheels=[]; g.userData.wheels=wheels;
+  const tireGeo=new THREE.TorusGeometry(8.5,3.2,14,28);
+  const rimGeo=new THREE.CylinderGeometry(6,6,3.2,20);
+  const discGeo=new THREE.CylinderGeometry(5,5,0.9,20);
+  const hubGeo=new THREE.CylinderGeometry(2,2,4.6,12);
+  const spokeGeo=new THREE.BoxGeometry(1.4,12,1.4);
   [16,-17].forEach(wx=>{
-    const tire=new THREE.Mesh(tireGeo, M(0x141414,0.85)); tire.rotation.y=Math.PI/2; tire.position.set(wx,9,0); tire.castShadow=true; g.add(tire);
-    const rim=new THREE.Mesh(rimGeo, M(CHROME,0.3,0.7)); rim.rotation.x=Math.PI/2; rim.position.set(wx,9,0); g.add(rim);
+    const w=new THREE.Group(); w.position.set(wx,9,0);
+    const tire=new THREE.Mesh(tireGeo, M(0x121212,0.85)); tire.rotation.y=Math.PI/2; tire.castShadow=true; w.add(tire);
+    const rim=new THREE.Mesh(rimGeo, chromeMat); rim.rotation.z=Math.PI/2; w.add(rim);
+    const disc=new THREE.Mesh(discGeo, M(CHROME,0.35,0.7)); disc.rotation.z=Math.PI/2; disc.position.x=2.1; w.add(disc);
+    const hub=new THREE.Mesh(hubGeo, chromeMat); hub.rotation.z=Math.PI/2; w.add(hub);
+    for(let i=0;i<5;i++){ const sp=new THREE.Mesh(spokeGeo, chromeMat); sp.rotation.x=i*Math.PI/5; w.add(sp); }
+    g.add(w); wheels.push(w);
   });
   // floorboard
   const board=new THREE.Mesh(new THREE.BoxGeometry(24,3,16), M(DARK,0.7)); board.position.set(-2,12,0); g.add(board);
   // rounded rear body (stretched sphere) + underseat block
-  const bodyMat=M(RED,0.38,0.12); g.userData.bodyMat=bodyMat;   // recolored by the paint shop
+  const bodyMat=new THREE.MeshPhysicalMaterial({color:RED,roughness:0.26,metalness:0.45,clearcoat:1,clearcoatRoughness:0.12}); g.userData.bodyMat=bodyMat;   // glossy clearcoat; recolored by the paint shop
   const rear=new THREE.Mesh(new THREE.SphereGeometry(12.5,18,14), bodyMat); rear.scale.set(1.55,1.05,1.0); rear.position.set(-12,22,0); rear.castShadow=true; g.add(rear);
   addToGroup(g, new THREE.BoxGeometry(18,14,15), bodyMat, -10,17,0);
   // front leg-shield (curved, tilted) + headset
   const shield=new THREE.Mesh(new THREE.SphereGeometry(11,16,14), bodyMat); shield.scale.set(0.55,1.25,0.95); shield.position.set(16,24,0); shield.castShadow=true; g.add(shield);
   // front fender hugging the wheel
   const fender=new THREE.Mesh(new THREE.TorusGeometry(9,2.6,8,16,Math.PI), bodyMat); fender.rotation.set(Math.PI/2,0,Math.PI); fender.position.set(16,11,0); g.add(fender);
+  // telescopic front forks — connect headset down to the front axle
+  const forkGeo=new THREE.CylinderGeometry(1.4,1.4,21,10);
+  [-1,1].forEach(s=>{ const fk=new THREE.Mesh(forkGeo, chromeMat); fk.position.set(16.5,18.5,4*s); fk.rotation.z=-0.13; fk.castShadow=true; g.add(fk); });
   // seat (rounded)
   const seat=new THREE.Mesh(new THREE.SphereGeometry(7,14,12), M(0x161616,0.6)); seat.scale.set(1.7,0.55,1.05); seat.position.set(-7,31,0); seat.castShadow=true; g.add(seat);
   // steering column + handlebar + round headlight housing
@@ -630,6 +649,7 @@ const moped = {
     // lean into turns
     this.group.rotation.z = -input.steer * grip * 0.18;
     this.wheelSpin += this.speed*dt*0.05;
+    const ws=this.group.userData.wheels; if(ws){ ws[0].rotation.x=this.wheelSpin; ws[1].rotation.x=this.wheelSpin; }
     this.group.rotation.x = 0;
   }
 };
@@ -1314,6 +1334,7 @@ const pvRenderer=new THREE.WebGLRenderer({canvas:pvCanvas,antialias:true,alpha:t
 pvRenderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
 pvRenderer.outputColorSpace=THREE.SRGBColorSpace; pvRenderer.toneMapping=THREE.ACESFilmicToneMapping; pvRenderer.toneMappingExposure=1.05;
 const pvScene=new THREE.Scene();
+pvScene.environment = new THREE.PMREMGenerator(pvRenderer).fromScene(new RoomEnvironment(), 0.04).texture;
 pvScene.add(new THREE.HemisphereLight(0xffffff,0x44502f,1.0));
 const pvSun=new THREE.DirectionalLight(0xfff2d8,2.3); pvSun.position.set(40,80,50); pvScene.add(pvSun);
 const pvCam=new THREE.PerspectiveCamera(38,1.5,1,1000); pvCam.position.set(62,40,82); pvCam.lookAt(0,20,0);
