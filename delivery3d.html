@@ -747,7 +747,7 @@ const Sound = (function(){
   let padGain=null, padOsc=[], ambOn=false, noteTimer=null, rpm=0.1, prevGas=0;
   let comp=null, revSend=null, scrGain=null, scrBp=null;
   let vol=0.6, musicOn=false, schedT=null, mstep=0, nextT=0, musicGain=null;
-  let sampReady=false, idleSrc=null, accelSrc=null, idleG=null, accelG=null, engBus=null, decelBuf=null;
+  let sampReady=false, idleSrc=null, accelSrc=null, idleG=null, accelG=null, engBus=null, decelBuf=null, musicBuf=null, musicSrc=null;
   function noiseBuf(){ const len=Math.floor(ctx.sampleRate*1.2); const b=ctx.createBuffer(1,len,ctx.sampleRate);
     const d=b.getChannelData(0); for(let i=0;i<len;i++) d[i]=Math.random()*2-1; return b; }
   function impulse(sec,decay){ const len=Math.floor(ctx.sampleRate*sec); const b=ctx.createBuffer(2,len,ctx.sampleRate);
@@ -788,7 +788,7 @@ const Sound = (function(){
     lfo=ctx.createOscillator(); lfo.type="sine"; lfo.frequency.value=9;
     lfoGain=ctx.createGain(); lfoGain.gain.value=0;
     lfo.connect(lfoGain); lfoGain.connect(eg.gain); lfo.start();
-    ready=true; loadSamples();
+    ready=true; loadSamples(); loadMusic();
   }
   function resume(){ if(ctx && ctx.state==="suspended") ctx.resume(); }
   function blip(freq,dur,type,vol){
@@ -844,9 +844,17 @@ const Sound = (function(){
       mstep++; nextT += MSTEP;
     }
   }
-  function musicStart(){ if(musicOn||!ready) return; if(!musicGain){ musicGain=ctx.createGain(); musicGain.gain.value=0.5; musicGain.connect(master); }
-    musicOn=true; mstep=0; nextT=ctx.currentTime+0.1; schedT=setInterval(mtick,25); }
-  function musicStop(){ musicOn=false; if(schedT){ clearInterval(schedT); schedT=null; } }
+  function ensureMusicGain(){ if(!musicGain){ musicGain=ctx.createGain(); musicGain.gain.value=0.42; musicGain.connect(master); } }
+  function startTrack(){ if(!musicBuf||musicSrc) return; if(schedT){ clearInterval(schedT); schedT=null; } // drop synth fallback
+    musicSrc=ctx.createBufferSource(); musicSrc.buffer=musicBuf; musicSrc.loop=true; musicSrc.connect(musicGain); musicSrc.start(); }
+  function musicStart(){ if(musicOn||!ready) return; ensureMusicGain(); musicOn=true;
+    if(musicBuf) startTrack(); else { mstep=0; nextT=ctx.currentTime+0.1; schedT=setInterval(mtick,25); } } // synth until the track loads
+  function musicStop(){ musicOn=false; if(schedT){ clearInterval(schedT); schedT=null; }
+    if(musicSrc){ try{ musicSrc.stop(); }catch(e){} musicSrc=null; } }
+  async function loadMusic(){ try{
+      const b=await fetch("audio/music.mp3").then(r=>{ if(!r.ok) throw 0; return r.arrayBuffer(); }).then(a=>ctx.decodeAudioData(a));
+      musicBuf=b; if(musicOn && !musicSrc){ ensureMusicGain(); startTrack(); } // swap synth->track mid-shift once loaded
+    }catch(e){ musicBuf=null; } }
   function playBuf(buf,v){ if(!buf||muted) return; const s=ctx.createBufferSource(),g=ctx.createGain(); s.buffer=buf; s.connect(g); g.connect(master); g.gain.value=v||0.6; s.start(); }
   async function loadSamples(){
     try{
