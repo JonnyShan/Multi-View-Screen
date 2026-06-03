@@ -7,8 +7,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Route Rush" />
-<title>Route Rush</title>
+<meta name="apple-mobile-web-app-title" content="Uber: Best Route" />
+<title>Uber: Best Route</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0e14;
@@ -110,12 +110,6 @@
   .overlay .btn:active { transform: scale(.96); }
   .overbtns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
   .overlay .btn2 { background: linear-gradient(90deg,#ff3d9a,#ff85bf); color: #fff; box-shadow: 0 8px 30px rgba(255,61,154,.5); }
-  /* version switcher */
-  #vswitch { display: flex; gap: 10px; margin-top: 18px; }
-  #vswitch a { text-decoration: none; font-weight: 800; font-size: 14px; letter-spacing: .3px;
-    padding: 9px 16px; border-radius: 999px; color: #cdd3df;
-    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.15); }
-  #vswitch a.cur { color: #08111f; background: linear-gradient(90deg,#3da5ff,#7ec2ff); border-color: transparent; }
   .btn2sm { margin-top: 12px; background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.22);
     border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
   #overStats { font-size: 20px; line-height: 1.7; }
@@ -135,7 +129,7 @@
       <div id="score">0</div>
       <div id="subline">Round <b id="round">1</b> · Best <span id="best">0</span> · Streak <span id="streak">0</span></div>
     </div>
-    <div id="right"><button id="bgBtn" title="Set background image">🖼️</button><button id="muteBtn">🔊</button></div>
+    <div id="right"><button id="muteBtn">🔊</button></div>
   </div>
   <div id="timerwrap"><div id="timerfill"></div></div>
   <div id="prompt">PICK THE FASTER ROUTE<small>shorter usually wins — watch 🔴 traffic</small></div>
@@ -144,7 +138,7 @@
   <button class="choice" id="btnB"><span class="big">B</span><span class="lbl">ROUTE</span></button>
 
   <div class="overlay" id="start">
-    <h1>ROUTE RUSH</h1>
+    <h1>Uber: Best Route</h1>
     <div class="how">
       <div>🗺️ Two routes link the same <b>food shop</b> → <b>house</b>.</div>
       <div>📏 Tap the <b>faster</b> route — usually the shorter one, no numbers.</div>
@@ -153,9 +147,6 @@
       <div>❤️ 3 lives. Wrong or too slow = lose one. How far can you get?</div>
     </div>
     <button class="btn" id="startBtn">▶ Play</button>
-    <div id="vswitch"><a href="?" data-v="1">Version 1</a><a href="?v=2" data-v="2">Version 2 🗺️</a></div>
-    <button class="btn2sm" id="setBgBtn" style="display:none">📷 Set city background</button>
-    <input id="bgFile" type="file" accept="image/*" hidden>
   </div>
 
   <div class="overlay hidden" id="over">
@@ -218,7 +209,7 @@ if (VER === 2){ qConf.title = 'MAP ROUTER 2'; qConf.tagline = 'tap the faster ro
 if (Q.get('bg')) qConf.bg = Q.get('bg');
 if (Q.get('title')) qConf.title = Q.get('title');
 const CONFIG = Object.assign({
-  title: 'ROUTE RUSH',
+  title: 'Uber: Best Route',
   tagline: 'pick the faster route',
   foods: FOODS,
   brandA: '#3da5ff', brandB: '#ff3d9a',
@@ -387,18 +378,20 @@ function generateCity(S, E){
   const nCars = Math.round(GW * GH / 10);
   for (let i = 0; i < nCars; i++){
     const axis = Math.random() < 0.5 ? 'h' : 'v';
+    const kind = ri(0,3) === 0 ? 1 : 0;                // ~25% SUV/van, else sedan
     cars.push(axis === 'h'
-      ? { axis, line: ri(0, GH-1), pos: Math.random()*(GW-1), dir: Math.random()<.5?1:-1, spd: 0.5+Math.random()*0.7, color: choice(CARCOL) }
-      : { axis, line: ri(0, GW-1), pos: Math.random()*(GH-1), dir: Math.random()<.5?1:-1, spd: 0.5+Math.random()*0.7, color: choice(CARCOL) });
+      ? { axis, line: ri(0, GH-1), pos: Math.random()*(GW-1), dir: Math.random()<.5?1:-1, spd: 0.5+Math.random()*0.7, color: choice(CARCOL), kind }
+      : { axis, line: ri(0, GW-1), pos: Math.random()*(GH-1), dir: Math.random()<.5?1:-1, spd: 0.5+Math.random()*0.7, color: choice(CARCOL), kind });
   }
   // parked cars at the kerb (static)
   const parkedCars = [];
   const nParked = Math.round(GW * GH / 7);
   for (let i = 0; i < nParked; i++){
     const axis = Math.random() < 0.5 ? 'h' : 'v';
+    const kind = ri(0,3) === 0 ? 1 : 0;
     parkedCars.push(axis === 'h'
-      ? { axis, line: ri(0, GH-1), pos: 0.35 + Math.random()*(GW-1.7), side: Math.random()<.5?1:-1, color: choice(CARCOL) }
-      : { axis, line: ri(0, GW-1), pos: 0.35 + Math.random()*(GH-1.7), side: Math.random()<.5?1:-1, color: choice(CARCOL) });
+      ? { axis, line: ri(0, GH-1), pos: 0.35 + Math.random()*(GW-1.7), side: Math.random()<.5?1:-1, color: choice(CARCOL), kind }
+      : { axis, line: ri(0, GW-1), pos: 0.35 + Math.random()*(GH-1.7), side: Math.random()<.5?1:-1, color: choice(CARCOL), kind });
   }
   // manhole covers scattered on the roads
   const manholes = [];
@@ -522,11 +515,12 @@ function carAlongRoute(r, frac){
       const seg = r.cum[i] - r.cum[i-1] || 1, t = (target - r.cum[i-1]) / seg;
       const ca = r.corners[i-1], cb = r.corners[i];
       const gAxis = (cb.x !== ca.x) ? 'x' : 'y';
-      return { x: a.x + (b.x-a.x)*t, y: a.y + (b.y-a.y)*t, gAxis };
+      const dir = gAxis === 'x' ? Math.sign(cb.x - ca.x) || 1 : Math.sign(cb.y - ca.y) || 1;
+      return { x: a.x + (b.x-a.x)*t, y: a.y + (b.y-a.y)*t, gAxis, dir };
     }
   }
   const last = r.pixels[r.pixels.length - 1];
-  return { x: last.x, y: last.y, gAxis: 'x' };
+  return { x: last.x, y: last.y, gAxis: 'x', dir: 1 };
 }
 
 // =================== static city render ===================
@@ -588,7 +582,7 @@ function buildStatic(){
   for (const pc of city.parkedCars){
     const gx = pc.axis==='h' ? pc.pos : pc.line + 0.32*pc.side;
     const gy = pc.axis==='h' ? pc.line + 0.32*pc.side : pc.pos;
-    obj.push({ d: gx + gy, f: () => { const b = iso(gx,gy,0); drawIsoCarScreen(octx, b.x, b.y, pc.axis==='h'?'x':'y', pc.color, TW); } });
+    obj.push({ d: gx + gy, f: () => { const b = iso(gx,gy,0); drawIsoCarScreen(octx, b.x, b.y, pc.axis==='h'?'x':'y', pc.color, TW, { dir: pc.side, kind: pc.kind }); } });
   }
   obj.sort((a,b) => a.d - b.d);
   for (const o of obj) o.f();
@@ -709,6 +703,12 @@ function faceWin(tA, tB, bB, bA, rows, cols, glass){
     sctx.beginPath(); sctx.moveTo(a.x,a.y); sctx.lineTo(b.x,b.y); sctx.lineTo(d.x,d.y); sctx.lineTo(e.x,e.y); sctx.closePath(); sctx.fill();
   }
 }
+// horizontal band across a wall face (v0..v1 in face space) — used for AO/eaves/plinth
+function faceBand(tA, tB, bB, bA, v0, v1, style){
+  sctx.fillStyle = style;
+  const a=bil(tA,tB,bB,bA,0,v0), b=bil(tA,tB,bB,bA,1,v0), d=bil(tA,tB,bB,bA,1,v1), e=bil(tA,tB,bB,bA,0,v1);
+  sctx.beginPath(); sctx.moveTo(a.x,a.y); sctx.lineTo(b.x,b.y); sctx.lineTo(d.x,d.y); sctx.lineTo(e.x,e.y); sctx.closePath(); sctx.fill();
+}
 // paint one low-poly 3/4 building into atlas cell at x-offset ox, size U
 function paintHouseSprite(ox, U, v){
   const g = sctx, body = v.body, roof = v.roof;
@@ -724,10 +724,17 @@ function paintHouseSprite(ox, U, v){
   g.fillStyle = shade(body,-0.14); quad([bS,bW,tW,tS]);   // left wall
   faceWin(tE,tS,bS,bE, v.floors, 2, v.glass);
   faceWin(tS,tW,bW,bS, v.floors, 2, v.glass);
+  // ambient occlusion: eaves shadow under the roof + foundation plinth at the base
+  faceBand(tE,tS,bS,bE, 0,0.05, 'rgba(0,0,0,.24)'); faceBand(tS,tW,bW,bS, 0,0.05, 'rgba(0,0,0,.16)');
+  faceBand(tE,tS,bS,bE, 0.93,1, 'rgba(0,0,0,.30)'); faceBand(tS,tW,bW,bS, 0.93,1, 'rgba(0,0,0,.20)');
   // ground floor: awning (shops) + door on the front-left wall
   const fw = (u,vv) => bil(tS,tW,bW,bS, u, vv);
   if (v.shop){ g.fillStyle = shade(roof, 0.06); quad([fw(0.1,0.6), fw(0.9,0.6), fw(0.9,0.72), fw(0.1,0.72)]); }
-  g.fillStyle = shade(body,-0.46); quad([fw(0.4,0.7), fw(0.6,0.7), fw(0.6,1), fw(0.4,1)]);
+  // entrance: frame + panelled door + warm sidelight + knob
+  g.fillStyle = shade(body,-0.30); quad([fw(0.37,0.66), fw(0.63,0.66), fw(0.63,1), fw(0.37,1)]);   // frame
+  g.fillStyle = '#6b4a32';         quad([fw(0.40,0.69), fw(0.60,0.69), fw(0.60,1),  fw(0.40,1)]);   // door
+  g.fillStyle = 'rgba(255,206,120,.85)'; quad([fw(0.66,0.74), fw(0.78,0.74), fw(0.78,0.93), fw(0.66,0.93)]); // sidelight
+  g.fillStyle = '#e6c558'; const kn = fw(0.575,0.86); g.beginPath(); g.arc(kn.x, kn.y, Math.max(1,U*0.009), 0, Math.PI*2); g.fill();
   // roof
   if (v.pitched){                                         // hip roof to a peak
     const apex = { x: cxp, y: tN.y - 0.18*U };
@@ -735,6 +742,10 @@ function paintHouseSprite(ox, U, v){
     g.fillStyle=shade(roof, 0.02); quad([tN,tE,apex]);
     g.fillStyle=shade(roof,-0.12); quad([tE,tS,apex]);
     g.fillStyle=shade(roof,-0.24); quad([tS,tW,apex]);
+    // chimney rising from the right-back slope
+    const pb = { x:(tE.x+apex.x)/2, y:(tE.y+apex.y)/2 };
+    g.fillStyle=shade(body,-0.20); g.fillRect(pb.x-0.02*U, pb.y-0.15*U, 0.06*U, 0.16*U);
+    g.fillStyle=shade(body,-0.02); g.fillRect(pb.x-0.03*U, pb.y-0.17*U, 0.08*U, 0.03*U);
   } else {                                                // flat roof + parapet + a rooftop fixture
     g.fillStyle=roof; quad([tN,tE,tS,tW]);
     g.fillStyle=shade(roof,-0.22); quad([tS,tE,{x:tE.x,y:tE.y+U*0.022},{x:tS.x,y:tS.y+U*0.022}]);
@@ -812,15 +823,50 @@ function shade(hex, amt){
 }
 
 // =================== dynamic render ===================
-// a small car at a screen base point, oriented along a grid axis (basis follows the projection)
-function drawIsoCarScreen(c, bx, by, gAxis, color, scale){
+// a low-poly 3/4 car at a screen base point, oriented along a grid axis (axis-aligned top-down)
+function drawIsoCarScreen(c, bx, by, gAxis, color, scale, opts){
+  opts = opts || {};
+  const f = opts.dir < 0 ? -1 : 1;                       // front of car toward f*al
+  const kind = opts.kind | 0;                            // 0 sedan, 1 SUV/van, 2 hatch
   const O = iso(0,0,0), UX = { x: iso(1,0,0).x-O.x, y: iso(1,0,0).y-O.y }, UY = { x: iso(0,1,0).x-O.x, y: iso(0,1,0).y-O.y };
   const al = gAxis === 'x' ? UX : UY, ac = gAxis === 'x' ? UY : UX;
-  const hl = 0.17, hw = 0.11;
-  const P = (sl, sw) => ({ x: bx + al.x*sl + ac.x*sw, y: by + al.y*sl + ac.y*sw });
-  c.fillStyle = 'rgba(0,0,0,.22)'; poly(c, [P(-hl,-hw+0.03), P(hl,-hw+0.03), P(hl,hw+0.03), P(-hl,hw+0.03)]); // shadow
-  c.fillStyle = color;             poly(c, [P(-hl,-hw), P(hl,-hw), P(hl,hw), P(-hl,hw)]);                       // body
-  c.fillStyle = '#cfeaff';         poly(c, [P(-hl*0.4,-hw*0.7), P(hl*0.65,-hw*0.7), P(hl*0.65,hw*0.7), P(-hl*0.4,hw*0.7)]); // windshield
+  const k = (scale || TW) / TW;
+  const L = 0.205*k, W = 0.116*k;                        // half length / width (cell units)
+  const zD = TW*0.085*k, zR = zD + TW*(kind===1?0.150:0.112)*k;   // deck + roof heights (px)
+  const P = (sl, sw, h) => ({ x: bx + al.x*sl + ac.x*sw, y: by + al.y*sl + ac.y*sw - (h||0) });
+  const wall = (a, b, za, zb, col) => { c.fillStyle = col; poly(c, [P(a[0],a[1],zb), P(b[0],b[1],zb), P(b[0],b[1],za), P(a[0],a[1],za)]); };
+  const dk = shade(color,-0.34), so = shade(color,-0.20), en = shade(color,-0.10), lt = shade(color,0.10), hi = shade(color,0.30);
+  const ch = 0.05*k, cz = 0.045*k;                       // footprint chamfers
+  const foot = h => [P(-L+ch,-W,h),P(L-ch,-W,h),P(L,-W+cz,h),P(L,W-cz,h),P(L-ch,W,h),P(-L+ch,W,h),P(-L,W-cz,h),P(-L,-W+cz,h)];
+
+  // ground shadow
+  c.fillStyle = 'rgba(0,0,0,.20)';
+  poly(c, foot(0).map(p => ({ x: p.x + ac.x*0.05, y: p.y + ac.y*0.05 + 1 })));
+  // wheels (south side, front + rear)
+  c.fillStyle = '#15171c';
+  for (const e of [-1,1]) poly(c, [P(e*L*0.66-0.05*k, W*0.85, zD*0.78), P(e*L*0.66+0.05*k, W*0.85, zD*0.78), P(e*L*0.66+0.05*k, W*1.05, 0), P(e*L*0.66-0.05*k, W*1.05, 0)]);
+  // lower body: south flank + end caps, then deck top
+  wall([-L,W],[L,W], 0, zD, so);
+  wall([f*L,-W],[f*L,W], 0, zD, en);
+  wall([-f*L,-W],[-f*L,W], 0, zD, dk);
+  c.fillStyle = color; poly(c, foot(zD));
+  // hood (front, brighter) + trunk decks
+  c.fillStyle = lt; poly(c, [P(f*L*0.30,-W*0.94,zD), P(f*L*0.97,-W*0.80,zD), P(f*L*0.97,W*0.80,zD), P(f*L*0.30,W*0.94,zD)]);
+  c.fillStyle = en; poly(c, [P(-f*L*0.55,-W*0.94,zD), P(-f*L*0.97,-W*0.80,zD), P(-f*L*0.97,W*0.80,zD), P(-f*L*0.55,W*0.94,zD)]);
+  // cabin (between hood and trunk), raised
+  const cF = f*L*0.30, cR = -f*L*0.55, cW = W*0.90, span = cF - cR;
+  wall([cR,cW],[cF,cW], zD, zR, so);                                                            // cabin south flank
+  c.fillStyle = '#bfe4ff'; poly(c, [P(cF,-cW,zR), P(cF,cW,zR), P(cF,cW,zD), P(cF,-cW,zD)]);      // windshield
+  c.fillStyle = '#9cc7e8'; poly(c, [P(cR,-cW,zR), P(cR,cW,zR), P(cR,cW,zD), P(cR,-cW,zD)]);      // rear glass
+  c.fillStyle = '#cdeaff'; poly(c, [P(cR+span*0.12,cW,zR-0.7*k), P(cF-span*0.12,cW,zR-0.7*k), P(cF-span*0.12,cW,zD+(zR-zD)*0.4), P(cR+span*0.12,cW,zD+(zR-zD)*0.4)]); // side window
+  c.fillStyle = lt; poly(c, [P(cF,-cW,zR), P(cF,cW,zR), P(cR,cW,zR), P(cR,-cW,zR)]);             // roof
+  // roof north-edge rim light
+  c.strokeStyle = hi; c.lineWidth = Math.max(1, 1.1*k); c.lineJoin = 'round';
+  const r0 = P(cF,-cW,zR), r1 = P(cR,-cW,zR);
+  c.beginPath(); c.moveTo(r0.x,r0.y); c.lineTo(r1.x,r1.y); c.stroke();
+  // lights
+  c.fillStyle = '#fff4cf'; for (const s of [-1,1]){ const p = P(f*L*0.98, s*W*0.60, zD*0.72); c.beginPath(); c.arc(p.x,p.y,1.7*k,0,7); c.fill(); }
+  c.fillStyle = '#ff4d4d'; for (const s of [-1,1]){ const p = P(-f*L*0.98, s*W*0.60, zD*0.72); c.beginPath(); c.arc(p.x,p.y,1.5*k,0,7); c.fill(); }
 }
 function drawCars(t){
   for (const car of city.cars){
@@ -831,7 +877,7 @@ function drawCars(t){
     if (car.axis === 'h'){ gx = car.pos; gy = car.line + lane; gAxis = 'x'; }
     else { gx = car.line + lane; gy = car.pos; gAxis = 'y'; }
     const b = iso(gx, gy, 0);
-    drawIsoCarScreen(ctx, b.x, b.y, gAxis, car.color, TW);
+    drawIsoCarScreen(ctx, b.x, b.y, gAxis, car.color, TW, { dir: car.dir, kind: car.kind });
   }
 }
 
@@ -1018,7 +1064,7 @@ function frame(ts){
       const cr = correctRoute();
       const p = Math.min(1, (1 - revealT / revealDur) * 1.2);
       const car = carAlongRoute(cr, p);
-      drawIsoCarScreen(ctx, car.x, car.y, car.gAxis, '#ffe27a', TW * 1.1);
+      drawIsoCarScreen(ctx, car.x, car.y, car.gAxis, '#ffe27a', TW * 1.15, { dir: car.dir });
     }
     drawStartEnd(t);
     drawTimerRing();
@@ -1290,7 +1336,7 @@ function shareCard(){
   try {
     const file = new File([dataURLtoBlob(dataUrl)], 'route-rush-' + score + '.png', { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })){
-      navigator.share({ files: [file], title: 'Route Rush', text: `I scored ${score} in Route Rush! Can you beat me?` }).catch(() => {});
+      navigator.share({ files: [file], title: 'Uber: Best Route', text: `I scored ${score} in Uber: Best Route! Can you beat me?` }).catch(() => {});
       return;
     }
   } catch (e) {}
@@ -1337,7 +1383,7 @@ document.addEventListener('touchmove', e => e.preventDefault(), { passive: false
   } catch (e) {}
 })();
 
-// ---- background image (Version 2) + picker ----
+// ---- background image (Version 2 deep-link only) ----
 function applyBg(src){
   if (!src){ bgImg = null; if (city) buildStatic(); return; }
   const im = new Image();
@@ -1345,30 +1391,7 @@ function applyBg(src){
   im.onerror = () => { bgImg = null; if (city) buildStatic(); };   // missing file -> procedural fallback
   im.src = src;
 }
-function setBgFromFile(file){
-  if (!file) return;
-  const fr = new FileReader();
-  fr.onload = () => {
-    const im = new Image();
-    im.onload = () => {                          // downscale so it fits in localStorage, then persist + apply
-      const max = 1400, sc = Math.min(1, max / Math.max(im.width, im.height));
-      const cv = document.createElement('canvas'); cv.width = Math.round(im.width*sc); cv.height = Math.round(im.height*sc);
-      cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
-      const data = cv.toDataURL('image/jpeg', 0.85);
-      try { localStorage.setItem('routerush_bg', data); } catch (e) {}
-      applyBg(data);
-    };
-    im.src = fr.result;
-  };
-  fr.readAsDataURL(file);
-}
-const bgFile = document.getElementById('bgFile');
-bgFile.addEventListener('change', e => setBgFromFile(e.target.files[0]));
-document.getElementById('bgBtn').addEventListener('click', () => bgFile.click());
-document.getElementById('setBgBtn').addEventListener('click', () => bgFile.click());
-if (CONFIG.bg) applyBg(localStorage.getItem('routerush_bg') || CONFIG.bg);
-if (VER === 2) document.getElementById('setBgBtn').style.display = '';
-document.querySelectorAll('#vswitch a').forEach(a => { if (+a.dataset.v === VER) a.classList.add('cur'); });
+if (CONFIG.bg) applyBg(localStorage.getItem('routerush_bg') || CONFIG.bg);   // V2 deep-link (?v=2) only
 
 resize();
 updateHUD();
