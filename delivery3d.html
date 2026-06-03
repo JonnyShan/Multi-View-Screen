@@ -746,6 +746,7 @@ const Sound = (function(){
   let padGain=null, padOsc=[], ambOn=false, noteTimer=null, rpm=0.1, prevGas=0;
   let comp=null, revSend=null, scrGain=null, scrBp=null;
   let vol=0.6, musicOn=false, schedT=null, mstep=0, nextT=0, musicGain=null;
+  let sampReady=false, idleSrc=null, accelSrc=null, idleG=null, accelG=null, engBus=null, decelBuf=null;
   function noiseBuf(){ const len=Math.floor(ctx.sampleRate*1.2); const b=ctx.createBuffer(1,len,ctx.sampleRate);
     const d=b.getChannelData(0); for(let i=0;i<len;i++) d[i]=Math.random()*2-1; return b; }
   function impulse(sec,decay){ const len=Math.floor(ctx.sampleRate*sec); const b=ctx.createBuffer(2,len,ctx.sampleRate);
@@ -786,7 +787,7 @@ const Sound = (function(){
     lfo=ctx.createOscillator(); lfo.type="sine"; lfo.frequency.value=9;
     lfoGain=ctx.createGain(); lfoGain.gain.value=0;
     lfo.connect(lfoGain); lfoGain.connect(eg.gain); lfo.start();
-    ready=true;
+    ready=true; loadSamples();
   }
   function resume(){ if(ctx && ctx.state==="suspended") ctx.resume(); }
   function blip(freq,dur,type,vol){
@@ -845,6 +846,23 @@ const Sound = (function(){
   function musicStart(){ if(musicOn||!ready) return; if(!musicGain){ musicGain=ctx.createGain(); musicGain.gain.value=0.5; musicGain.connect(master); }
     musicOn=true; mstep=0; nextT=ctx.currentTime+0.1; schedT=setInterval(mtick,25); }
   function musicStop(){ musicOn=false; if(schedT){ clearInterval(schedT); schedT=null; } }
+  function playBuf(buf,v){ if(!buf||muted) return; const s=ctx.createBufferSource(),g=ctx.createGain(); s.buffer=buf; s.connect(g); g.connect(master); g.gain.value=v||0.6; s.start(); }
+  async function loadSamples(){
+    try{
+      const get=u=>fetch(u).then(r=>{ if(!r.ok) throw 0; return r.arrayBuffer(); }).then(b=>ctx.decodeAudioData(b));
+      const [ib,ab,db]=await Promise.all([ get("audio/engine-idle.mp3"), get("audio/engine-accel.mp3"), get("audio/engine-decel.mp3") ]);
+      decelBuf=db;
+      engBus=ctx.createGain(); engBus.gain.value=0; engBus.connect(master);
+      idleG=ctx.createGain(); idleG.gain.value=0; idleG.connect(engBus);
+      accelG=ctx.createGain(); accelG.gain.value=0; accelG.connect(engBus);
+      idleSrc=ctx.createBufferSource(); idleSrc.buffer=ib; idleSrc.loop=true; idleSrc.connect(idleG); idleSrc.start();
+      accelSrc=ctx.createBufferSource(); accelSrc.buffer=ab; accelSrc.loop=true; accelSrc.connect(accelG); accelSrc.start();
+      sampReady=true; engBus.gain.setTargetAtTime(0.95, ctx.currentTime, 0.3);
+      // hand the engine over to the real samples — silence the synth layer
+      if(eg) eg.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
+      if(nGain) nGain.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
+    }catch(e){ sampReady=false; } // CDN/offline -> keep synth engine
+  }
   return {
     init, resume,
     engine(sp, gas){
@@ -853,7 +871,15 @@ const Sound = (function(){
       const revUp = (g>0.5 && sp<0.06) ? 0.5 : 0;            // rev in place when stopped on throttle
       const target = 0.08 + Math.max(Math.max(0,Math.min(1,sp))*0.92, revUp);
       rpm += (target - rpm) * (target>rpm ? 0.11 : 0.05);
-      const base = 30 + rpm*150;                                 // firing fundamental
+      if(sampReady){ // real engine: pitch by RPM, crossfade idle<->accel by load
+        const rate=0.72+rpm*1.18;
+        idleSrc.playbackRate.setTargetAtTime(rate,t,0.06); accelSrc.playbackRate.setTargetAtTime(rate,t,0.06);
+        const mix=Math.max(0,Math.min(1,(rpm-0.12)/0.7 + (g>0.5?0.15:0)));
+        idleG.gain.setTargetAtTime((1-mix)*0.9, t, 0.08); accelG.gain.setTargetAtTime(mix*1.0, t, 0.08);
+        if(prevGas>0.5 && g<=0.5 && rpm>0.42) playBuf(decelBuf, 0.55);
+        prevGas=g; return;
+      }
+      const base = 30 + rpm*150;                                 // firing fundamental (synth fallback)
       o1.frequency.setTargetAtTime(base, t, 0.04);
       o2.frequency.setTargetAtTime(base, t, 0.04);
       o3.frequency.setTargetAtTime(base*2, t, 0.04);
@@ -871,6 +897,7 @@ const Sound = (function(){
       prevGas = g;
     },
     engineOff(){ if(!ready) return; const t=ctx.currentTime;
+      if(sampReady){ idleG.gain.setTargetAtTime(0,t,0.25); accelG.gain.setTargetAtTime(0,t,0.25); }
       eg.gain.setTargetAtTime(0, t, 0.25); nGain.gain.setTargetAtTime(0, t, 0.25); },
     pickup(){ blip(680,0.1,"square",0.28); setTimeout(()=>blip(900,0.12,"square",0.28),95); },
     pickupAt(x,z){ blipAt(x,z,680,0.1,"square",0.3); setTimeout(()=>blipAt(x,z,900,0.12,"square",0.3),95); },
