@@ -13,7 +13,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0e14;
     overscroll-behavior: none; touch-action: none; position: fixed; inset: 0;
-    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color: #fff; }
+    font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", "Nunito", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color: #fff; }
   #game { position: fixed; inset: 0; display: block; touch-action: none; }
 
   /* ---- HUD (top bar) ---- */
@@ -30,11 +30,11 @@
   #subline { font-size: 11px; opacity: .8; margin-top: 3px; letter-spacing: .3px; white-space: nowrap; }
   #subline b { color: #ffd24a; }
   #right { min-width: 90px; display: flex; justify-content: flex-end; gap: 8px; pointer-events: auto; }
-  #muteBtn {
+  #muteBtn, #bgBtn {
     background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.22);
     border-radius: 10px; padding: 7px 10px; font-size: 15px; font-weight: 700; cursor: pointer;
   }
-  #muteBtn:active { transform: scale(.95); }
+  #muteBtn:active, #bgBtn:active { transform: scale(.95); }
 
   /* ---- timer bar ---- */
   #timerwrap {
@@ -96,6 +96,14 @@
   .overlay .btn:active { transform: scale(.96); }
   .overbtns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
   .overlay .btn2 { background: linear-gradient(90deg,#ff3d9a,#ff85bf); color: #fff; box-shadow: 0 8px 30px rgba(255,61,154,.5); }
+  /* version switcher */
+  #vswitch { display: flex; gap: 10px; margin-top: 18px; }
+  #vswitch a { text-decoration: none; font-weight: 800; font-size: 14px; letter-spacing: .3px;
+    padding: 9px 16px; border-radius: 999px; color: #cdd3df;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.15); }
+  #vswitch a.cur { color: #08111f; background: linear-gradient(90deg,#3da5ff,#7ec2ff); border-color: transparent; }
+  .btn2sm { margin-top: 12px; background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.22);
+    border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
   #overStats { font-size: 20px; line-height: 1.7; }
   #overStats .v { font-weight: 900; font-size: 30px; }
   #newbest { color: #ffd24a; font-weight: 900; font-size: 18px; letter-spacing: 1px;
@@ -113,7 +121,7 @@
       <div id="score">0</div>
       <div id="subline">Round <b id="round">1</b> · Best <span id="best">0</span> · Streak <span id="streak">0</span></div>
     </div>
-    <div id="right"><button id="muteBtn">🔊</button></div>
+    <div id="right"><button id="bgBtn" title="Set background image">🖼️</button><button id="muteBtn">🔊</button></div>
   </div>
   <div id="timerwrap"><div id="timerfill"></div></div>
   <div id="prompt">PICK THE FASTER ROUTE<small>shorter usually wins — watch 🔴 traffic</small></div>
@@ -131,6 +139,9 @@
       <div>❤️ 3 lives. Wrong or too slow = lose one. How far can you get?</div>
     </div>
     <button class="btn" id="startBtn">▶ Play</button>
+    <div id="vswitch"><a href="?" data-v="1">Version 1</a><a href="?v=2" data-v="2">Version 2 🗺️</a></div>
+    <button class="btn2sm" id="setBgBtn" style="display:none">📷 Set city background</button>
+    <input id="bgFile" type="file" accept="image/*" hidden>
   </div>
 
   <div class="overlay hidden" id="over">
@@ -177,17 +188,37 @@ const WALLS = ['#f4efe4','#e9dcc6','#d9e6f2','#f6e8cb','#fbfbf7','#ecdad6','#dce
 const CARCOL = ['#e8e8ec','#ffd24a','#5bd6ff','#ff7a7a','#9be86a','#b58cff','#ff9f4a','#7fd1c0','#4a6fff','#ff5a9e'];
 const TOWERCOL = ['#8fb4d8','#aebfcb','#cdd6de','#93b6a4','#bcae93','#9fb0cd','#c2b6c8'];  // muted glass towers
 
-// ---- brand config (override via window.ROUTE_RUSH_CONFIG before this script, or ?cta=...&ctaUrl=...) ----
+// ---- brand config (override via window.ROUTE_RUSH_CONFIG, or ?v=2 / ?bg=URL / ?title=) ----
 function hexRGBA(hex, a){ const n = parseInt(hex.slice(1),16); return 'rgba(' + ((n>>16)&255) + ',' + ((n>>8)&255) + ',' + (n&255) + ',' + a + ')'; }
+const Q = new URLSearchParams(location.search);
+const VER = Q.get('v') === '2' ? 2 : 1;            // version 2 = real city background image
+const qConf = {};
+if (VER === 2){ qConf.title = 'MAP ROUTER 2'; qConf.tagline = 'tap the faster route'; qConf.bg = 'city-bg.jpg'; }
+if (Q.get('bg')) qConf.bg = Q.get('bg');
+if (Q.get('title')) qConf.title = Q.get('title');
 const CONFIG = Object.assign({
   title: 'ROUTE RUSH',
   tagline: 'pick the faster route',
   foods: FOODS,
   brandA: '#3da5ff', brandB: '#ff3d9a',
+  bg: null,                       // background image URL/dataURL -> draws a real city instead of the procedural one
   cta: null                       // { text:'Order now →', url:'https://…' } -> button on game-over (lead-gen)
-}, (window.ROUTE_RUSH_CONFIG || {}));
+}, (window.ROUTE_RUSH_CONFIG || {}), qConf);
+let bgImg = null;                 // loaded background image (version 2)
 COL.A = CONFIG.brandA; COL.Aglow = hexRGBA(CONFIG.brandA, .85);
 COL.B = CONFIG.brandB; COL.Bglow = hexRGBA(CONFIG.brandB, .85);
+// day / dusk / night / dawn tint+scrim, cycled every 4 rounds (mutes city; routes drawn on top)
+const TINTS = ['rgba(9,11,18,.40)', 'rgba(42,20,10,.42)', 'rgba(8,12,30,.50)', 'rgba(26,12,30,.44)'];
+// blend a hex toward a target hex by amt (0..1) -> hex
+function mix(hex, target, amt){
+  const a = parseInt(hex.slice(1),16), b = parseInt(target.slice(1),16);
+  const r = Math.round(((a>>16)&255)*(1-amt) + ((b>>16)&255)*amt);
+  const g = Math.round(((a>>8)&255)*(1-amt) + ((b>>8)&255)*amt);
+  const bl = Math.round((a&255)*(1-amt) + (b&255)*amt);
+  return '#' + (0x1000000 + (r<<16) + (g<<8) + bl).toString(16).slice(1);
+}
+function easeOut(p){ p = Math.max(0, Math.min(1, p)); return 1 - Math.pow(1-p, 3); }
+function pickN(arr, n){ const a = arr.slice(), out = []; for (let i = 0; i < n && a.length; i++) out.push(a.splice(ri(0, a.length-1), 1)[0]); return out; }
 
 // ---- view (recomputed on layout) ----
 let dpr = 1, cssW = 0, cssH = 0;
@@ -213,6 +244,7 @@ let shake = 0, flash = null;                       // {color,a}
 let lastTS = 0, paused = false;
 let bestStreak = +(localStorage.getItem('routerush_beststreak') || 0);
 let stats = { answers: 0, correct: 0, rtSum: 0, picks: 0 };  // per-run accuracy + reaction time
+let dispScore = 0, vignette = null;                // odometer score + cached vignette gradient
 
 // =================== layout ===================
 function pickGrid(){
@@ -235,6 +267,8 @@ function resize(){
   canvas.style.width = off.style.width = cssW + 'px';
   canvas.style.height = off.style.height = cssH + 'px';
   computeCell();
+  const vg = ctx.createRadialGradient(cssW/2, cssH*0.55, Math.min(cssW,cssH)*0.28, cssW/2, cssH*0.55, Math.max(cssW,cssH)*0.72);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.5)'); vignette = vg;
   if (city) { layoutRoutePixels(); buildStatic(); }  // keep current round, just re-fit
 }
 window.addEventListener('resize', resize);
@@ -318,11 +352,12 @@ function generateCity(S, E){
     const bx = ri(0, GW-2), by = ri(0, GH-2), k = blockKey(bx,by);
     if (taken.has(k)) continue; taken.add(k); field.push({ bx, by }); break;
   }
-  // houses fill the rest, with varied type + wall colour
+  // houses fill the rest — harmonised palette per city, gently desaturated so routes/shops pop
+  const pal = pickN(COL.roofs, 3 + ri(0,1)), wpal = pickN(WALLS, 3 + ri(0,1));
   const houses = [];
   for (let bx = 0; bx < GW-1; bx++) for (let by = 0; by < GH-1; by++){
     if (taken.has(blockKey(bx,by))) continue;
-    houses.push({ bx, by, roof: choice(COL.roofs), wall: choice(WALLS), type: ri(0,2), seed: Math.random() });
+    houses.push({ bx, by, roof: mix(choice(pal), '#6b7280', 0.18), wall: mix(choice(wpal), '#8b9099', 0.12), type: ri(0,2), seed: Math.random() });
   }
   // moving cars
   const cars = [];
@@ -472,12 +507,23 @@ function buildStatic(){
   octx.clearRect(0,0,cssW,cssH);
   octx.fillStyle = '#0b0e14'; octx.fillRect(0,0,cssW,cssH);
 
-  const cN = iso(0,0,0), cE = iso(GW-1,0,0), cS = iso(GW-1,GH-1,0), cW = iso(0,GH-1,0);
+  const cN = iso(0,0,0), cS = iso(GW-1,GH-1,0);
+  const bx0 = cN.x, by0 = cN.y, bw = cS.x - cN.x, bh = cS.y - cN.y, brad = Math.min(bw,bh)*0.05;
   // drop shadow under the island
-  octx.fillStyle = 'rgba(0,0,0,.35)';
-  poly(octx, [{x:cN.x,y:cN.y+6},{x:cE.x,y:cE.y+6},{x:cS.x,y:cS.y+6},{x:cW.x,y:cW.y+6}]);
-  // asphalt base (whole grid)
-  octx.fillStyle = '#41464f'; poly(octx, [cN, cE, cS, cW]);
+  octx.fillStyle = 'rgba(0,0,0,.4)'; rr(octx, bx0+5, by0+9, bw, bh, brad); octx.fill();
+  // VERSION 2: a real city background image fills the island (cover-fit, rounded)
+  if (bgImg){
+    octx.save(); rr(octx, bx0, by0, bw, bh, brad); octx.clip();
+    const s = Math.max(bw / bgImg.width, bh / bgImg.height), iw = bgImg.width*s, ih = bgImg.height*s;
+    octx.drawImage(bgImg, bx0 + (bw-iw)/2, by0 + (bh-ih)/2, iw, ih);
+    octx.fillStyle = 'rgba(8,10,18,.22)'; octx.fillRect(bx0, by0, bw, bh);   // gentle dim
+    octx.restore();
+    return;   // the photo IS the city — skip procedural streets/buildings
+  }
+  // VERSION 1: rounded asphalt island with a soft top-down gradient
+  const ag = octx.createLinearGradient(0, by0, 0, by0+bh);
+  ag.addColorStop(0, '#494e58'); ag.addColorStop(1, '#373b44');
+  octx.fillStyle = ag; rr(octx, bx0, by0, bw, bh, brad); octx.fill();
 
   // yellow centre dashes down every street
   octx.strokeStyle = '#e9c44a'; octx.lineWidth = Math.max(1.4, TW*0.03); octx.lineCap = 'butt';
@@ -557,7 +603,18 @@ function faceSign(tA, tB, bB, bA, emoji){
 function faceAwning(tA, tB, bB, bA, col){
   for (let i=0;i<4;i++) faceRect(tA,tB,bB,bA, i/4,0.50, (i+1)/4,0.64, i%2 ? '#fff' : shade(col,-0.18));
 }
-function drawCrosswalks(){ /* kept minimal — sidewalks + lane dashes carry the street read */ }
+function drawCrosswalks(){
+  octx.fillStyle = 'rgba(255,255,255,.42)';
+  const half = 0.10, off = 0.14, gap = 0.055, bw = 0.014;
+  for (let gx = 1; gx < GW-1; gx++) for (let gy = 1; gy < GH-1; gy++){
+    for (const d of [[1,0],[-1,0],[0,1],[0,-1]]){
+      for (let k = 0; k < 3; k++){
+        if (d[0]){ const xc = gx + d[0]*(off + k*gap); poly(octx, diamondPts(xc-bw, gy-half, xc+bw, gy+half)); }
+        else      { const yc = gy + d[1]*(off + k*gap); poly(octx, diamondPts(gx-half, yc-bw, gx+half, yc+bw)); }
+      }
+    }
+  }
+}
 // iso tree: shadow on the ground, trunk, layered canopy (billboard)
 function drawTree(gx, gy, scale){
   const b = iso(gx, gy, 0);
@@ -726,9 +783,19 @@ function drawStartEnd(t){
   ctx.fillStyle = '#fff'; ctx.fill();
   ctx.beginPath(); ctx.arc(s.x, s.y, rad*0.5, 0, Math.PI*2);
   ctx.fillStyle = '#2a2f3a'; ctx.fill();
-  // end pin floats above the destination house, bobbing
+  // end pin drops in on a new round, then bobs above the destination house
+  const drop = state === 'draw' ? (1 - easeOut(Math.min(1, drawT / (DRAW_MS*0.7)))) * -TW*1.6 : 0;
   const bob = Math.sin(t*3) * (TW*0.05);
-  drawPin(e.x, e.y + bob);
+  drawPin(e.x, e.y + bob + drop);
+  // START / HOME tags
+  tag(s.x, s.y - rad*2.6, 'START', 'rgba(20,24,34,.88)');
+  tag(e.x, e.y + bob + drop - TW*1.05, 'HOME', hexRGBA(COL.bad, .92));
+}
+function tag(x, y, text, bg){
+  ctx.font = '800 ' + Math.max(9, TW*0.2|0) + 'px ui-rounded, system-ui, sans-serif';
+  const w = ctx.measureText(text).width + 16, h = Math.max(16, TW*0.34);
+  ctx.fillStyle = bg; rr(ctx, x - w/2, y - h/2, w, h, h/2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 0.5);
 }
 function drawPin(x, y){
   const r = Math.max(11, cell*0.2);
@@ -759,8 +826,10 @@ function drawJam(r, t){
   const pulse = 0.6 + 0.4*Math.sin(t*6);
   for (let k = 1; k <= r.jam; k++){
     const p = pointAtFrac(r, k/(r.jam+1)), rad = Math.max(7, TW*0.13);
+    ctx.save(); ctx.shadowColor = 'rgba(255,40,40,.95)'; ctx.shadowBlur = TW*0.45*pulse;   // brake-light glow
     ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, Math.PI*2);
     ctx.fillStyle = 'rgba(255,60,60,' + (0.85*pulse).toFixed(2) + ')'; ctx.fill();
+    ctx.restore();
     ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.font = '900 ' + (rad*1.1|0) + 'px system-ui, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', p.x, p.y + 1);
@@ -784,6 +853,11 @@ function frame(ts){
   const t = ts / 1000;
   update(dt);
 
+  // score odometer roll-up
+  dispScore += (score - dispScore) * Math.min(1, dt * 0.02);
+  if (Math.abs(score - dispScore) < 0.5) dispScore = score;
+  scoreEl.textContent = Math.round(dispScore);
+
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,cssW,cssH);
   const sx = shake ? (Math.random()*2-1)*shake : 0;
@@ -792,11 +866,15 @@ function frame(ts){
   ctx.translate(sx, sy);
 
   if (city){
-    ctx.drawImage(off, 0, 0, cssW, cssH);           // static city
-    drawCars(dt/1000);
-    ctx.fillStyle = 'rgba(9,11,18,.42)'; ctx.fillRect(0, 0, cssW, cssH);   // focus scrim — mute the city so routes pop
-
     const drawing = state === 'draw';
+    const intro = drawing ? easeOut(Math.min(1, drawT / (DRAW_MS * 0.6))) : 1;
+    const mid = iso((GW-1)/2, (GH-1)/2, 0);
+    ctx.save();
+    if (intro < 1){ ctx.globalAlpha = 0.25 + 0.75*intro; ctx.translate(mid.x, mid.y); ctx.scale(0.95 + 0.05*intro, 0.95 + 0.05*intro); ctx.translate(-mid.x, -mid.y); }
+    ctx.drawImage(off, 0, 0, cssW, cssH);           // static city / background photo
+    if (!bgImg) drawCars(dt/1000);                  // photo already has its own cars
+    ctx.fillStyle = TINTS[Math.floor((round-1)/4) % TINTS.length]; ctx.fillRect(0, 0, cssW, cssH);   // day/night tint + focus scrim
+
     const frac = drawing ? Math.min(1, drawT / DRAW_MS) : 1;
     const reveal = state === 'reveal';
     const flowOffset = t * cell * 1.4;
@@ -810,7 +888,9 @@ function frame(ts){
       }
       strokeRoute(r, frac, opts);
     }
-    if (!drawing){
+    if (drawing){
+      for (const r of [routeA, routeB]){ const hp = pointAtFrac(r, frac); ctx.beginPath(); ctx.arc(hp.x, hp.y, Math.max(5, TW*0.13), 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill(); }
+    } else {
       if (!reveal) for (const r of [routeA, routeB]) drawJam(r, t);   // traffic-jam markers
       for (const r of [routeA, routeB]) drawBadge(r, reveal && !r.correct);
     }
@@ -823,6 +903,7 @@ function frame(ts){
     }
     drawStartEnd(t);
     drawTimerRing();
+    ctx.restore();
   }
 
   // popups
@@ -844,6 +925,9 @@ function frame(ts){
     ctx.fillStyle = pa.color; ctx.fillRect(-pa.size/2, -pa.size/2, pa.size, pa.size * 0.6); ctx.restore();
   }
   ctx.restore();
+
+  // vignette — darken the edges for depth
+  if (vignette){ ctx.fillStyle = vignette; ctx.fillRect(0, 0, cssW, cssH); }
 
   // flash tint
   if (flash){
@@ -961,6 +1045,7 @@ function updateHUD(){
   document.getElementById('streak').textContent = streak;
 }
 const timerfill = document.getElementById('timerfill');
+const scoreEl = document.getElementById('score');
 const promptEl = document.getElementById('prompt');
 function showPrompt(on){ promptEl.classList.toggle('show', on); }
 function setButtons(on){
@@ -1006,7 +1091,7 @@ muteBtn.addEventListener('click', () => { muted = !muted; muteBtn.textContent = 
 // start / restart
 function startGame(){
   audio(); if (actx && actx.state === 'suspended') actx.resume();
-  score = 0; lives = 3; streak = 0; round = 0;
+  score = 0; dispScore = 0; lives = 3; streak = 0; round = 0;
   popups.length = 0; particles.length = 0; flash = null; shake = 0; paused = false;
   stats = { answers: 0, correct: 0, rtSum: 0, picks: 0 };
   try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(()=>{}); } catch (e) {}
@@ -1108,6 +1193,39 @@ document.addEventListener('touchmove', e => e.preventDefault(), { passive: false
     const al = document.createElement('link'); al.rel = 'apple-touch-icon'; al.href = icon; document.head.appendChild(al);
   } catch (e) {}
 })();
+
+// ---- background image (Version 2) + picker ----
+function applyBg(src){
+  if (!src){ bgImg = null; if (city) buildStatic(); return; }
+  const im = new Image();
+  im.onload = () => { bgImg = im; if (city) buildStatic(); };
+  im.onerror = () => { bgImg = null; if (city) buildStatic(); };   // missing file -> procedural fallback
+  im.src = src;
+}
+function setBgFromFile(file){
+  if (!file) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    const im = new Image();
+    im.onload = () => {                          // downscale so it fits in localStorage, then persist + apply
+      const max = 1400, sc = Math.min(1, max / Math.max(im.width, im.height));
+      const cv = document.createElement('canvas'); cv.width = Math.round(im.width*sc); cv.height = Math.round(im.height*sc);
+      cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+      const data = cv.toDataURL('image/jpeg', 0.85);
+      try { localStorage.setItem('routerush_bg', data); } catch (e) {}
+      applyBg(data);
+    };
+    im.src = fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+const bgFile = document.getElementById('bgFile');
+bgFile.addEventListener('change', e => setBgFromFile(e.target.files[0]));
+document.getElementById('bgBtn').addEventListener('click', () => bgFile.click());
+document.getElementById('setBgBtn').addEventListener('click', () => bgFile.click());
+if (CONFIG.bg) applyBg(localStorage.getItem('routerush_bg') || CONFIG.bg);
+if (VER === 2) document.getElementById('setBgBtn').style.display = '';
+document.querySelectorAll('#vswitch a').forEach(a => { if (+a.dataset.v === VER) a.classList.add('cur'); });
 
 resize();
 updateHUD();
