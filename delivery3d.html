@@ -71,6 +71,12 @@
     background:linear-gradient(160deg,#1b5e34,#0f3d22); color:#fff; text-align:center; }
   #start.hidden, #err.hidden { display:none; }
   #err { background:#3a1414; }
+  /* DELIVERY DASH splash as the intro (image already shows title, art + PLAY) */
+  #start { background:#2a8fd6 url('assets/intro.png') center/contain no-repeat; cursor:pointer; }
+  #start .scard h1, #start #preview, #start .scard p, #start #startBtn { display:none; }
+  #start .volrow { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:42;
+    background:rgba(0,0,0,.5); padding:8px 16px; border-radius:22px; display:flex; align-items:center; gap:10px;
+    -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); }
   .scard { width:min(88vw,360px); padding:10px; }
   .scard h1 { font-size:34px; margin-bottom:14px; }
   .scard p { opacity:.9; line-height:1.5; margin-bottom:10px; }
@@ -1317,6 +1323,8 @@ function endShift(){
   renderUps(); renderScores(); renderPaints(); document.getElementById("summary").classList.remove("hidden");
 }
 document.getElementById("startBtn").addEventListener("click", startShift);
+// painted PLAY on the splash -> click/tap anywhere (except the volume slider) starts the shift
+document.getElementById("start").addEventListener("click", e=>{ if(e.target.closest(".volrow")) return; startShift(); });
 document.getElementById("againBtn").addEventListener("click", startShift);
 const muteBtn=document.getElementById("mute"), autoBtn=document.getElementById("auto");
 muteBtn.addEventListener("click",()=>{ Sound.init(); Sound.resume(); const m=Sound.toggleMute(); muteBtn.textContent=m?"🔇":"🔊"; });
