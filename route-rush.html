@@ -354,6 +354,30 @@ function routeFromCorners(corners){
     edges += Math.abs(corners[i].x - corners[i-1].x) + Math.abs(corners[i].y - corners[i-1].y);
   return { corners, edges };
 }
+// split a total into `parts` random positive integers (varied zigzag chunk sizes)
+function splitInt(total, parts){
+  if (total <= 0) return [];
+  parts = Math.max(1, Math.min(parts, total));
+  const arr = new Array(parts).fill(1); let rem = total - parts;
+  while (rem > 0){ arr[ri(0, parts-1)]++; rem--; }
+  return arr;
+}
+// monotone staircase from a to b with several turns; length == Manhattan(a,b)
+function zigStair(a, b, turns){
+  const sx = Math.sign(b.x - a.x), sy = Math.sign(b.y - a.y);
+  const xs = splitInt(Math.abs(b.x - a.x), Math.ceil(turns/2));
+  const ys = splitInt(Math.abs(b.y - a.y), Math.ceil(turns/2));
+  const pts = [{ x: a.x, y: a.y }];
+  let x = a.x, y = a.y, i = 0, j = 0, useX = Math.abs(b.x-a.x) >= Math.abs(b.y-a.y);
+  while (i < xs.length || j < ys.length){
+    if (useX && i < xs.length){ x += sx*xs[i++]; pts.push({ x, y }); }
+    else if (!useX && j < ys.length){ y += sy*ys[j++]; pts.push({ x, y }); }
+    else if (i < xs.length){ x += sx*xs[i++]; pts.push({ x, y }); }
+    else if (j < ys.length){ y += sy*ys[j++]; pts.push({ x, y }); }
+    useX = !useX;
+  }
+  return pts;
+}
 
 function generateRoutes(S, E, desiredM){
   const minx = Math.min(S.x,E.x), maxx = Math.max(S.x,E.x);
@@ -366,19 +390,18 @@ function generateRoutes(S, E, desiredM){
   const side = choice(cand.length ? cand : ['right']);
   const m = Math.max(1, Math.min(desiredM, rooms[side] || 1));
 
-  // LONG route: hug a side that lies OUTSIDE the S–E bounding box, +2m length
-  let w1, w2;
-  if (side === 'left')  { w1 = {x:minx-m, y:S.y}; w2 = {x:minx-m, y:E.y}; }
-  else if (side === 'right'){ w1 = {x:maxx+m, y:S.y}; w2 = {x:maxx+m, y:E.y}; }
-  else if (side === 'up')   { w1 = {x:S.x, y:miny-m}; w2 = {x:E.x, y:miny-m}; }
-  else                      { w1 = {x:S.x, y:maxy+m}; w2 = {x:E.x, y:maxy+m}; }
-  const longR = routeFromCorners([S, w1, w2, E]);
+  // LONG route: overshoot the chosen side by m (adds 2m), each leg a zigzag
+  const midY = Math.max(miny, Math.min(maxy, Math.round((S.y + E.y) / 2)));
+  const midX = Math.max(minx, Math.min(maxx, Math.round((S.x + E.x) / 2)));
+  let P;
+  if (side === 'left')       P = { x: minx - m, y: midY };
+  else if (side === 'right') P = { x: maxx + m, y: midY };
+  else if (side === 'up')    P = { x: midX, y: miny - m };
+  else                       P = { x: midX, y: maxy + m };
+  const longR = routeFromCorners(zigStair(S, P, ri(2,3)).concat(zigStair(P, E, ri(2,3)).slice(1)));
 
-  // SHORT route: clean monotone L (length = Manhattan dist), corner chosen away from the detour
-  const c1 = {x:E.x, y:S.y}, c2 = {x:S.x, y:E.y};
-  const d2W = c => Math.abs(c.x - w1.x) + Math.abs(c.y - w1.y) + Math.abs(c.x - w2.x) + Math.abs(c.y - w2.y);
-  const corner = d2W(c1) >= d2W(c2) ? c1 : c2;       // farther from the detour = more visual separation
-  const shortR = routeFromCorners([S, corner, E]);
+  // SHORT route: a winding monotone zigzag (length == Manhattan distance), several turns
+  const shortR = routeFromCorners(zigStair(S, E, ri(5,8)));
 
   // traffic-jam twist (from round 5): each jam adds effective length, so the
   // shorter-LOOKING route can actually be slower — player must read jams too.
