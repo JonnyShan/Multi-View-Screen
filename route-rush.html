@@ -182,6 +182,10 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const off = document.createElement('canvas');      // static city layer (rebuilt per round / resize)
 const octx = off.getContext('2d');
+const HOUSE_SPRITES = 12;                           // pre-rendered house variants in the atlas
+const spriteCv = document.createElement('canvas'); // supersampled house sprite atlas
+const sctx = spriteCv.getContext('2d');
+let SPR = { U: 0, Ucss: 0, n: HOUSE_SPRITES };
 
 // ---- config / difficulty ----
 const PAD = 14, HUD_TOP = 138;                     // px reserved for HUD at top
@@ -371,12 +375,12 @@ function generateCity(S, E){
     const bx = ri(0, GW-2), by = ri(0, GH-2), k = blockKey(bx,by);
     if (taken.has(k)) continue; taken.add(k); field.push({ bx, by }); break;
   }
-  // houses fill the rest — harmonised palette per city, gently desaturated so routes/shops pop
+  // houses fill the rest — each is a pre-rendered atlas sprite (see buildSprites)
   const pal = pickN(COL.roofs, 3 + ri(0,1)), wpal = pickN(WALLS, 3 + ri(0,1));
   const houses = [];
   for (let bx = 0; bx < GW-1; bx++) for (let by = 0; by < GH-1; by++){
     if (taken.has(blockKey(bx,by))) continue;
-    houses.push({ bx, by, roof: mix(choice(pal), '#6b7280', 0.10), wall: mix(choice(wpal), '#8b9099', 0.08), type: ri(0,2), seed: Math.random() });
+    houses.push({ bx, by, sprite: ri(0, HOUSE_SPRITES-1), flip: Math.random() < 0.5, seed: Math.random() });
   }
   // moving cars
   const cars = [];
@@ -396,7 +400,7 @@ function generateCity(S, E){
       ? { axis, line: ri(0, GH-1), pos: 0.35 + Math.random()*(GW-1.7), side: Math.random()<.5?1:-1, color: choice(CARCOL) }
       : { axis, line: ri(0, GW-1), pos: 0.35 + Math.random()*(GH-1.7), side: Math.random()<.5?1:-1, color: choice(CARCOL) });
   }
-  return { S, E, startBlk, endBlk, shops, houses, parks, towers, field, cars, parkedCars, endRoof: choice(COL.roofs) };
+  return { S, E, startBlk, endBlk, shops, houses, parks, towers, field, cars, parkedCars, pal, wpal, endRoof: choice(COL.roofs) };
 }
 
 // =================== route generation ===================
@@ -551,6 +555,7 @@ function buildStatic(){
   for (let gy = 0; gy < GH; gy++){ const a=iso(0,gy), b=iso(GW-1,gy); octx.moveTo(a.x,a.y); octx.lineTo(b.x,b.y); }
   octx.stroke(); octx.setLineDash([]);
   drawCrosswalks();
+  buildSprites();                               // (re)build the house atlas for this city's palette + size
 
   // flat ground for every lot
   for (const h of city.houses) drawLot(h.bx, h.by, false);
@@ -648,59 +653,77 @@ function drawTree(gx, gy, scale){
 }
 
 // flat 2D house: roof footprint + lighter inset + a door + a soft drop shadow
-function drawHouse3D(h){
-  const a = 0.22;
-  const g0 = h.bx+a, g0y = h.by+a, g1 = h.bx+1-a, g1y = h.by+1-a;
-  const cxg = (g0+g1)/2, cyg = (g0y+g1y)/2;
-  const roof = h.end ? COL.endRoof : h.roof, wall = h.end ? '#ffffff' : (h.wall || '#e9e2d4');
-  const N = iso(g0,g0y), E = iso(g1,g0y), S = iso(g1,g1y), W = iso(g0,g1y), c = iso(cxg,cyg);
-  // front path to the kerb
-  octx.fillStyle = '#c6cad1'; poly(octx, diamondPts(cxg-0.045, g1y-0.02, cxg+0.045, g1y+0.2));
-  // soft blurred ground shadow + eave (cast in one pass), then clear the shadow
-  octx.save();
-  octx.shadowColor = h.end ? 'rgba(255,210,74,.85)' : 'rgba(0,0,0,.5)';
-  octx.shadowBlur = TW * (h.end ? 0.5 : 0.16); octx.shadowOffsetY = TW*0.05;
-  octx.fillStyle = shade(roof, -0.4); poly(octx, diamondPts(g0-0.02, g0y-0.02, g1+0.02, g1y+0.03));
-  octx.restore();
-  // wall peek + door
-  octx.fillStyle = wall; poly(octx, diamondPts(g0+0.03, g0y+0.03, g1-0.03, g1y+0.05));
-  octx.fillStyle = shade(roof, -0.3); poly(octx, diamondPts(cxg-0.055, g1y-0.05, cxg+0.055, g1y+0.05));
-  // gradient-shaded pitched roof (ridge-bright -> eave-dark sheen)
-  const gtri = (p, q, b) => {
-    const g = octx.createLinearGradient((p.x+q.x)/2, (p.y+q.y)/2, c.x, c.y);
-    g.addColorStop(0, shade(roof, b-0.14)); g.addColorStop(1, shade(roof, b+0.15));
-    octx.fillStyle = g; octx.beginPath(); octx.moveTo(p.x,p.y); octx.lineTo(q.x,q.y); octx.lineTo(c.x,c.y); octx.closePath(); octx.fill();
-  };
-  if (h.type === 1){                                  // gable — two gradient slopes + bright ridge
-    const horiz = (g1-g0) >= (g1y-g0y);
-    const m1 = horiz ? iso(g0,cyg) : iso(cxg,g0y), m2 = horiz ? iso(g1,cyg) : iso(cxg,g1y);
-    const slope = (pts, x0,y0, x1,y1, c0, c1) => { const g = octx.createLinearGradient(x0,y0,x1,y1); g.addColorStop(0, shade(roof,c0)); g.addColorStop(1, shade(roof,c1)); octx.fillStyle = g; poly(octx, pts); };
-    if (horiz){ slope([N,E,m2,m1], 0,N.y, 0,m1.y, -0.06, 0.2); slope([m1,m2,S,W], 0,m1.y, 0,S.y, -0.1, -0.3); }
-    else      { slope([N,m1,m2,W], W.x,0, m1.x,0, 0.2, -0.04); slope([m1,E,S,m2], m1.x,0, E.x,0, -0.06, -0.3); }
-    octx.strokeStyle = 'rgba(255,255,255,.4)'; octx.lineWidth = Math.max(1, TW*0.022);
-    octx.beginPath(); octx.moveTo(m1.x, m1.y); octx.lineTo(m2.x, m2.y); octx.stroke();
-  } else {                                            // hip — four gradient slopes to the peak
-    gtri(N,E, 0.12); gtri(W,N, 0.05); gtri(E,S, -0.08); gtri(S,W, -0.22);
-    octx.strokeStyle = 'rgba(255,255,255,.22)'; octx.lineWidth = Math.max(1, TW*0.015);
-    octx.beginPath(); for (const p of [N,E,S,W]){ octx.moveTo(c.x,c.y); octx.lineTo(p.x,p.y); } octx.stroke();
+// ---- house sprite atlas: render low-poly 3/4 buildings once, supersampled, then stamp them ----
+const LP_BODY = ['#efe7d2','#e7d8ba','#dcc9a6','#f3eee2','#e3d3ba','#d6c8b2'];          // cream / tan walls
+const LP_ROOF = ['#37b9ad','#2ea99d','#48c4b8','#e07a5f','#d9694f','#d8c08a','#8fb4d8']; // teal-heavy + coral + tan + blue
+function buildSprites(){
+  const SS = 2;                                   // supersample for crisp downscaled edges
+  SPR.Ucss = Math.max(34, TW);
+  SPR.U = Math.round(SPR.Ucss * SS);
+  const total = HOUSE_SPRITES + 1;                // last cell = gold "end" house
+  spriteCv.width = SPR.U * total; spriteCv.height = SPR.U;
+  sctx.setTransform(1,0,0,1,0,0); sctx.clearRect(0, 0, spriteCv.width, spriteCv.height);
+  for (let i = 0; i < total; i++){
+    const isEnd = i === HOUSE_SPRITES, m = i % 4;
+    const floors = isEnd ? 2 : (m + 1);                       // 1..4 storeys
+    const pitched = isEnd ? true : floors <= 2;               // low = pitched house, tall = flat block
+    const body = isEnd ? '#f4f1ea' : LP_BODY[i % LP_BODY.length];
+    const roof = isEnd ? COL.endRoof : LP_ROOF[i % LP_ROOF.length];
+    paintHouseSprite(i * SPR.U, SPR.U, { floors, pitched, body, roof });
   }
-  // crisp eave outline
-  octx.strokeStyle = 'rgba(0,0,0,.3)'; octx.lineWidth = Math.max(1, TW*0.014); octx.lineJoin = 'round';
-  octx.beginPath(); octx.moveTo(N.x,N.y); octx.lineTo(E.x,E.y); octx.lineTo(S.x,S.y); octx.lineTo(W.x,W.y); octx.closePath(); octx.stroke();
-  // dormer on the front slope (rooflet + lit window)
-  const dbl = iso(cxg-0.12, g1y-0.04), dbr = iso(cxg+0.12, g1y-0.04), dap = iso(cxg, cyg+0.07);
-  octx.fillStyle = shade(roof, 0.1); octx.beginPath(); octx.moveTo(dbl.x,dbl.y); octx.lineTo(dbr.x,dbr.y); octx.lineTo(dap.x,dap.y); octx.closePath(); octx.fill();
-  octx.fillStyle = 'rgba(198,230,255,.92)'; const dwn = iso(cxg, g1y-0.1); octx.fillRect(dwn.x-TW*0.045, dwn.y-TW*0.03, TW*0.09, TW*0.06);
-  // chimney with cap + skylight
-  const ch = iso(g0+0.17, g0y+0.15);
-  octx.fillStyle = shade(roof, -0.46); octx.fillRect(ch.x-TW*0.045, ch.y-TW*0.06, TW*0.09, TW*0.13);
-  octx.fillStyle = shade(roof, -0.62); octx.fillRect(ch.x-TW*0.055, ch.y-TW*0.075, TW*0.11, TW*0.03);
-  octx.fillStyle = 'rgba(190,225,255,.85)'; const sk = iso(cxg+0.15, cyg-0.05); octx.fillRect(sk.x-TW*0.03, sk.y-TW*0.03, TW*0.06, TW*0.06);
-  // garden: tree + bushes + flowers
-  if ((h.seed || 0) > 0.5) drawTree(h.bx + 0.83, h.by + 0.85, TW*0.42);
-  octx.fillStyle = '#3f9a52'; for (const t of [[0.1,0.92],[0.92,0.1]]){ const p = iso(g0+(g1-g0)*t[0], g0y+(g1y-g0y)*t[1]); octx.beginPath(); octx.arc(p.x, p.y, TW*0.06, 0, Math.PI*2); octx.fill(); }
-  const FL = ['#ff5a8a','#ffd24a','#ff7a4a','#c98bff'];
-  for (let i = 0; i < 3; i++){ octx.fillStyle = FL[(i + (h.bx|0)) % FL.length]; const f = iso(g0 + 0.06 + i*0.1, g1y + 0.05); octx.beginPath(); octx.arc(f.x, f.y, Math.max(1.5, TW*0.028), 0, Math.PI*2); octx.fill(); }
+}
+// window grid on a wall face (parallelogram top tA->tB, bottom bA->bB)
+function faceWin(tA, tB, bB, bA, rows, cols){
+  rows = Math.min(rows, 5);
+  sctx.fillStyle = 'rgba(150,210,220,.92)';
+  for (let r = 0; r < rows; r++) for (let cI = 0; cI < cols; cI++){
+    const u0=(cI+0.26)/cols, u1=(cI+0.74)/cols, v0=(r+0.24)/rows, v1=(r+0.72)/rows;
+    const a=bil(tA,tB,bB,bA,u0,v0), b=bil(tA,tB,bB,bA,u1,v0), d=bil(tA,tB,bB,bA,u1,v1), e=bil(tA,tB,bB,bA,u0,v1);
+    sctx.beginPath(); sctx.moveTo(a.x,a.y); sctx.lineTo(b.x,b.y); sctx.lineTo(d.x,d.y); sctx.lineTo(e.x,e.y); sctx.closePath(); sctx.fill();
+  }
+}
+// paint one low-poly 3/4 building into atlas cell at x-offset ox, size U
+function paintHouseSprite(ox, U, v){
+  const g = sctx, body = v.body, roof = v.roof;
+  const cxp = ox + 0.5*U, byp = 0.84*U, hw = 0.32*U, hh = 0.16*U, H = v.floors * 0.115*U + 0.05*U;
+  const bN={x:cxp,y:byp-hh}, bE={x:cxp+hw,y:byp}, bS={x:cxp,y:byp+hh}, bW={x:cxp-hw,y:byp};
+  const tN={x:bN.x,y:bN.y-H}, tE={x:bE.x,y:bE.y-H}, tS={x:bS.x,y:bS.y-H}, tW={x:bW.x,y:bW.y-H};
+  const quad = p => { g.beginPath(); g.moveTo(p[0].x,p[0].y); for (let i=1;i<p.length;i++) g.lineTo(p[i].x,p[i].y); g.closePath(); g.fill(); };
+  // contact shadow
+  g.save(); g.shadowColor='rgba(0,0,0,.4)'; g.shadowBlur=U*0.05; g.shadowOffsetY=U*0.03;
+  g.fillStyle='rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(cxp, byp+hh*0.5, hw*0.96, hh*0.92, 0, 0, Math.PI*2); g.fill(); g.restore();
+  // two flat-shaded walls + window grids
+  g.fillStyle = shade(body,-0.32); quad([bE,bS,tS,tE]);   // right wall (darkest)
+  g.fillStyle = shade(body,-0.14); quad([bS,bW,tW,tS]);   // left wall
+  faceWin(tE,tS,bS,bE, v.floors, 2);
+  faceWin(tS,tW,bW,bS, v.floors, 2);
+  // roof
+  if (v.pitched){                                         // hip roof to a peak
+    const apex = { x: cxp, y: tN.y - 0.18*U };
+    g.fillStyle=shade(roof, 0.10); quad([tW,tN,apex]);
+    g.fillStyle=shade(roof, 0.02); quad([tN,tE,apex]);
+    g.fillStyle=shade(roof,-0.12); quad([tE,tS,apex]);
+    g.fillStyle=shade(roof,-0.24); quad([tS,tW,apex]);
+  } else {                                                // flat roof + parapet + rooftop unit
+    g.fillStyle=roof; quad([tN,tE,tS,tW]);
+    g.fillStyle=shade(roof,-0.22); quad([tS,tE,{x:tE.x,y:tE.y+U*0.022},{x:tS.x,y:tS.y+U*0.022}]);
+    g.fillStyle=shade(body,-0.06); g.fillRect(cxp - 0.07*U, tN.y + 0.05*U, 0.14*U, 0.06*U);
+  }
+  // crisp low-poly edges
+  g.strokeStyle='rgba(0,0,0,.22)'; g.lineWidth=Math.max(1,U*0.008); g.lineJoin='round';
+  g.beginPath(); g.moveTo(bS.x,bS.y); g.lineTo(tS.x,tS.y); g.moveTo(bE.x,bE.y); g.lineTo(tE.x,tE.y); g.moveTo(bW.x,bW.y); g.lineTo(tW.x,tW.y); g.stroke();
+  g.beginPath(); g.moveTo(tN.x,tN.y); g.lineTo(tE.x,tE.y); g.lineTo(tS.x,tS.y); g.lineTo(tW.x,tW.y); g.closePath(); g.stroke();
+}
+// stamp a low-poly building so its base sits at the lot centre (rises 3/4 to the north)
+function drawHouse3D(h){
+  const idx = h.end ? HOUSE_SPRITES : (h.sprite % HOUSE_SPRITES);
+  const b = iso(h.bx+0.5, h.by+0.5, 0), d = SPR.Ucss * 1.25;
+  const dx = b.x - d*0.5, dy = b.y - d*0.84;
+  if (h.end){ octx.save(); octx.shadowColor='rgba(255,210,74,.9)'; octx.shadowBlur=TW*0.5; }
+  if (h.flip && !h.end){ octx.save(); octx.translate(b.x*2, 0); octx.scale(-1, 1); octx.drawImage(spriteCv, idx*SPR.U, 0, SPR.U, SPR.U, dx, dy, d, d); octx.restore(); }
+  else octx.drawImage(spriteCv, idx*SPR.U, 0, SPR.U, SPR.U, dx, dy, d, d);
+  if (h.end) octx.restore();
+  if ((h.seed || 0) > 0.6) drawTree(h.bx + 0.86, h.by + 0.9, TW*0.4);
 }
 
 function drawParkGround(p){
@@ -1046,8 +1069,8 @@ function resolve(kind){
   if (kind !== 'timeout'){ stats.picks++; stats.rtSum += (timeMax - timeLeft); }
   if (good) stats.correct++;
   if (good){
-    const speed = Math.round((timeLeft / timeMax) * 100);
-    const gain = 100 + speed + streak * 5;
+    const speedFrac = Math.max(0, timeLeft / timeMax);   // 1 = instant, 0 = last moment
+    const gain = Math.round(25 + 475 * speedFrac) + streak * 4;   // score is mostly speed
     score += gain; streak++;
     if (streak > bestStreak){ bestStreak = streak; localStorage.setItem('routerush_beststreak', bestStreak); }
     lastResult = 'ok'; revealT = REVEAL_OK;
