@@ -722,11 +722,28 @@ const Sound = (function(){
   let ctx=null, master=null, muted=false, ready=false;
   let eg=null, lp=null, o1=null, o2=null, o3=null, sub=null, nbp=null, nGain=null, lfo=null, lfoGain=null;
   let padGain=null, padOsc=[], ambOn=false, noteTimer=null, rpm=0.1, prevGas=0;
+  let comp=null, revSend=null, scrGain=null, scrBp=null;
   function noiseBuf(){ const len=Math.floor(ctx.sampleRate*1.2); const b=ctx.createBuffer(1,len,ctx.sampleRate);
     const d=b.getChannelData(0); for(let i=0;i<len;i++) d[i]=Math.random()*2-1; return b; }
+  function impulse(sec,decay){ const len=Math.floor(ctx.sampleRate*sec); const b=ctx.createBuffer(2,len,ctx.sampleRate);
+    for(let c=0;c<2;c++){ const d=b.getChannelData(c); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay); } return b; }
+  function spat(x,z){ const p=ctx.createPanner(); p.panningModel="equalpower"; p.distanceModel="linear"; p.refDistance=60; p.maxDistance=900; p.rolloffFactor=1;
+    if(p.positionX){ p.positionX.value=x; p.positionZ.value=z; } else if(p.setPosition) p.setPosition(x,0,z); return p; }
+  function blipAt(x,z,freq,dur,type,vol){ if(!ready||muted) return; const o=ctx.createOscillator(), g=ctx.createGain(), p=spat(x,z);
+    o.type=type||"triangle"; o.frequency.value=freq; o.connect(g); g.connect(p); p.connect(master); if(revSend) g.connect(revSend);
+    const t=ctx.currentTime, d=dur||0.12; g.gain.value=0; g.gain.linearRampToValueAtTime(vol||0.3,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+d); o.start(t); o.stop(t+d+0.02); }
   function init(){
     if(ready) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
-    ctx=new AC(); master=ctx.createGain(); master.gain.value=0.5; master.connect(ctx.destination);
+    ctx=new AC();
+    comp=ctx.createDynamicsCompressor(); comp.threshold.value=-18; comp.knee.value=20; comp.ratio.value=3.4; comp.attack.value=0.004; comp.release.value=0.18; comp.connect(ctx.destination);
+    master=ctx.createGain(); master.gain.value=0.6; master.connect(comp);
+    // light convolution reverb on a send (street space)
+    const conv=ctx.createConvolver(); conv.buffer=impulse(1.0,3.0); conv.connect(master);
+    revSend=ctx.createGain(); revSend.gain.value=0.35; revSend.connect(conv);
+    // skid screech bus: looping noise -> bandpass -> gain (raised while sliding)
+    const ss=ctx.createBufferSource(); ss.buffer=noiseBuf(); ss.loop=true;
+    scrBp=ctx.createBiquadFilter(); scrBp.type="bandpass"; scrBp.frequency.value=2200; scrBp.Q.value=1.4;
+    scrGain=ctx.createGain(); scrGain.gain.value=0; ss.connect(scrBp); scrBp.connect(scrGain); scrGain.connect(master); ss.start();
     // --- engine tone: two detuned saws (firing harmonics) + square sub, through an RPM-tracked lowpass ---
     eg=ctx.createGain(); eg.gain.value=0;
     lp=ctx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=400; lp.Q.value=7;
@@ -751,7 +768,7 @@ const Sound = (function(){
   function resume(){ if(ctx && ctx.state==="suspended") ctx.resume(); }
   function blip(freq,dur,type,vol){
     if(!ready||muted) return; const o=ctx.createOscillator(), g=ctx.createGain();
-    o.type=type||"square"; o.frequency.value=freq; g.gain.value=0; o.connect(g); g.connect(master);
+    o.type=type||"square"; o.frequency.value=freq; g.gain.value=0; o.connect(g); g.connect(master); if(revSend) g.connect(revSend);
     const t=ctx.currentTime, d=dur||0.15;
     g.gain.linearRampToValueAtTime(vol||0.3, t+0.01); g.gain.exponentialRampToValueAtTime(0.0001, t+d);
     o.start(t); o.stop(t+d+0.02);
@@ -777,7 +794,7 @@ const Sound = (function(){
   function pop(){ if(!ready||muted) return; // exhaust crackle on throttle-off
     const o=ctx.createOscillator(), g=ctx.createGain(), f=ctx.createBiquadFilter();
     f.type="bandpass"; f.frequency.value=130+Math.random()*130; f.Q.value=1.3;
-    o.type="square"; o.frequency.value=65+Math.random()*55; o.connect(f); f.connect(g); g.connect(master);
+    o.type="square"; o.frequency.value=65+Math.random()*55; o.connect(f); f.connect(g); g.connect(master); if(revSend) g.connect(revSend);
     const t=ctx.currentTime; g.gain.value=0; g.gain.linearRampToValueAtTime(0.15,t+0.005); g.gain.exponentialRampToValueAtTime(0.0001,t+0.09);
     o.start(t); o.stop(t+0.1);
   }
@@ -786,7 +803,8 @@ const Sound = (function(){
     engine(sp, gas){
       if(!ready||muted) return; const t=ctx.currentTime; const g=gas||0;
       // RPM with inertia — revs build fast, fall slower (engine braking feel)
-      const target = 0.08 + Math.max(0,Math.min(1,sp))*0.92;
+      const revUp = (g>0.5 && sp<0.06) ? 0.5 : 0;            // rev in place when stopped on throttle
+      const target = 0.08 + Math.max(Math.max(0,Math.min(1,sp))*0.92, revUp);
       rpm += (target - rpm) * (target>rpm ? 0.11 : 0.05);
       const base = 30 + rpm*150;                                 // firing fundamental
       o1.frequency.setTargetAtTime(base, t, 0.04);
@@ -808,7 +826,15 @@ const Sound = (function(){
     engineOff(){ if(!ready) return; const t=ctx.currentTime;
       eg.gain.setTargetAtTime(0, t, 0.25); nGain.gain.setTargetAtTime(0, t, 0.25); },
     pickup(){ blip(680,0.1,"square",0.28); setTimeout(()=>blip(900,0.12,"square",0.28),95); },
+    pickupAt(x,z){ blipAt(x,z,680,0.1,"square",0.3); setTimeout(()=>blipAt(x,z,900,0.12,"square",0.3),95); },
     deliver(){ [0,90,170].forEach((d,i)=>setTimeout(()=>blip(880+i*200,0.1,"triangle",0.3),d)); },
+    deliverAt(x,z){ [0,90,170].forEach((d,i)=>setTimeout(()=>blipAt(x,z,880+i*200,0.1,"triangle",0.32),d)); },
+    screech(on,amt){ if(!ready) return; const t=ctx.currentTime;
+      scrGain.gain.setTargetAtTime(on?(0.05+(amt||0)*0.07):0, t, on?0.02:0.09);
+      scrBp.frequency.setTargetAtTime(1700+(amt||0)*1500, t, 0.05); },
+    setListener(x,z,heading){ if(!ready) return; const L=ctx.listener;
+      if(L.positionX){ L.positionX.value=x; L.positionZ.value=z; if(L.forwardX){ L.forwardX.value=Math.cos(heading); L.forwardZ.value=Math.sin(heading); } }
+      else if(L.setPosition){ L.setPosition(x,0,z); if(L.setOrientation) L.setOrientation(Math.cos(heading),0,Math.sin(heading),0,1,0); } },
     fail(){ blip(170,0.32,"sawtooth",0.28); },
     bump(){ blip(85,0.18,"square",0.34); },
     buy(){ blip(520,0.08,"square",0.3); setTimeout(()=>blip(780,0.12,"square",0.3),80); },
@@ -858,7 +884,7 @@ const orders={
       if(o.timeLeft<=0){ this.failJob(i); continue; }
       const tgt=o.picked?o.customer:o.restaurant.door, r=o.picked?DROP_R:PICKUP_R;
       if(Math.hypot(moped.x-tgt.x, moped.z-tgt.z)<r){
-        if(!o.picked){ o.picked=true; this.flash("Picked up "+o.name); spawnPop(tgt.x,tgt.z,0xff9d2e); Sound.pickup(); vibe(25); }
+        if(!o.picked){ o.picked=true; this.flash("Picked up "+o.name); spawnPop(tgt.x,tgt.z,0xff9d2e); Sound.pickupAt(tgt.x,tgt.z); vibe(25); }
         else this.deliverJob(i);
       }
     }
@@ -883,7 +909,7 @@ const orders={
     this.money+=e; this.earned+=e; this.deliveries++;
     this.flash("Delivered! +$"+e+(this.streak>1?"  🔥x"+this.streak:""));
     spawnPop(o.customer.x,o.customer.z,0x2faf5a); spawnFloat(o.customer.x,o.customer.z,"+$"+e,0x6cf08a);
-    Sound.deliver(); vibe(40); this.active.splice(i,1); },
+    Sound.deliverAt(o.customer.x,o.customer.z); vibe(40); this.active.splice(i,1); },
   failJob(i){ const o=this.active[i]; this.streak=0;
     this.flash((o.picked?"Spoiled — ":"Lost — ")+o.name); Sound.fail(); vibe([60,40,60]); this.active.splice(i,1); },
   flash(m){ this.lastMsg=m; this.msgT=2.2; },
@@ -1171,6 +1197,7 @@ let last=0;
 function frame(t){
   const dt=last?Math.min((t-last)/1000,0.05):0; last=t;
   readInput(); moped.update(dt); updateTraffic(dt); updatePedestrians(dt); updateDayNight(dt); updateCamera(dt);
+  Sound.setListener(moped.x, moped.z, moped.heading);
   if(started){ orders.update(dt); syncPopup(); }
   if(gstate==="playing"){ shiftT-=dt; if(shiftT<=0){ shiftT=0; endShift(); }
     Sound.engine(Math.min(1,Math.abs(moped.speed)/moped.MAX), input.gas); }
@@ -1180,7 +1207,8 @@ function frame(t){
     if(sp>50){ smokeT-=dt; if(smokeT<=0){ emitSmoke(); smokeT=0.06; } } else smokeT=0;
     const skidding=(input.brake && sp>120)||(Math.abs(input.steer)>0 && sp>235);
     if(skidding){ skidT-=dt; if(skidT<=0){ dropSkid(); skidT=0.05; } } else skidT=0;
-  }
+    Sound.screech(skidding, Math.min(1,sp/300));
+  } else Sound.screech(false,0);
   updateSmoke(dt); updateSkids(dt);
   updateRoute(dt);
   updateMarkers(dt); updateFX(dt); updateFloats(dt); syncHud(); drawMinimap();
