@@ -20,13 +20,13 @@
   #hud {
     position: fixed; top: 0; left: 0; right: 0; z-index: 10;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px 6px; gap: 10px; pointer-events: none;
+    padding: calc(10px + env(safe-area-inset-top)) 14px 6px; gap: 10px; pointer-events: none;
     text-shadow: 0 2px 8px rgba(0,0,0,.7);
   }
-  #lives { font-size: 22px; letter-spacing: 2px; min-width: 90px; }
+  #lives { font-size: 26px; letter-spacing: 2px; min-width: 96px; }
   #lives .dead { opacity: .22; filter: grayscale(1); }
   #scorebox { text-align: center; flex: 1; }
-  #score { font-size: 30px; font-weight: 900; line-height: 1; letter-spacing: .5px; }
+  #score { font-size: 36px; font-weight: 900; line-height: 1; letter-spacing: .5px; }
   #subline { font-size: 11px; opacity: .8; margin-top: 3px; letter-spacing: .3px; white-space: nowrap; }
   #subline b { color: #ffd24a; }
   #right { min-width: 90px; display: flex; justify-content: flex-end; gap: 8px; pointer-events: auto; }
@@ -38,7 +38,7 @@
 
   /* ---- timer bar ---- */
   #timerwrap {
-    position: fixed; top: 78px; left: 14px; right: 14px; height: 7px; z-index: 10;
+    position: fixed; top: calc(84px + env(safe-area-inset-top)); left: 14px; right: 14px; height: 7px; z-index: 10;
     background: rgba(255,255,255,.10); border-radius: 99px; overflow: hidden; pointer-events: none;
   }
   #timerfill { height: 100%; width: 100%; border-radius: 99px;
@@ -46,8 +46,8 @@
 
   /* ---- prompt ---- */
   #prompt {
-    position: fixed; top: 92px; left: 50%; transform: translateX(-50%); z-index: 10;
-    font-size: clamp(15px, 4.4vw, 22px); font-weight: 900; letter-spacing: 1.5px;
+    position: fixed; top: calc(98px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 10;
+    font-size: clamp(16px, 4.8vw, 24px); font-weight: 900; letter-spacing: 1.5px;
     text-shadow: 0 2px 8px rgba(0,0,0,.8); pointer-events: none; opacity: 0; transition: opacity .2s;
     white-space: nowrap; text-align: center;
   }
@@ -55,20 +55,34 @@
   #prompt small { display: block; font-size: 12px; font-weight: 600; letter-spacing: 1px; opacity: .7; margin-top: 2px; }
   /* hide the playfield HUD while a full-screen overlay (start / game over) is up */
   body:not(.playing) #hud, body:not(.playing) #timerwrap, body:not(.playing) #prompt { display: none !important; }
+  /* GET READY countdown */
+  #countdown { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center;
+    pointer-events: none; font-weight: 900; font-size: clamp(90px, 30vw, 220px); color: #fff;
+    text-shadow: 0 8px 40px rgba(0,0,0,.7); }
+  #countdown.show { display: flex; animation: cpop .5s ease; }
+  @keyframes cpop { 0%{ transform: scale(.5); opacity: 0 } 40%{ transform: scale(1.15); opacity: 1 } 100%{ transform: scale(1); opacity: 1 } }
+  /* rotate-to-portrait notice (phones in landscape) */
+  #rotate { position: fixed; inset: 0; z-index: 80; display: none; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px; background: #0b0e14; color: #fff;
+    text-align: center; padding: 30px; font-size: 20px; font-weight: 800; }
+  #rotate .icon { font-size: 64px; animation: rot 1.6s ease-in-out infinite; }
+  @keyframes rot { 0%,100%{ transform: rotate(0) } 50%{ transform: rotate(-90deg) } }
+  @media (orientation: landscape) and (max-height: 540px){ #rotate { display: flex; } }
 
   /* ---- choice buttons ---- */
   .choice {
-    position: fixed; bottom: max(20px, env(safe-area-inset-bottom)); z-index: 10;
-    width: clamp(96px, 26vw, 150px); height: clamp(96px, 26vw, 150px); border-radius: 26px;
-    border: 3px solid; background: rgba(12,16,24,.62); backdrop-filter: blur(6px);
+    position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 10;
+    width: calc(50% - 58px);                 /* big thumb targets; ~116px centre gap for the timer ring */
+    height: clamp(116px, 17vh, 168px); border-radius: 28px;
+    border: 4px solid; background: rgba(12,16,24,.66); backdrop-filter: blur(6px);
     color: #fff; cursor: pointer; pointer-events: auto;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     font-weight: 900; transition: transform .1s, box-shadow .15s, opacity .15s; user-select: none;
   }
-  .choice .big { font-size: clamp(36px, 9vw, 54px); line-height: 1; }
-  .choice .lbl { font-size: 11px; letter-spacing: 2px; opacity: .85; margin-top: 4px; }
-  #btnA { left: 16px;  border-color: #3da5ff; box-shadow: 0 0 26px rgba(61,165,255,.45); }
-  #btnB { right: 16px; border-color: #ff3d9a; box-shadow: 0 0 26px rgba(255,61,154,.45); }
+  .choice .big { font-size: clamp(54px, 15vw, 84px); line-height: 1; }
+  .choice .lbl { font-size: 13px; letter-spacing: 2px; opacity: .85; margin-top: 6px; }
+  #btnA { left: 14px;  border-color: #3da5ff; box-shadow: 0 0 30px rgba(61,165,255,.5); }
+  #btnB { right: 14px; border-color: #ff3d9a; box-shadow: 0 0 30px rgba(255,61,154,.5); }
   #btnA .big { color: #7ec2ff; } #btnB .big { color: #ff85bf; }
   .choice:active { transform: scale(.93); }
   .choice.disabled { opacity: .35; pointer-events: none; }
@@ -154,6 +168,9 @@
     </div>
   </div>
 
+  <div id="countdown"></div>
+  <div id="rotate"><div class="icon">📱</div><div>Rotate to portrait to play</div></div>
+
 <script>
 "use strict";
 /* ======================================================================
@@ -167,7 +184,7 @@ const off = document.createElement('canvas');      // static city layer (rebuilt
 const octx = off.getContext('2d');
 
 // ---- config / difficulty ----
-const PAD = 14, HUD_TOP = 128;                     // px reserved for HUD at top
+const PAD = 14, HUD_TOP = 138;                     // px reserved for HUD at top
 const DRAW_MS = 420;                               // route draw-in animation
 const REVEAL_OK = 950, REVEAL_BAD = 1350;          // reveal hold (car drives the route)
 const INSET = 2;                                   // start/end inset from grid edges
@@ -208,7 +225,7 @@ let bgImg = null;                 // loaded background image (version 2)
 COL.A = CONFIG.brandA; COL.Aglow = hexRGBA(CONFIG.brandA, .85);
 COL.B = CONFIG.brandB; COL.Bglow = hexRGBA(CONFIG.brandB, .85);
 // day / dusk / night / dawn tint+scrim, cycled every 4 rounds (mutes city; routes drawn on top)
-const TINTS = ['rgba(9,11,18,.40)', 'rgba(42,20,10,.42)', 'rgba(8,12,30,.50)', 'rgba(26,12,30,.44)'];
+const TINTS = ['rgba(9,11,18,.30)', 'rgba(42,20,10,.34)', 'rgba(8,12,30,.42)', 'rgba(26,12,30,.36)'];
 // blend a hex toward a target hex by amt (0..1) -> hex
 function mix(hex, target, amt){
   const a = parseInt(hex.slice(1),16), b = parseInt(target.slice(1),16);
@@ -245,6 +262,8 @@ let lastTS = 0, paused = false;
 let bestStreak = +(localStorage.getItem('routerush_beststreak') || 0);
 let stats = { answers: 0, correct: 0, rtSum: 0, picks: 0 };  // per-run accuracy + reaction time
 let dispScore = 0, vignette = null;                // odometer score + cached vignette gradient
+let holdPlay = false, wakeLock = null;             // GET READY gate + screen wake-lock
+let reduceMotion = false; try { reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
 
 // =================== layout ===================
 function pickGrid(){
@@ -357,7 +376,7 @@ function generateCity(S, E){
   const houses = [];
   for (let bx = 0; bx < GW-1; bx++) for (let by = 0; by < GH-1; by++){
     if (taken.has(blockKey(bx,by))) continue;
-    houses.push({ bx, by, roof: mix(choice(pal), '#6b7280', 0.18), wall: mix(choice(wpal), '#8b9099', 0.12), type: ri(0,2), seed: Math.random() });
+    houses.push({ bx, by, roof: mix(choice(pal), '#6b7280', 0.10), wall: mix(choice(wpal), '#8b9099', 0.08), type: ri(0,2), seed: Math.random() });
   }
   // moving cars
   const cars = [];
@@ -630,16 +649,43 @@ function drawTree(gx, gy, scale){
 
 // flat 2D house: roof footprint + lighter inset + a door + a soft drop shadow
 function drawHouse3D(h){
-  const a = 0.26;
+  const a = 0.23;
   const g0 = h.bx+a, g0y = h.by+a, g1 = h.bx+1-a, g1y = h.by+1-a;
-  const roof = h.end ? COL.endRoof : h.roof;
-  octx.fillStyle = 'rgba(0,0,0,.16)'; poly(octx, diamondPts(g0+0.04, g0y+0.06, g1+0.04, g1y+0.06));   // shadow
-  if (h.end){ octx.save(); octx.shadowColor = 'rgba(255,210,74,.9)'; octx.shadowBlur = TW*0.4; }
-  octx.fillStyle = roof; poly(octx, diamondPts(g0, g0y, g1, g1y));
+  const cxg = (g0+g1)/2, cyg = (g0y+g1y)/2;
+  const roof = h.end ? COL.endRoof : h.roof, wall = h.end ? '#ffffff' : (h.wall || '#e9e2d4');
+  // ground shadow + path from door to the kerb
+  octx.fillStyle = 'rgba(0,0,0,.18)'; poly(octx, diamondPts(g0+0.05, g0y+0.07, g1+0.05, g1y+0.07));
+  octx.fillStyle = '#c6cad1'; poly(octx, diamondPts(cxg-0.05, g1y-0.02, cxg+0.05, g1y+0.18));
+  // wall footprint (peeks past the eaves) + a little door
+  octx.fillStyle = wall; poly(octx, diamondPts(g0+0.04, g0y+0.04, g1-0.04, g1y+0.05));
+  octx.fillStyle = shade(roof, -0.28); poly(octx, diamondPts(cxg-0.06, g1y-0.04, cxg+0.06, g1y+0.05));
+  // eave border, then the pitched roof
+  if (h.end){ octx.save(); octx.shadowColor = 'rgba(255,210,74,.9)'; octx.shadowBlur = TW*0.5; }
+  octx.fillStyle = shade(roof, -0.36); poly(octx, diamondPts(g0-0.02, g0y-0.02, g1+0.02, g1y+0.02));
+  const N = iso(g0,g0y), E = iso(g1,g0y), S = iso(g1,g1y), W = iso(g0,g1y), c = iso(cxg,cyg);
+  if (h.type === 1){                                  // gable roof — ridge along the long axis, two slopes
+    const horiz = (g1-g0) >= (g1y-g0y);
+    const m1 = horiz ? iso(g0,cyg) : iso(cxg,g0y), m2 = horiz ? iso(g1,cyg) : iso(cxg,g1y);
+    if (horiz){ octx.fillStyle = shade(roof, 0.16); poly(octx, [N, E, m2, m1]); octx.fillStyle = shade(roof, -0.18); poly(octx, [m1, m2, S, W]); }
+    else      { octx.fillStyle = shade(roof, 0.16); poly(octx, [N, m1, m2, W]); octx.fillStyle = shade(roof, -0.18); poly(octx, [m1, E, S, m2]); }
+    octx.strokeStyle = 'rgba(255,255,255,.3)'; octx.lineWidth = Math.max(1, TW*0.02);
+    octx.beginPath(); octx.moveTo(m1.x, m1.y); octx.lineTo(m2.x, m2.y); octx.stroke();
+  } else {                                            // hip roof — four shaded slopes to the centre
+    const tri = (p,q,col)=>{ octx.fillStyle = col; octx.beginPath(); octx.moveTo(p.x,p.y); octx.lineTo(q.x,q.y); octx.lineTo(c.x,c.y); octx.closePath(); octx.fill(); };
+    tri(N,E, shade(roof, 0.16)); tri(W,N, shade(roof, 0.04)); tri(E,S, shade(roof, -0.08)); tri(S,W, shade(roof, -0.24));
+    octx.strokeStyle = 'rgba(255,255,255,.22)'; octx.lineWidth = Math.max(1, TW*0.016);
+    octx.beginPath(); for (const p of [N,E,S,W]){ octx.moveTo(c.x,c.y); octx.lineTo(p.x,p.y); } octx.stroke();
+  }
   if (h.end) octx.restore();
-  octx.fillStyle = shade(roof, 0.12); poly(octx, diamondPts(g0+0.09, g0y+0.09, g1-0.09, g1y-0.09));    // roof inset
-  octx.fillStyle = shade(roof, -0.24); poly(octx, diamondPts((g0+g1)/2-0.08, g1y-0.14, (g0+g1)/2+0.08, g1y)); // door
-  if ((h.seed || 0) > 0.6) drawTree(h.bx + 0.8, h.by + 0.8, TW*0.4);
+  // chimney + skylight
+  octx.fillStyle = shade(roof, -0.42); const ch = iso(g0+0.16, g0y+0.16);
+  octx.fillRect(ch.x - TW*0.045, ch.y - TW*0.05, TW*0.09, TW*0.1);
+  octx.fillStyle = 'rgba(190,225,255,.85)'; const sk = iso(cxg+0.13, cyg+0.13);
+  octx.fillRect(sk.x - TW*0.035, sk.y - TW*0.035, TW*0.07, TW*0.07);
+  // garden: tree + a couple of flowers
+  if ((h.seed || 0) > 0.5) drawTree(h.bx + 0.82, h.by + 0.83, TW*0.4);
+  const FL = ['#ff5a8a','#ffd24a','#ff7a4a','#c98bff'];
+  for (let i = 0; i < 2; i++){ octx.fillStyle = FL[(i + (h.bx|0)) % FL.length]; const f = iso(g0 + 0.08 + i*0.12, g1y + 0.02); octx.beginPath(); octx.arc(f.x, f.y, Math.max(1.5, TW*0.03), 0, Math.PI*2); octx.fill(); }
 }
 
 function drawParkGround(p){
@@ -839,7 +885,7 @@ function drawJam(r, t){
 function drawTimerRing(){
   if (state !== 'play' && state !== 'draw') return;
   const ratio = state === 'draw' ? 1 : Math.max(0, timeLeft / timeMax);
-  const cx = cssW/2, cy = cssH - 92, rad = 30;
+  const cx = cssW/2, cy = cssH - 108, rad = 33;
   ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI*2);
   ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 7; ctx.stroke();
   ctx.beginPath(); ctx.arc(cx, cy, rad, -Math.PI/2, -Math.PI/2 + ratio*Math.PI*2);
@@ -945,7 +991,7 @@ function update(dt){
   if (paused) return;
   if (state === 'draw'){
     drawT += dt;
-    if (drawT >= DRAW_MS){ state = 'play'; timeLeft = timeMax = roundTime(round); tickGuard = false; setButtons(true); showPrompt(true); }
+    if (drawT >= DRAW_MS && !holdPlay){ state = 'play'; timeLeft = timeMax = roundTime(round); tickGuard = false; setButtons(true); showPrompt(true); }
   } else if (state === 'play'){
     timeLeft -= dt;
     const ratio = Math.max(0, timeLeft / timeMax);
@@ -991,14 +1037,14 @@ function resolve(kind){
     if (streak > bestStreak){ bestStreak = streak; localStorage.setItem('routerush_beststreak', bestStreak); }
     lastResult = 'ok'; revealT = REVEAL_OK;
     flash = { color: 'rgba(56,224,139,A)', a: 0.28 };
-    sOK(); buzz(15); spawnParticles();
+    sOK(); buzz(15); if (!reduceMotion) spawnParticles();
     addPopup('+' + gain, COL.good, 34);
     if (score > best){ best = score; localStorage.setItem('routerush_best', best); }
   } else {
     lives--; streak = 0;
     lastResult = (kind === 'timeout') ? 'timeout' : 'bad';
     revealT = REVEAL_BAD;
-    flash = { color: 'rgba(255,77,77,A)', a: 0.32 }; shake = 14;
+    flash = { color: 'rgba(255,77,77,A)', a: 0.32 }; shake = reduceMotion ? 0 : 14;
     sBad(); buzz([40, 30, 40]);
     addPopup(kind === 'timeout' ? 'TOO SLOW' : 'WRONG', COL.bad, 30);
   }
@@ -1067,14 +1113,20 @@ function routeDist(r, x, y){
     d = Math.min(d, pointSeg(x, y, r.pixels[i-1].x, r.pixels[i-1].y, r.pixels[i].x, r.pixels[i].y));
   return d;
 }
-canvas.addEventListener('pointerdown', e => {
+// tap a route, tap the half of the screen, or swipe left/right — whole screen is a chooser
+let pdX = 0, pdY = 0, pdOn = false;
+canvas.addEventListener('pointerdown', e => { pdOn = true; pdX = e.clientX; pdY = e.clientY; });
+canvas.addEventListener('pointerup', e => {
+  if (!pdOn) return; pdOn = false;
   if (state !== 'play') return;
+  const dx = e.clientX - pdX, dy = e.clientY - pdY;
+  if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy)){ choose(dx < 0 ? 'A' : 'B'); return; }   // swipe
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left, y = e.clientY - rect.top;
   const dA = routeDist(routeA, x, y), dB = routeDist(routeB, x, y);
   const thresh = Math.max(28, cell * 0.5);
-  if (Math.min(dA, dB) > thresh) return;
-  choose(dA <= dB ? routeA.label : routeB.label);
+  if (Math.min(dA, dB) <= thresh) choose(dA <= dB ? routeA.label : routeB.label);   // near a route
+  else choose(x < cssW / 2 ? 'A' : 'B');                                            // else tap-half
 });
 document.getElementById('btnA').addEventListener('click', () => choose('A'));
 document.getElementById('btnB').addEventListener('click', () => choose('B'));
@@ -1091,6 +1143,7 @@ muteBtn.addEventListener('click', () => { muted = !muted; muteBtn.textContent = 
 // start / restart
 function startGame(){
   audio(); if (actx && actx.state === 'suspended') actx.resume();
+  requestWakeLock(); goFullscreen();
   score = 0; dispScore = 0; lives = 3; streak = 0; round = 0;
   popups.length = 0; particles.length = 0; flash = null; shake = 0; paused = false;
   stats = { answers: 0, correct: 0, rtSum: 0, picks: 0 };
@@ -1099,8 +1152,22 @@ function startGame(){
   document.getElementById('over').classList.add('hidden');
   document.body.classList.add('playing');
   updateHUD();
-  newRound();
+  holdPlay = true; newRound();                         // map draws in, timer waits for GO
+  runCountdown(() => { holdPlay = false; });
 }
+function runCountdown(done){
+  const el = document.getElementById('countdown');
+  const seq = ['3', '2', '1', 'GO!']; let i = 0;
+  const step = () => {
+    el.textContent = seq[i]; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    sTick(); i++;
+    if (i < seq.length) setTimeout(step, 600);
+    else setTimeout(() => { el.classList.remove('show'); done(); }, 480);
+  };
+  step();
+}
+function requestWakeLock(){ try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { wakeLock = w; }).catch(()=>{}); } catch (e) {} }
+function goFullscreen(){ try { const el = document.documentElement; if (el.requestFullscreen) el.requestFullscreen().catch(()=>{}); } catch (e) {} }
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('againBtn').addEventListener('click', startGame);
 document.getElementById('shareBtn').addEventListener('click', shareCard);
@@ -1170,7 +1237,10 @@ if (CONFIG.cta && CONFIG.cta.text){
   document.querySelector('#over .overbtns').appendChild(c);
 }
 // pause when the tab is hidden so the timer never runs unfairly
-document.addEventListener('visibilitychange', () => { paused = document.hidden; if (!paused) lastTS = 0; });
+document.addEventListener('visibilitychange', () => {
+  paused = document.hidden;
+  if (!paused){ lastTS = 0; if (document.body.classList.contains('playing')) requestWakeLock(); }
+});
 // kill rubber-band scroll on mobile
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 // installable PWA: generate an icon + inline manifest
