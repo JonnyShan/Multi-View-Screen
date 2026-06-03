@@ -709,6 +709,7 @@ function updateFloats(dt){ for(const f of floatPool){ if(!f.spr.visible) continu
 
 // ===================== exhaust smoke + skid marks =====================
 let smokeT=0, skidT=0;
+const ENABLE_SMOKE=false; // electric bike — no exhaust smoke (flip true to restore)
 const smokePool=[];
 for(let i=0;i<28;i++){ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:cloudTex,transparent:true,opacity:0,depthWrite:false,color:0x8d877e}));
   s.visible=false; scene.add(s); smokePool.push({s,t:0,vx:0,vz:0,dur:1.2}); }
@@ -1327,7 +1328,7 @@ function frame(t){
   else Sound.engineOff();
   // juice: exhaust puffs + skid marks while riding
   if(gstate==="playing"){ const sp=Math.abs(moped.speed);
-    if(sp>50){ smokeT-=dt; if(smokeT<=0){ emitSmoke(); smokeT=0.04; } } else smokeT=0;
+    if(ENABLE_SMOKE && sp>50){ smokeT-=dt; if(smokeT<=0){ emitSmoke(); smokeT=0.04; } } else smokeT=0;
     const skidding=(input.brake && sp>120)||(Math.abs(input.steer)>0 && sp>235);
     if(skidding){ skidT-=dt; if(skidT<=0){ dropSkid(); skidT=0.05; } } else skidT=0;
     Sound.screech(skidding, Math.min(1,sp/300));
