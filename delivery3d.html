@@ -60,6 +60,12 @@
   #bag .job.pick { box-shadow:inset 0 0 0 1.5px rgba(255,206,74,.8); }
   #bag .job.drop { box-shadow:inset 0 0 0 1.5px rgba(123,224,152,.85); }
 
+  /* speed lines at high speed */
+  #speedlines { position:fixed; inset:0; z-index:18; pointer-events:none; opacity:0; transition:opacity .12s;
+    background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,0) 0deg, rgba(255,255,255,0) 3deg, rgba(255,255,255,.12) 3.5deg, rgba(255,255,255,0) 4deg);
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 40%, #000 80%);
+    mask-image: radial-gradient(circle at 50% 50%, transparent 40%, #000 80%); }
+
   /* start + error overlays */
   #start, #err { position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
     background:linear-gradient(160deg,#1b5e34,#0f3d22); color:#fff; text-align:center; }
@@ -139,6 +145,7 @@
 <div id="streak" class="hidden"></div>
 <div id="shift" class="hidden">⏱ 2:30</div>
 <div id="bag"></div>
+<div id="speedlines"></div>
 
 <div id="popup" class="hidden">
   <div class="card">
@@ -688,15 +695,15 @@ function updateFloats(dt){ for(const f of floatPool){ if(!f.spr.visible) continu
 // ===================== exhaust smoke + skid marks =====================
 let smokeT=0, skidT=0;
 const smokePool=[];
-for(let i=0;i<18;i++){ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:cloudTex,transparent:true,opacity:0,depthWrite:false,color:0x8d877e}));
-  s.visible=false; scene.add(s); smokePool.push({s,t:0,vx:0,vz:0}); }
+for(let i=0;i<28;i++){ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:cloudTex,transparent:true,opacity:0,depthWrite:false,color:0x8d877e}));
+  s.visible=false; scene.add(s); smokePool.push({s,t:0,vx:0,vz:0,dur:1.2}); }
 function emitSmoke(){ const f=smokePool.find(p=>!p.s.visible); if(!f) return;
   const bx=moped.x-Math.cos(moped.heading)*16, bz=moped.z-Math.sin(moped.heading)*16;
-  f.s.position.set(bx,7,bz); f.s.material.opacity=0.45; f.s.scale.setScalar(8); f.t=0; f.s.visible=true;
-  f.vx=-Math.cos(moped.heading)*10+(Math.random()*6-3); f.vz=-Math.sin(moped.heading)*10+(Math.random()*6-3); }
-function updateSmoke(dt){ for(const f of smokePool){ if(!f.s.visible) continue; f.t+=dt; const k=f.t/1.0;
-  if(k>=1){ f.s.visible=false; continue; } f.s.position.x+=f.vx*dt; f.s.position.z+=f.vz*dt; f.s.position.y+=15*dt;
-  f.s.scale.setScalar(8+k*24); f.s.material.opacity=0.45*(1-k); } }
+  f.s.position.set(bx+(Math.random()*5-2.5),7,bz+(Math.random()*5-2.5)); f.s.material.opacity=0.62; f.s.scale.setScalar(11); f.t=0; f.dur=1.0+Math.random()*0.5; f.s.visible=true;
+  f.vx=-Math.cos(moped.heading)*11+(Math.random()*7-3.5); f.vz=-Math.sin(moped.heading)*11+(Math.random()*7-3.5); }
+function updateSmoke(dt){ for(const f of smokePool){ if(!f.s.visible) continue; f.t+=dt; const k=f.t/f.dur;
+  if(k>=1){ f.s.visible=false; continue; } f.s.position.x+=f.vx*dt; f.s.position.z+=f.vz*dt; f.s.position.y+=16*dt;
+  f.s.scale.setScalar(11+k*32); f.s.material.opacity=0.62*(1-k); } }
 
 const skidGeo=new THREE.BoxGeometry(1,1,1);
 const skids=[]; let skidIdx=0;
@@ -932,7 +939,7 @@ function syncPopup(){
     popup.classList.remove("hidden");
   } else popup.classList.add("hidden");
 }
-const elMoney=document.getElementById("money"), elBanner=document.getElementById("banner"), elBag=document.getElementById("bag"), elStreak=document.getElementById("streak"), elShift=document.getElementById("shift");
+const elMoney=document.getElementById("money"), elBanner=document.getElementById("banner"), elBag=document.getElementById("bag"), elStreak=document.getElementById("streak"), elShift=document.getElementById("shift"), speedlines=document.getElementById("speedlines");
 function syncHud(){
   elMoney.textContent="💵 $"+orders.money;
   if(orders.streak>1){ elStreak.textContent="🔥 Streak x"+orders.streak; elStreak.classList.remove("hidden"); }
@@ -964,7 +971,7 @@ function drawMinimap(){
 }
 
 // ===================== markers + camera + glow =====================
-let pulse=0; const camPos=new THREE.Vector3(WORLD_W/2,220,WORLD_H/2+320), lookAt=new THREE.Vector3();
+let pulse=0, camShake=0; const camPos=new THREE.Vector3(WORLD_W/2,220,WORLD_H/2+320), lookAt=new THREE.Vector3();
 function updateMarkers(dt){
   pulse+=dt*3;
   // glow shops that still owe a pickup
@@ -1001,6 +1008,7 @@ function updateCamera(dt){
   const DIST=190+sp*36, HEIGHT=112;
   camPos.set(moped.x-fx*DIST, HEIGHT, moped.z-fz*DIST);
   camera.position.lerp(camPos, Math.min(1,dt*5)||1);
+  if(camShake>0.002){ camera.position.x+=(Math.random()*2-1)*camShake*16; camera.position.y+=(Math.random()*2-1)*camShake*9; camera.position.z+=(Math.random()*2-1)*camShake*16; camShake*=0.85; }
   lookAt.set(moped.x+fx*55, 18, moped.z+fz*55); camera.lookAt(lookAt);
   camera.fov = 60 + sp*8; camera.updateProjectionMatrix();
   // follow shadow frustum to the moped for crisp local shadows
@@ -1044,7 +1052,7 @@ function updateTraffic(dt){
       const dx=moped.x-x, dz=moped.z-z, d=Math.hypot(dx,dz);
       if (d<26){ const n=d>1?1/d:0; moped.x+=dx*n*(26-d); moped.z+=dz*n*(26-d);
         moped.group.position.set(moped.x,0,moped.z);
-        moped.speed*=0.25; Sound.bump(); vibe(60); spawnPop(moped.x,moped.z,0xff5a3a); bumpCD=0.5; }
+        moped.speed*=0.25; Sound.bump(); vibe(60); spawnPop(moped.x,moped.z,0xff5a3a); camShake=0.7; bumpCD=0.5; }
     }
   }
 }
@@ -1204,12 +1212,13 @@ function frame(t){
   else Sound.engineOff();
   // juice: exhaust puffs + skid marks while riding
   if(gstate==="playing"){ const sp=Math.abs(moped.speed);
-    if(sp>50){ smokeT-=dt; if(smokeT<=0){ emitSmoke(); smokeT=0.06; } } else smokeT=0;
+    if(sp>50){ smokeT-=dt; if(smokeT<=0){ emitSmoke(); smokeT=0.04; } } else smokeT=0;
     const skidding=(input.brake && sp>120)||(Math.abs(input.steer)>0 && sp>235);
     if(skidding){ skidT-=dt; if(skidT<=0){ dropSkid(); skidT=0.05; } } else skidT=0;
     Sound.screech(skidding, Math.min(1,sp/300));
   } else Sound.screech(false,0);
   updateSmoke(dt); updateSkids(dt);
+  speedlines.style.opacity = (gstate==="playing") ? (Math.max(0,Math.min(1,(Math.abs(moped.speed)/moped.MAX-0.7)/0.3))*0.6).toFixed(2) : "0";
   updateRoute(dt);
   updateMarkers(dt); updateFX(dt); updateFloats(dt); syncHud(); drawMinimap();
   composer.render();
