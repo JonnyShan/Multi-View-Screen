@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Pack the Bag — Uber Eats</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  :root {
+    --green: #06C167;
+    --green-dark: #04903e;
+    --bag: #c98a4a;
+    --bag-dark: #a56c34;
+    --ink: #142328;
+  }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #000;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: #fff;
+    touch-action: none;
+  }
+  #app {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    max-width: 480px; margin: 0 auto;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    background: radial-gradient(120% 80% at 50% 0%, #16110b 0%, #000 70%);
+  }
+
+  /* ---------- HUD ---------- */
+  #hud {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 10px 14px 8px;
+  }
+  .brand { display: flex; align-items: center; gap: 7px; }
+  .brand .mark {
+    font-weight: 900; font-size: 15px; letter-spacing: .3px;
+    background: var(--green); color: #000; padding: 3px 8px; border-radius: 7px;
+  }
+  .brand .sub { font-size: 11px; opacity: .65; font-weight: 600; letter-spacing: .4px; }
+  .stats { display: flex; gap: 14px; align-items: center; }
+  .stat { text-align: center; line-height: 1.05; }
+  .stat .k { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; opacity: .55; font-weight: 700; }
+  .stat .v { font-size: 19px; font-weight: 800; }
+  .stat .v.green { color: var(--green); }
+  #nextWrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  #nextWrap .k { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; opacity: .55; font-weight: 700; }
+  #next { background: rgba(255,255,255,.05); border-radius: 8px; }
+  #muteBtn {
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18);
+    color: #fff; border-radius: 9px; width: 38px; height: 38px; font-size: 17px; cursor: pointer;
+  }
+
+  /* ---------- Playfield ---------- */
+  #playfield {
+    flex: 1 1 auto; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 0; padding: 4px 0;
+  }
+  #board {
+    border-radius: 14px;
+    box-shadow: 0 12px 34px rgba(0,0,0,.6), inset 0 0 0 3px var(--bag-dark);
+    background: var(--bag);
+  }
+  .toast {
+    position: absolute; top: 12%; left: 50%; transform: translateX(-50%) translateY(-6px);
+    background: var(--green); color: #000; font-weight: 900; font-size: 15px;
+    padding: 7px 16px; border-radius: 999px; opacity: 0; pointer-events: none;
+    box-shadow: 0 6px 18px rgba(0,0,0,.5); white-space: nowrap;
+    transition: opacity .18s, transform .18s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---------- Touch pad ---------- */
+  #pad {
+    flex: 0 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px;
+    padding: 10px 14px 16px;
+  }
+  .btn {
+    -webkit-appearance: none; appearance: none;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16);
+    color: #fff; border-radius: 14px; height: 58px; font-size: 26px; font-weight: 800;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background .08s, transform .08s;
+  }
+  .btn:active { background: var(--green); color: #000; transform: scale(.95); }
+  .btn.drop:active { background: #fff; }
+
+  /* ---------- Overlays ---------- */
+  .overlay {
+    position: absolute; inset: 0; z-index: 30;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; text-align: center; padding: 28px;
+    background: rgba(0,0,0,.86); backdrop-filter: blur(4px);
+  }
+  .overlay.hidden { display: none; }
+  .overlay h1 { font-size: 30px; font-weight: 900; line-height: 1.1; }
+  .overlay h1 .e { color: var(--green); }
+  .overlay p { font-size: 14px; opacity: .8; line-height: 1.55; max-width: 320px; }
+  .overlay .cta {
+    margin-top: 6px; background: var(--green); color: #000; border: none;
+    border-radius: 12px; padding: 15px 40px; font-size: 18px; font-weight: 900; cursor: pointer;
+    box-shadow: 0 8px 22px rgba(6,193,103,.4);
+  }
+  .overlay .cta:active { transform: scale(.97); }
+  .keys { font-size: 12px; opacity: .55; line-height: 1.8; }
+  .keys b { color: #fff; opacity: .9; }
+  #stars { font-size: 46px; letter-spacing: 6px; }
+  .grade { font-size: 16px; font-weight: 800; }
+  .winrows { display: flex; gap: 26px; }
+  .winrows .col .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: .55; font-weight: 700; }
+  .winrows .col .v { font-size: 28px; font-weight: 900; }
+  .winrows .col .v.green { color: var(--green); }
+  .best { font-size: 12px; opacity: .6; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div class="brand">
+      <span class="mark">Uber Eats</span>
+      <span class="sub">Pack&nbsp;the&nbsp;Bag</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="k">Score</div><div class="v" id="score">0</div></div>
+      <div class="stat"><div class="k">Bags</div><div class="v green" id="bags">0</div></div>
+      <div id="nextWrap"><div class="k">Next</div><canvas id="next" width="56" height="56"></canvas></div>
+      <button id="muteBtn" title="Sound">🔊</button>
+    </div>
+  </div>
+
+  <div id="playfield">
+    <canvas id="board"></canvas>
+    <div class="toast" id="toast">Bag packed!</div>
+  </div>
+
+  <div id="pad">
+    <button class="btn" id="bLeft" aria-label="Left">◀</button>
+    <button class="btn" id="bRot" aria-label="Rotate">⟳</button>
+    <button class="btn" id="bRight" aria-label="Right">▶</button>
+    <button class="btn drop" id="bDrop" aria-label="Drop">⬇</button>
+  </div>
+
+  <!-- Start -->
+  <div class="overlay" id="startOv">
+    <h1>Pack the <span class="e">Bag</span> 🛍️</h1>
+    <p>Stack the food into the bag as tightly as you can. Rows <b>don't clear</b> — fill clean, no gaps, all the way to the top.</p>
+    <div class="keys">
+      <b>← →</b> move &nbsp;·&nbsp; <b>↑</b> rotate &nbsp;·&nbsp; <b>↓</b> soft drop &nbsp;·&nbsp; <b>space</b> hard drop<br/>
+      on phone use the buttons below
+    </div>
+    <button class="cta" id="startBtn">Start packing</button>
+  </div>
+
+  <!-- Win -->
+  <div class="overlay hidden" id="winOv">
+    <h1>Order <span class="e">delivered!</span></h1>
+    <div id="stars">★★★</div>
+    <div class="grade" id="grade">Perfect pack</div>
+    <div class="winrows">
+      <div class="col"><div class="k">Efficiency</div><div class="v green" id="wEff">0%</div></div>
+      <div class="col"><div class="k">Bags</div><div class="v" id="wBags">0</div></div>
+      <div class="col"><div class="k">Score</div><div class="v" id="wScore">0</div></div>
+    </div>
+    <div class="best" id="wBest"></div>
+    <button class="cta" id="againBtn">Pack another</button>
+  </div>
+
+  <!-- Pause -->
+  <div class="overlay hidden" id="pauseOv">
+    <h1>Paused</h1>
+    <button class="cta" id="resumeBtn">Resume</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+(function () {
+  const COLS = 8, ROWS = 16;
+  const FALL_MS = 750;
+
+  // ---------- Pieces (tetromino matrices reskinned as food) ----------
+  const PIECES = {
+    I: { food: "sub",    color: "#d9a86c", cells: [[1,1,1,1]] },
+    O: { food: "egg",    color: "#f5f0e6", cells: [[1,1],[1,1]] },
+    L: { food: "banana", color: "#ffd23f", cells: [[0,0,1],[1,1,1]] },
+    J: { food: "milk",   color: "#cfe8ff", cells: [[1,0,0],[1,1,1]] },
+    S: { food: "burger", color: "#8a5a2b", cells: [[0,1,1],[1,1,0]] },
+    Z: { food: "fries",  color: "#e23b3b", cells: [[1,1,0],[0,1,1]] },
+    T: { food: "cup",    color: "#2ec4b6", cells: [[0,1,0],[1,1,1]] }
+  };
+  const KEYS = Object.keys(PIECES);
+
+  function rotateMatrix(m) {
+    const h = m.length, w = m[0].length;
+    const out = Array.from({ length: w }, () => new Array(h).fill(0));
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++)
+        out[x][h - 1 - y] = m[y][x];
+    return out;
+  }
+
+  // ---------- Board ----------
+  let grid; // grid[y][x] = pieceKey or null
+  function newGrid() { return Array.from({ length: ROWS }, () => new Array(COLS).fill(null)); }
+
+  function collides(cells, px, py) {
+    for (let y = 0; y < cells.length; y++)
+      for (let x = 0; x < cells[y].length; x++) {
+        if (!cells[y][x]) continue;
+        const gx = px + x, gy = py + y;
+        if (gx < 0 || gx >= COLS || gy >= ROWS) return true;
+        if (gy >= 0 && grid[gy][gx]) return true;
+      }
+    return false;
+  }
+  function isRowFull(y) { return grid[y].every(c => c); }
+  function stackTopRow() {
+    for (let y = 0; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++)
+        if (grid[y][x]) return y;
+    return ROWS;
+  }
+  function countHoles() {
+    let holes = 0;
+    for (let x = 0; x < COLS; x++) {
+      let seen = false;
+      for (let y = 0; y < ROWS; y++) {
+        if (grid[y][x]) seen = true;
+        else if (seen) holes++;
+      }
+    }
+    return holes;
+  }
+
+  // ---------- Game state ----------
+  let cur, curX, curY, nextKey;
+  let score = 0, bags = 0;
+  let state = "start"; // start | playing | paused | won
+  const packedRows = new Set();
+
+  function makePiece(key) {
+    const def = PIECES[key];
+    return { key: key, color: def.color, food: def.food, cells: def.cells.map(r => r.slice()) };
+  }
+  function bag7() { // shuffled 7-bag for fair distribution
+    const a = KEYS.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  let queue = [];
+  function pullKey() { if (queue.length === 0) queue = bag7(); return queue.shift(); }
+
+  function spawn() {
+    cur = makePiece(nextKey || pullKey());
+    nextKey = pullKey();
+    curX = Math.floor((COLS - cur.cells[0].length) / 2);
+    curY = 0;
+    drawNext();
+    if (collides(cur.cells, curX, curY)) { endRound(); return false; } // topped out
+    return true;
+  }
+
+  function move(dx) {
+    if (state !== "playing") return;
+    if (!collides(cur.cells, curX + dx, curY)) { curX += dx; sfx("move"); }
+  }
+  function rotate() {
+    if (state !== "playing") return;
+    const r = rotateMatrix(cur.cells);
+    for (const kick of [0, -1, 1, -2, 2]) {
+      if (!collides(r, curX + kick, curY)) { cur.cells = r; curX += kick; sfx("rot"); return; }
+    }
+  }
+  function softDrop() {
+    if (state !== "playing") return;
+    if (!collides(cur.cells, curX, curY + 1)) { curY++; score += 1; updateHud(); lastFall = perfNow(); }
+    else lock();
+  }
+  function hardDrop() {
+    if (state !== "playing") return;
+    let d = 0;
+    while (!collides(cur.cells, curX, curY + 1)) { curY++; d++; }
+    score += d * 2; lock();
+  }
+
+  function lock() {
+    for (let y = 0; y < cur.cells.length; y++)
+      for (let x = 0; x < cur.cells[y].length; x++)
+        if (cur.cells[y][x]) {
+          const gy = curY + y, gx = curX + x;
+          if (gy >= 0) grid[gy][gx] = cur.key;
+        }
+    score += 10;
+    sfx("lock");
+
+    // newly completed rows (glow, score) — DO NOT clear
+    let newRows = 0;
+    for (let y = 0; y < ROWS; y++) {
+      if (isRowFull(y) && !packedRows.has(y)) { packedRows.add(y); newRows++; }
+    }
+    if (newRows > 0) {
+      bags += newRows; score += newRows * 100;
+      flashToast(newRows > 1 ? newRows + " bags packed!" : "Bag packed!");
+      sfx("row");
+    }
+    updateHud();
+
+    // win check: any cell locked into the top 2 rows = bag full to the brim
+    let topReached = false;
+    for (let x = 0; x < COLS; x++) if (grid[0][x] || grid[1][x]) topReached = true;
+    if (topReached) { endRound(); return; }
+
+    spawn();
+  }
+
+  function efficiency() {
+    const top = stackTopRow();
+    const denom = (ROWS - top) * COLS;
+    if (denom <= 0) return 100;
+    return Math.round((1 - countHoles() / denom) * 100);
+  }
+  function gradeFor(eff) {
+    if (eff >= 90) return { stars: 3, label: "Perfect pack" };
+    if (eff >= 75) return { stars: 2, label: "Tidy delivery" };
+    if (eff >= 60) return { stars: 1, label: "Good enough" };
+    return { stars: 0, label: "Messy pack — try again" };
+  }
+
+  // ---------- Rendering ----------
+  const board = document.getElementById("board");
+  const bctx = board.getContext("2d");
+  let cell = 24, dpr = 1;
+
+  function fit() {
+    const pf = document.getElementById("playfield");
+    const availW = pf.clientWidth - 4;
+    const availH = pf.clientHeight - 8;
+    cell = Math.max(14, Math.floor(Math.min(availW / COLS, availH / ROWS)));
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    board.width = COLS * cell * dpr;
+    board.height = ROWS * cell * dpr;
+    board.style.width = (COLS * cell) + "px";
+    board.style.height = (ROWS * cell) + "px";
+    bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // draw one food cell at grid (gx,gy)
+  function drawFoodCell(ctx, gx, gy, key, alpha) {
+    const def = PIECES[key];
+    const pad = Math.max(1, cell * 0.06);
+    const x = gx * cell + pad, y = gy * cell + pad, s = cell - pad * 2;
+    ctx.save();
+    if (alpha != null) ctx.globalAlpha = alpha;
+    // base block
+    roundRect(ctx, x, y, s, s, s * 0.22);
+    ctx.fillStyle = def.color; ctx.fill();
+    ctx.lineWidth = Math.max(1.4, s * 0.08); ctx.strokeStyle = "#1a1a1a"; ctx.stroke();
+    // motif per food
+    ctx.lineCap = "round";
+    const cx = x + s / 2, cy = y + s / 2;
+    switch (def.food) {
+      case "sub": { // bread + filling stripes
+        ctx.fillStyle = "#6fbf4f"; ctx.fillRect(x + s*0.12, y + s*0.40, s*0.76, s*0.10);
+        ctx.fillStyle = "#c0533b"; ctx.fillRect(x + s*0.12, y + s*0.56, s*0.76, s*0.10);
+        break;
+      }
+      case "egg": { // yolk
+        ctx.beginPath(); ctx.arc(cx, cy, s * 0.20, 0, Math.PI * 2);
+        ctx.fillStyle = "#f7c948"; ctx.fill();
+        ctx.lineWidth = Math.max(1, s*0.05); ctx.strokeStyle = "#caa12f"; ctx.stroke();
+        break;
+      }
+      case "banana": { // curve
+        ctx.beginPath();
+        ctx.lineWidth = Math.max(2, s * 0.14); ctx.strokeStyle = "#c79a00";
+        ctx.arc(cx + s*0.18, cy - s*0.18, s * 0.42, Math.PI * 0.55, Math.PI * 1.15);
+        ctx.stroke();
+        break;
+      }
+      case "milk": { // bottle cap stripe
+        ctx.fillStyle = "#ffffff"; roundRect(ctx, x + s*0.30, y + s*0.12, s*0.40, s*0.20, s*0.06); ctx.fill();
+        ctx.lineWidth = Math.max(1, s*0.05); ctx.strokeStyle = "#6aa9e0"; ctx.stroke();
+        ctx.fillStyle = "#6aa9e0"; ctx.fillRect(x + s*0.20, y + s*0.50, s*0.60, s*0.08);
+        break;
+      }
+      case "burger": { // bun + lettuce stripes
+        ctx.fillStyle = "#d9a86c"; ctx.fillRect(x + s*0.12, y + s*0.16, s*0.76, s*0.14);
+        ctx.fillStyle = "#6fbf4f"; ctx.fillRect(x + s*0.12, y + s*0.46, s*0.76, s*0.10);
+        ctx.fillStyle = "#d9a86c"; ctx.fillRect(x + s*0.12, y + s*0.66, s*0.76, s*0.14);
+        break;
+      }
+      case "fries": { // fries sticking up
+        ctx.fillStyle = "#f7c948";
+        for (let i = 0; i < 3; i++) ctx.fillRect(x + s*(0.22 + i*0.22), y + s*0.14, s*0.10, s*0.46);
+        break;
+      }
+      case "cup": { // lid + straw
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(x + s*0.14, y + s*0.20, s*0.72, s*0.12);
+        ctx.lineWidth = Math.max(2, s*0.10); ctx.strokeStyle = "#ff5e5b";
+        ctx.beginPath(); ctx.moveTo(cx + s*0.10, y + s*0.16); ctx.lineTo(cx - s*0.06, y - s*0.02); ctx.stroke();
+        break;
+      }
+    }
+    ctx.restore();
+  }
+
+  function ghostY() {
+    let y = curY;
+    while (!collides(cur.cells, curX, y + 1)) y++;
+    return y;
+  }
+
+  function render() {
+    const W = COLS * cell, H = ROWS * cell;
+    // bag background
+    bctx.clearRect(0, 0, W, H);
+    const g = bctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#d59658"); g.addColorStop(1, "#b87a3c");
+    bctx.fillStyle = g; bctx.fillRect(0, 0, W, H);
+    // subtle grid
+    bctx.strokeStyle = "rgba(0,0,0,.08)"; bctx.lineWidth = 1;
+    for (let x = 1; x < COLS; x++) { bctx.beginPath(); bctx.moveTo(x*cell, 0); bctx.lineTo(x*cell, H); bctx.stroke(); }
+    for (let y = 1; y < ROWS; y++) { bctx.beginPath(); bctx.moveTo(0, y*cell); bctx.lineTo(W, y*cell); bctx.stroke(); }
+
+    // packed-row green glow (rows stay; just highlighted)
+    bctx.save();
+    packedRows.forEach(y => {
+      bctx.fillStyle = "rgba(6,193,103,.22)";
+      bctx.fillRect(0, y*cell, W, cell);
+    });
+    bctx.restore();
+
+    // locked cells
+    for (let y = 0; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++)
+        if (grid[y][x]) drawFoodCell(bctx, x, y, grid[y][x]);
+
+    if (state === "playing" || state === "paused") {
+      // ghost
+      const gy = ghostY();
+      bctx.save(); bctx.globalAlpha = 1;
+      for (let y = 0; y < cur.cells.length; y++)
+        for (let x = 0; x < cur.cells[y].length; x++)
+          if (cur.cells[y][x]) {
+            const px = (curX + x) * cell, py = (gy + y) * cell;
+            roundRect(bctx, px + cell*0.1, py + cell*0.1, cell*0.8, cell*0.8, cell*0.18);
+            bctx.fillStyle = "rgba(255,255,255,.16)"; bctx.fill();
+            bctx.lineWidth = 1.5; bctx.strokeStyle = "rgba(255,255,255,.4)"; bctx.stroke();
+          }
+      bctx.restore();
+      // current piece
+      for (let y = 0; y < cur.cells.length; y++)
+        for (let x = 0; x < cur.cells[y].length; x++)
+          if (cur.cells[y][x] && curY + y >= 0) drawFoodCell(bctx, curX + x, curY + y, cur.key);
+    }
+  }
+
+  // next preview
+  const nextCv = document.getElementById("next");
+  const nctx = nextCv.getContext("2d");
+  function drawNext() {
+    nctx.clearRect(0, 0, 56, 56);
+    if (!nextKey) return;
+    const def = PIECES[nextKey];
+    const m = def.cells, h = m.length, w = m[0].length;
+    const cs = Math.floor(Math.min(48 / w, 48 / h));
+    const ox = (56 - w * cs) / 2, oy = (56 - h * cs) / 2;
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++)
+        if (m[y][x]) {
+          nctx.fillStyle = def.color;
+          roundRectAt(nctx, ox + x*cs + 1, oy + y*cs + 1, cs - 2, cs - 2, 3);
+          nctx.fill(); nctx.lineWidth = 1.3; nctx.strokeStyle = "#1a1a1a"; nctx.stroke();
+        }
+  }
+  function roundRectAt(ctx, x, y, w, h, r) { roundRect(ctx, x, y, w, h, r); }
+
+  // ---------- HUD ----------
+  const elScore = document.getElementById("score");
+  const elBags = document.getElementById("bags");
+  function updateHud() { elScore.textContent = score; elBags.textContent = bags; }
+
+  const toastEl = document.getElementById("toast");
+  let toastT = 0;
+  function flashToast(msg) {
+    toastEl.textContent = msg; toastEl.classList.add("show");
+    clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove("show"), 900);
+  }
+
+  // ---------- Sound (WebAudio blips) ----------
+  let actx = null, muted = false;
+  function audio() { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); return actx; }
+  function tone(freq, dur, type, when, vol) {
+    if (muted) return;
+    try {
+      const a = audio(), t = a.currentTime + (when || 0);
+      const o = a.createOscillator(), gn = a.createGain();
+      o.type = type || "triangle"; o.frequency.value = freq;
+      gn.gain.setValueAtTime(0.0001, t);
+      gn.gain.exponentialRampToValueAtTime(vol || 0.25, t + 0.01);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(gn).connect(a.destination);
+      o.start(t); o.stop(t + dur + 0.02);
+    } catch (e) {}
+  }
+  function sfx(kind) {
+    switch (kind) {
+      case "move": tone(320, 0.05, "square", 0, 0.10); break;
+      case "rot":  tone(680, 0.06, "square", 0, 0.14); break;
+      case "lock": tone(150, 0.12, "sawtooth", 0, 0.20); break;
+      case "row":  [523, 659, 784].forEach((f, i) => tone(f, 0.14, "triangle", i * 0.07, 0.26)); break;
+      case "win":  [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, "triangle", i * 0.12, 0.28)); break;
+    }
+  }
+  const muteBtn = document.getElementById("muteBtn");
+  muteBtn.addEventListener("click", () => {
+    muted = !muted; muteBtn.textContent = muted ? "🔇" : "🔊";
+    try { localStorage.setItem("ptb_muted", muted ? "1" : "0"); } catch (e) {}
+  });
+
+  // ---------- Storage ----------
+  function loadBest() { try { return JSON.parse(localStorage.getItem("ptb_best")) || { score: 0, eff: 0 }; } catch (e) { return { score: 0, eff: 0 }; } }
+  function saveBest(b) { try { localStorage.setItem("ptb_best", JSON.stringify(b)); } catch (e) {} }
+
+  // ---------- Round end / win ----------
+  function endRound() {
+    state = "won";
+    const eff = efficiency();
+    const g = gradeFor(eff);
+    document.getElementById("stars").textContent = "★★★☆☆☆".slice(3 - g.stars, 6 - g.stars) || "—";
+    document.getElementById("stars").textContent = g.stars > 0 ? "★".repeat(g.stars) + "☆".repeat(3 - g.stars) : "☆☆☆";
+    document.getElementById("grade").textContent = g.label;
+    document.getElementById("wEff").textContent = eff + "%";
+    document.getElementById("wBags").textContent = bags;
+    document.getElementById("wScore").textContent = score;
+    const best = loadBest();
+    const nb = { score: Math.max(best.score, score), eff: Math.max(best.eff, eff) };
+    saveBest(nb);
+    document.getElementById("wBest").textContent = "Best: " + nb.eff + "% · " + nb.score + " pts";
+    document.getElementById("winOv").classList.remove("hidden");
+    sfx("win");
+  }
+
+  // ---------- Loop ----------
+  let lastFall = 0, raf = 0;
+  function perfNow() { return (window.performance && performance.now) ? performance.now() : 0; }
+  function loop(t) {
+    if (state === "playing") {
+      if (t - lastFall >= FALL_MS) {
+        lastFall = t;
+        if (!collides(cur.cells, curX, curY + 1)) curY++;
+        else lock();
+      }
+    }
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ---------- Controls ----------
+  function start() {
+    grid = newGrid(); queue = []; packedRows.clear();
+    score = 0; bags = 0; nextKey = null;
+    updateHud();
+    document.getElementById("startOv").classList.add("hidden");
+    document.getElementById("winOv").classList.add("hidden");
+    document.getElementById("pauseOv").classList.add("hidden");
+    fit();
+    state = "playing";
+    spawn();
+    lastFall = perfNow();
+    try { audio().resume(); } catch (e) {}
+  }
+  function togglePause() {
+    if (state === "playing") { state = "paused"; document.getElementById("pauseOv").classList.remove("hidden"); }
+    else if (state === "paused") { state = "playing"; document.getElementById("pauseOv").classList.add("hidden"); lastFall = perfNow(); }
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (state === "start" && (e.key === "Enter" || e.key === " ")) { start(); e.preventDefault(); return; }
+    if (state === "won" && (e.key === "Enter" || e.key === " ")) { start(); e.preventDefault(); return; }
+    if (e.key === "p" || e.key === "P") { togglePause(); e.preventDefault(); return; }
+    if (state !== "playing") return;
+    switch (e.key) {
+      case "ArrowLeft": move(-1); e.preventDefault(); break;
+      case "ArrowRight": move(1); e.preventDefault(); break;
+      case "ArrowUp": case "x": case "X": rotate(); e.preventDefault(); break;
+      case "ArrowDown": softDrop(); e.preventDefault(); break;
+      case " ": hardDrop(); e.preventDefault(); break;
+    }
+  });
+
+  // touch buttons with auto-repeat for move
+  function holdBtn(id, fn, repeat) {
+    const el = document.getElementById(id);
+    let iv = 0;
+    const down = (e) => {
+      e.preventDefault(); fn();
+      if (repeat) { clearInterval(iv); iv = setInterval(fn, 110); }
+    };
+    const up = () => clearInterval(iv);
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointerleave", up);
+    el.addEventListener("pointercancel", up);
+  }
+  holdBtn("bLeft", () => move(-1), true);
+  holdBtn("bRight", () => move(1), true);
+  holdBtn("bRot", () => rotate(), false);
+  holdBtn("bDrop", () => hardDrop(), false);
+
+  // tap board = rotate, swipe down = hard drop
+  let tsx = 0, tsy = 0, tmoved = false;
+  board.addEventListener("pointerdown", (e) => { tsx = e.clientX; tsy = e.clientY; tmoved = false; });
+  board.addEventListener("pointermove", (e) => { if (Math.abs(e.clientX - tsx) > 18 || Math.abs(e.clientY - tsy) > 18) tmoved = true; });
+  board.addEventListener("pointerup", (e) => {
+    if (state !== "playing") return;
+    const dx = e.clientX - tsx, dy = e.clientY - tsy;
+    if (dy > 40 && Math.abs(dy) > Math.abs(dx)) hardDrop();
+    else if (!tmoved) rotate();
+  });
+
+  document.getElementById("startBtn").addEventListener("click", start);
+  document.getElementById("againBtn").addEventListener("click", start);
+  document.getElementById("resumeBtn").addEventListener("click", togglePause);
+  window.addEventListener("resize", fit);
+  window.addEventListener("orientationchange", () => setTimeout(fit, 200));
+  window.addEventListener("blur", () => { if (state === "playing") togglePause(); });
+
+  // ---------- Init ----------
+  try { muted = localStorage.getItem("ptb_muted") === "1"; muteBtn.textContent = muted ? "🔇" : "🔊"; } catch (e) {}
+  grid = newGrid();
+  fit();
+  render();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
