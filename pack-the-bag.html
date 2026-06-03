@@ -116,6 +116,19 @@
   .winrows .col .v { font-size: 28px; font-weight: 900; }
   .winrows .col .v.green { color: var(--green); }
   .best { font-size: 12px; opacity: .6; }
+  .lb { width: 100%; max-width: 320px; }
+  .lbTitle { font-size: 11px; font-weight: 800; letter-spacing: 1.5px; opacity: .65; text-transform: uppercase; margin-bottom: 7px; }
+  .lb ol { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+  .lb li { display: flex; align-items: center; gap: 10px; font-size: 14px; background: rgba(255,255,255,.06); padding: 8px 12px; border-radius: 9px; }
+  .lb li .rank { opacity: .55; width: 16px; font-weight: 800; }
+  .lb li .nm { flex: 1; text-align: left; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb li .nm small { opacity: .5; font-weight: 600; font-size: 11px; margin-left: 7px; }
+  .lb li .sc { font-weight: 900; color: var(--green); }
+  .lb li.me { background: rgba(6,193,103,.22); outline: 1px solid var(--green); }
+  .nameEntry { display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 11px; }
+  .nameEntry.hidden { display: none; }
+  .nameEntry input { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.25); color: #fff; border-radius: 8px; padding: 9px 11px; font-size: 15px; width: 150px; }
+  .nameEntry button { background: var(--green); color: #000; border: none; border-radius: 8px; padding: 9px 16px; font-weight: 800; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -153,6 +166,10 @@
       <b>← →</b> move &nbsp;·&nbsp; <b>↑</b> rotate &nbsp;·&nbsp; <b>↓</b> soft drop &nbsp;·&nbsp; <b>space</b> hard drop<br/>
       on phone use the buttons below
     </div>
+    <div class="lb">
+      <div class="lbTitle">🏆 Top 5</div>
+      <ol id="lbListStart"></ol>
+    </div>
     <button class="cta" id="startBtn" disabled>Loading…</button>
   </div>
 
@@ -166,7 +183,14 @@
       <div class="col"><div class="k">Bags</div><div class="v" id="wBags">0</div></div>
       <div class="col"><div class="k">Score</div><div class="v" id="wScore">0</div></div>
     </div>
-    <div class="best" id="wBest"></div>
+    <div class="lb">
+      <div class="lbTitle">🏆 Top 5</div>
+      <ol id="lbList"></ol>
+      <div class="nameEntry hidden" id="nameEntry">
+        <input id="nameInput" maxlength="12" placeholder="Your name" />
+        <button id="saveScore">Save</button>
+      </div>
+    </div>
     <button class="cta" id="againBtn">Pack another</button>
   </div>
 
@@ -275,6 +299,7 @@
   let cur, curX, curY, curRot, nextKey;
   let score = 0, bags = 0;
   let state = "start"; // start | playing | paused | won
+  let pendingScore = null, savedThisRound = false;
   const packedRows = new Set();
 
   function makePiece(key) {
@@ -357,16 +382,26 @@
     spawn();
   }
 
+  // Packing density: of the space your stack occupies (full width × its height),
+  // how much is actually food. A no-skill spike wastes most of the width → ~0%.
+  // A solidly packed bag with no gaps → ~100%. PACK_FLOOR maps the worst real
+  // dumps to 0 so the 0–100 range tracks skill, not just raw fill.
+  const PACK_FLOOR = 0.25;
   function efficiency() {
     const top = stackTopRow();
-    const denom = (ROWS - top) * COLS;
-    if (denom <= 0) return 100;
-    return Math.round((1 - countHoles() / denom) * 100);
+    const band = (ROWS - top) * COLS;     // width × height of the occupied region
+    if (band <= 0) return 0;
+    let filled = 0;
+    for (let y = top; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++)
+        if (grid[y][x]) filled++;
+    const density = filled / band;        // 1.0 = packed solid, low = wasted space
+    return Math.max(0, Math.min(100, Math.round((density - PACK_FLOOR) / (1 - PACK_FLOOR) * 100)));
   }
   function gradeFor(eff) {
-    if (eff >= 90) return { stars: 3, label: "Perfect pack" };
-    if (eff >= 75) return { stars: 2, label: "Tidy delivery" };
-    if (eff >= 60) return { stars: 1, label: "Good enough" };
+    if (eff >= 85) return { stars: 3, label: "Perfect pack" };
+    if (eff >= 65) return { stars: 2, label: "Tidy delivery" };
+    if (eff >= 40) return { stars: 1, label: "Good enough" };
     return { stars: 0, label: "Messy pack — try again" };
   }
 
@@ -496,9 +531,43 @@
     try { localStorage.setItem("ptb_muted", muted ? "1" : "0"); } catch (e) {}
   });
 
-  // ---------- Storage ----------
-  function loadBest() { try { return JSON.parse(localStorage.getItem("ptb_best")) || { score: 0, eff: 0 }; } catch (e) { return { score: 0, eff: 0 }; } }
-  function saveBest(b) { try { localStorage.setItem("ptb_best", JSON.stringify(b)); } catch (e) {} }
+  // ---------- Leaderboard (top 5, localStorage) ----------
+  const LB_KEY = "ptb_lb";
+  function loadLB() { try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; } catch (e) { return []; } }
+  function saveLB(a) { try { localStorage.setItem(LB_KEY, JSON.stringify(a)); } catch (e) {} }
+  function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+  function renderLB(targetId, highlight) {
+    const ol = document.getElementById(targetId);
+    if (!ol) return;
+    const lb = loadLB();
+    ol.innerHTML = "";
+    if (lb.length === 0) {
+      ol.innerHTML = '<li><span class="nm" style="opacity:.5">No scores yet — be first!</span></li>';
+      return;
+    }
+    lb.forEach((e, i) => {
+      const li = document.createElement("li");
+      if (highlight === i) li.className = "me";
+      li.innerHTML = '<span class="rank">' + (i + 1) + '</span>' +
+        '<span class="nm">' + escapeHtml(e.name) + '<small>' + (e.eff != null ? e.eff + "%" : "") + '</small></span>' +
+        '<span class="sc">' + e.score + '</span>';
+      ol.appendChild(li);
+    });
+  }
+  function commitScore() {
+    if (savedThisRound || !pendingScore) return;
+    const name = ((document.getElementById("nameInput").value || "").trim() || "YOU").slice(0, 12);
+    const lb = loadLB();
+    const entry = { name: name, score: pendingScore.score, eff: pendingScore.eff };
+    lb.push(entry);
+    lb.sort((a, b) => (b.score - a.score) || (b.eff - a.eff));
+    if (lb.length > 5) lb.length = 5;
+    const idx = lb.indexOf(entry);
+    saveLB(lb);
+    savedThisRound = true;
+    document.getElementById("nameEntry").classList.add("hidden");
+    renderLB("lbList", idx);
+  }
 
   // ---------- Round end ----------
   function endRound() {
@@ -510,10 +579,17 @@
     document.getElementById("wEff").textContent = eff + "%";
     document.getElementById("wBags").textContent = bags;
     document.getElementById("wScore").textContent = score;
-    const best = loadBest();
-    const nb = { score: Math.max(best.score, score), eff: Math.max(best.eff, eff) };
-    saveBest(nb);
-    document.getElementById("wBest").textContent = "Best: " + nb.eff + "% · " + nb.score + " pts";
+    pendingScore = { score: score, eff: eff };
+    savedThisRound = false;
+    const lb = loadLB();
+    const qualifies = lb.length < 5 || score > lb[lb.length - 1].score;
+    document.getElementById("nameEntry").classList.toggle("hidden", !qualifies);
+    renderLB("lbList", -1);
+    if (qualifies) {
+      const ni = document.getElementById("nameInput");
+      ni.value = "";
+      setTimeout(() => { try { ni.focus(); } catch (e) {} }, 60);
+    }
     document.getElementById("winOv").classList.remove("hidden");
     sfx("win");
   }
@@ -555,6 +631,7 @@
   }
 
   document.addEventListener("keydown", (e) => {
+    if (document.activeElement && document.activeElement.id === "nameInput") return;
     if ((state === "start" || state === "won") && (e.key === "Enter" || e.key === " ")) { start(); e.preventDefault(); return; }
     if (e.key === "p" || e.key === "P") { togglePause(); e.preventDefault(); return; }
     if (state !== "playing") return;
@@ -596,6 +673,11 @@
   document.getElementById("startBtn").addEventListener("click", start);
   document.getElementById("againBtn").addEventListener("click", start);
   document.getElementById("resumeBtn").addEventListener("click", togglePause);
+  document.getElementById("saveScore").addEventListener("click", commitScore);
+  document.getElementById("nameInput").addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") { commitScore(); e.preventDefault(); }
+  });
   window.addEventListener("resize", fit);
   window.addEventListener("orientationchange", () => setTimeout(fit, 200));
   window.addEventListener("blur", () => { if (state === "playing") togglePause(); });
@@ -605,6 +687,7 @@
   grid = newGrid();
   fit();
   render();
+  renderLB("lbListStart", -1);
   raf = requestAnimationFrame(loop);
 
   loadSprites().then(() => {
