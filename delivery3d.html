@@ -335,7 +335,7 @@ scene.add(fill);
 // post-processing: subtle bloom so lights / signs / bright highlights glow
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.5, 0.92);
+const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.5, 0.96);
 composer.addPass(bloom);
 
 window.addEventListener("resize", ()=>{
@@ -407,7 +407,7 @@ function makeGroundTexture(){
 }
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(WORLD_W, WORLD_H),
-  new THREE.MeshStandardMaterial({ map: makeGroundTexture(), roughness:0.95, metalness:0 })
+  new THREE.MeshStandardMaterial({ map: makeGroundTexture(), roughness:0.95, metalness:0, envMapIntensity:0 }) // road paint must not catch env light -> no bloom
 );
 ground.rotation.x = -Math.PI/2;
 ground.position.set(WORLD_W/2, 0, WORLD_H/2);
