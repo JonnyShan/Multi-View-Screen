@@ -118,6 +118,8 @@
     color:#fff; font:800 11px system-ui; text-shadow:0 1px 2px rgba(0,0,0,.8); cursor:pointer; }
   #paints .swatch.eq { border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,.5); }
   #scores .srow { display:flex; justify-content:space-between; margin:2px 0; font:700 13px system-ui; opacity:.92; }
+  .volrow { display:flex; align-items:center; justify-content:center; gap:10px; margin:14px auto 2px; max-width:250px; font-size:17px; }
+  .volrow input[type=range] { flex:1; accent-color:#2faf5a; height:26px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -173,6 +175,7 @@
     <p>Accept orders, ride to the shop to pick up the food, then deliver to the customer before the timer runs out. Earn cash for fast drops!</p>
     <p class="hint">Drive: GAS + ◄ ► &nbsp;(or arrow keys / WASD)</p>
     <button id="startBtn">START</button>
+    <div class="volrow">🔉 <input id="vol1" type="range" min="0" max="100" value="60"></div>
   </div>
 </div>
 
@@ -195,6 +198,7 @@
     <div id="paints"></div>
     <div class="plabel">🏆 Best shifts</div>
     <div id="scores"></div>
+    <div class="volrow">🔉 <input id="vol2" type="range" min="0" max="100" value="60"></div>
     <button id="againBtn">NEXT SHIFT</button>
   </div>
 </div>
@@ -741,6 +745,7 @@ const Sound = (function(){
   let eg=null, lp=null, o1=null, o2=null, o3=null, sub=null, nbp=null, nGain=null, lfo=null, lfoGain=null;
   let padGain=null, padOsc=[], ambOn=false, noteTimer=null, rpm=0.1, prevGas=0;
   let comp=null, revSend=null, scrGain=null, scrBp=null;
+  let vol=0.6, musicOn=false, schedT=null, mstep=0, nextT=0, musicGain=null;
   function noiseBuf(){ const len=Math.floor(ctx.sampleRate*1.2); const b=ctx.createBuffer(1,len,ctx.sampleRate);
     const d=b.getChannelData(0); for(let i=0;i<len;i++) d[i]=Math.random()*2-1; return b; }
   function impulse(sec,decay){ const len=Math.floor(ctx.sampleRate*sec); const b=ctx.createBuffer(2,len,ctx.sampleRate);
@@ -754,7 +759,7 @@ const Sound = (function(){
     if(ready) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
     ctx=new AC();
     comp=ctx.createDynamicsCompressor(); comp.threshold.value=-18; comp.knee.value=20; comp.ratio.value=3.4; comp.attack.value=0.004; comp.release.value=0.18; comp.connect(ctx.destination);
-    master=ctx.createGain(); master.gain.value=0.6; master.connect(comp);
+    master=ctx.createGain(); master.gain.value=vol; master.connect(comp);
     // light convolution reverb on a send (street space)
     const conv=ctx.createConvolver(); conv.buffer=impulse(1.0,3.0); conv.connect(master);
     revSend=ctx.createGain(); revSend.gain.value=0.35; revSend.connect(conv);
@@ -816,6 +821,30 @@ const Sound = (function(){
     const t=ctx.currentTime; g.gain.value=0; g.gain.linearRampToValueAtTime(0.15,t+0.005); g.gain.exponentialRampToValueAtTime(0.0001,t+0.09);
     o.start(t); o.stop(t+0.1);
   }
+  // --- background music: light looping chord/bass/arp + soft drums ---
+  const MBPM=104, MSPB=60/MBPM, MSTEP=MSPB/2;
+  const MCH=[[220,261.63,329.63],[174.61,220,261.63],[261.63,329.63,392.00],[196.00,246.94,293.66]]; // Am F C G
+  const MBASS=[110,87.31,130.81,98.00];
+  function mnote(freq,t,dur,type,v){ const o=ctx.createOscillator(),g=ctx.createGain(); o.type=type; o.frequency.value=freq; o.connect(g); g.connect(musicGain);
+    g.gain.value=0; g.gain.linearRampToValueAtTime(v,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.start(t); o.stop(t+dur+0.03); }
+  function mkick(t){ const o=ctx.createOscillator(),g=ctx.createGain(); o.type="sine"; o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(50,t+0.12);
+    o.connect(g); g.connect(musicGain); g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.18); o.start(t); o.stop(t+0.2); }
+  function mhat(t){ const s=ctx.createBufferSource(); s.buffer=noiseBuf(); const f=ctx.createBiquadFilter(); f.type="highpass"; f.frequency.value=7000;
+    const g=ctx.createGain(); s.connect(f); f.connect(g); g.connect(musicGain); g.gain.setValueAtTime(0.10,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.05); s.start(t); s.stop(t+0.06); }
+  function mtick(){ if(!musicOn) return;
+    while(nextT < ctx.currentTime + 0.12){
+      const s=mstep%32, bar=Math.floor(s/8), bi=s%8, ch=MCH[bar], t=nextT;
+      if(bi%4===0) mkick(t);
+      if(bi%2===1) mhat(t);
+      if(bi===0) mnote(MBASS[bar],t,MSPB*1.6,"triangle",0.15);
+      if(bi===4) mnote(MBASS[bar]*1.5,t,MSPB*0.8,"triangle",0.11);
+      mnote(ch[bi%ch.length]*(bi>=6?2:1), t, MSTEP*0.9, "triangle", 0.06);   // arpeggio
+      mstep++; nextT += MSTEP;
+    }
+  }
+  function musicStart(){ if(musicOn||!ready) return; if(!musicGain){ musicGain=ctx.createGain(); musicGain.gain.value=0.5; musicGain.connect(master); }
+    musicOn=true; mstep=0; nextT=ctx.currentTime+0.1; schedT=setInterval(mtick,25); }
+  function musicStop(){ musicOn=false; if(schedT){ clearInterval(schedT); schedT=null; } }
   return {
     init, resume,
     engine(sp, gas){
@@ -857,10 +886,10 @@ const Sound = (function(){
     bump(){ blip(85,0.18,"square",0.34); },
     buy(){ blip(520,0.08,"square",0.3); setTimeout(()=>blip(780,0.12,"square",0.3),80); },
     horn(){ if(!ready||muted) return; blip(415,0.22,"square",0.4); setTimeout(()=>blip(370,0.26,"square",0.4),130); },
-    ambience(on){ if(!ready) return; ambOn=on; startPad(); padGain.gain.setTargetAtTime(on?0.03:0, ctx.currentTime, 1.0);
-      if(on && !noteTimer){ noteTimer=setInterval(()=>{ if(Math.random()<0.6) note(); }, 2600); }
-      else if(!on && noteTimer){ clearInterval(noteTimer); noteTimer=null; } },
-    toggleMute(){ muted=!muted; if(master) master.gain.value=muted?0:0.5; return muted; }
+    ambience(on){ if(!ready) return; ambOn=on; startPad(); padGain.gain.setTargetAtTime(on?0.016:0, ctx.currentTime, 1.0);
+      if(on) musicStart(); else musicStop(); },
+    setVolume(v){ vol=Math.max(0,Math.min(1,v)); if(master && !muted) master.gain.setTargetAtTime(vol, ctx.currentTime, 0.05); },
+    toggleMute(){ muted=!muted; if(master) master.gain.setTargetAtTime(muted?0:vol, ctx.currentTime, 0.03); return muted; }
   };
 })();
 
@@ -1167,6 +1196,7 @@ let bank=load("bank",0), best=load("best",0), ups=load("ups",{speed:0,tip:0,time
 if(ups.bag==null) ups.bag=0;
 let scores=load("scores",[]), totalDeliv=load("totDeliv",0);
 let paintOwned=load("paintOwned",[0]), paintEq=load("paintEq",0);
+let savedVol=load("vol",0.6);
 function tierNow(){ return 1+Math.floor(totalDeliv/15); }
 const PAINTS=[{c:0xe23b3b,name:"Red",cost:0},{c:0x2f6fae,name:"Blue",cost:40},{c:0x2faf5a,name:"Green",cost:40},{c:0xf0a93a,name:"Orange",cost:60},{c:0x9b59d0,name:"Purple",cost:70},{c:0x222831,name:"Black",cost:90}];
 function applyPaint(){ const c=PAINTS[paintEq]?PAINTS[paintEq].c:0xe23b3b;
@@ -1217,7 +1247,7 @@ function startShift(){
   gstate="playing"; started=true; shiftT=shiftLen();
   orders.reset(); applyUpgrades(); setWeather(Math.random()<0.35);
   document.getElementById("start").classList.add("hidden"); document.getElementById("summary").classList.add("hidden");
-  Sound.init(); Sound.resume(); Sound.ambience(true);
+  Sound.init(); Sound.resume(); Sound.setVolume(savedVol); Sound.ambience(true);
 }
 function endShift(){
   gstate="ended"; started=false; orders.active.length=0; orders.offered=null; Sound.ambience(false); setWeather(false);
@@ -1236,6 +1266,11 @@ const muteBtn=document.getElementById("mute"), autoBtn=document.getElementById("
 muteBtn.addEventListener("click",()=>{ Sound.init(); Sound.resume(); const m=Sound.toggleMute(); muteBtn.textContent=m?"🔇":"🔊"; });
 autoBtn.addEventListener("click",()=>{ autoGas=!autoGas; autoBtn.classList.toggle("on",autoGas); });
 document.getElementById("horn").addEventListener("click",()=>{ Sound.init(); Sound.resume(); Sound.horn(); vibe(20); });
+const vol1=document.getElementById("vol1"), vol2=document.getElementById("vol2");
+vol1.value=vol2.value=Math.round(savedVol*100);
+function onVol(e){ const v=(+e.target.value)/100; savedVol=v; persist("vol",v); Sound.init(); Sound.setVolume(v);
+  if(e.target!==vol1) vol1.value=e.target.value; if(e.target!==vol2) vol2.value=e.target.value; }
+vol1.addEventListener("input",onVol); vol2.addEventListener("input",onVol);
 
 // ===================== start-screen 3D moped preview =====================
 const pvCanvas=document.getElementById("preview");
