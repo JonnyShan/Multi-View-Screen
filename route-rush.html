@@ -127,12 +127,12 @@
     <div id="lives"></div>
     <div id="scorebox">
       <div id="score">0</div>
-      <div id="subline">Round <b id="round">1</b> · Best <span id="best">0</span> · Streak <span id="streak">0</span></div>
+      <div id="subline">Route <b id="round">1</b>/12 · Best <span id="best">0</span> · Streak <span id="streak">0</span></div>
     </div>
     <div id="right"><button id="muteBtn">🔊</button></div>
   </div>
   <div id="timerwrap"><div id="timerfill"></div></div>
-  <div id="prompt">PICK THE FASTER ROUTE<small>shorter usually wins — watch 🔴 traffic</small></div>
+  <div id="prompt">Pick the Smartest Route<small>smart route planning — watch 🔴 traffic</small></div>
 
   <button class="choice" id="btnA"><span class="big">A</span><span class="lbl">ROUTE</span></button>
   <button class="choice" id="btnB"><span class="big">B</span><span class="lbl">ROUTE</span></button>
@@ -141,10 +141,10 @@
     <h1>Uber: Path Picker</h1>
     <div class="how">
       <div>🗺️ Two routes link the same <b>food shop</b> → <b>house</b>.</div>
-      <div>📏 Tap the <b>faster</b> route — usually the shorter one, no numbers.</div>
-      <div>🔴 Later rounds add <b>traffic</b> — a shorter route with jams can be slower.</div>
-      <div>⚡ It gets <b>faster</b> and <b>closer</b> every round.</div>
-      <div>❤️ 3 lives. Wrong or too slow = lose one. How far can you get?</div>
+      <div>📏 Tap the <b>smartest</b> route — usually the shorter one, no numbers.</div>
+      <div>🔴 Later routes add <b>traffic</b> — a shorter route with jams can be slower.</div>
+      <div>⚡ Correct +8, fast pick up to +4, streak boosts to <b>×1.5</b>.</div>
+      <div>🏁 <b>12 routes</b>, ~4–5s each. No fail-out — chase the high score.</div>
     </div>
     <button class="btn" id="startBtn">▶ Play</button>
   </div>
@@ -183,7 +183,8 @@ const PAD = 14, HUD_TOP = 138;                     // px reserved for HUD at top
 const DRAW_MS = 420;                               // route draw-in animation
 const REVEAL_OK = 950, REVEAL_BAD = 1350;          // reveal hold (car drives the route)
 const INSET = 2;                                   // start/end inset from grid edges
-function roundTime(r){ return Math.max(1300, 4200 - (r - 1) * 165); }     // ms per round
+const TOTAL_ROUNDS = 12;                            // fixed run length (no fail-out)
+function roundTime(r){ return 5000 - (r - 1) * 90; }                       // 5.0s -> ~4.0s per decision (4-5s)
 function roundMargin(r){ return Math.max(1, 3 - Math.floor((r - 1) / 4)); } // route length gap
 
 // ---- palette ----
@@ -210,7 +211,7 @@ if (Q.get('bg')) qConf.bg = Q.get('bg');
 if (Q.get('title')) qConf.title = Q.get('title');
 const CONFIG = Object.assign({
   title: 'Uber: Path Picker',
-  tagline: 'pick the faster route',
+  tagline: 'pick the smartest route',
   foods: FOODS,
   brandA: '#3da5ff', brandB: '#ff3d9a',
   bg: 'city-bg.jpg?v=3',          // background image (?v bumps to bust browser/CDN cache on update)
@@ -248,7 +249,8 @@ function bil(tA, tB, bB, bA, u, v){ return { x: (tA.x*(1-u)+tB.x*u)*(1-v) + (bA.
 
 // ---- game state ----
 let state = 'idle';                                // idle | draw | play | reveal | over
-let score = 0, best = Math.min(120, +(localStorage.getItem('routerush_best') || 0));
+let score = 0, best = +(localStorage.getItem('routerush_best') || 0);
+if (best > 250){ best = 0; localStorage.removeItem('routerush_best'); }   // discard stale pre-rescale best
 let lives = 3, streak = 0, round = 0;
 let timeLeft = 0, timeMax = 1, drawT = 0, revealT = 0, revealDur = 1;
 let chosen = null, lastResult = null;              // 'ok' | 'bad' | 'timeout'
@@ -507,6 +509,9 @@ function layoutRoutePixels(){
       r.cum.push(r.cum[i-1] + Math.hypot(dx, dy));
     }
     r.totalPx = r.cum[r.cum.length - 1];
+    // split overlapping routes into twin lanes (A left, B right) so divergence is visible
+    const lane = Math.max(4, cell * 0.13);
+    r.drawPixels = offsetPolyline(r.pixels, (r.label === 'A' ? lane : -lane));
     // badge anchor: a point partway along, A earlier / B later so they separate
     r.badge = pointAtFrac(r, r.label === 'A' ? 0.42 : 0.58);
   }
@@ -894,9 +899,28 @@ function drawCars(t){
   }
 }
 
+// offset a polyline by perpendicular distance d (mitered) — used to split A/B into twin lanes
+function offsetPolyline(pts, d){
+  if (!d || pts.length < 2) return pts;
+  const n = pts.length, seg = [];
+  for (let i = 0; i < n-1; i++){
+    let dx = pts[i+1].x - pts[i].x, dy = pts[i+1].y - pts[i].y; const L = Math.hypot(dx,dy) || 1;
+    seg.push({ nx: dy/L, ny: -dx/L });            // left normal of the segment
+  }
+  const out = [];
+  for (let i = 0; i < n; i++){
+    let nx, ny;
+    if (i === 0){ nx = seg[0].nx; ny = seg[0].ny; }
+    else if (i === n-1){ nx = seg[n-2].nx; ny = seg[n-2].ny; }
+    else { const a = seg[i-1], b = seg[i], k = 1 + (a.nx*b.nx + a.ny*b.ny);
+      if (k > 0.01){ nx = (a.nx+b.nx)/k; ny = (a.ny+b.ny)/k; } else { nx = b.nx; ny = b.ny; } }
+    out.push({ x: pts[i].x + nx*d, y: pts[i].y + ny*d });
+  }
+  return out;
+}
 function strokeRoute(r, frac, opts){
   opts = opts || {};
-  const pts = r.pixels, target = r.totalPx * frac;
+  const pts = r.drawPixels || r.pixels, target = r.totalPx * frac;
   // build the partial point list up to `frac`
   const path = [pts[0]];
   for (let i = 1; i < pts.length; i++){
@@ -907,7 +931,7 @@ function strokeRoute(r, frac, opts){
       break;
     }
   }
-  const w = Math.max(7, Math.min(22, cell*0.2));
+  const w = Math.max(6, Math.min(16, cell*0.16));
   const color = opts.color || r.color;
   ctx.lineJoin = ctx.lineCap = 'round';
   // white outline + dark casing so routes pop against the city
@@ -1120,7 +1144,7 @@ function update(dt){
     if (timeLeft <= 0) resolve('timeout');
   } else if (state === 'reveal'){
     revealT -= dt;
-    if (revealT <= 0){ if (lives <= 0) gameOver(); else newRound(); }
+    if (revealT <= 0){ if (round >= TOTAL_ROUNDS) gameOver(); else newRound(); }
   }
 }
 
@@ -1151,17 +1175,19 @@ function resolve(kind){
   if (good) stats.correct++;
   if (good){
     const speedFrac = Math.max(0, timeLeft / timeMax);   // 1 = instant, 0 = last moment
-    const gain = Math.round(5 + 15 * speedFrac) + streak;        // ~5..20 per answer (speed-dominant)
-    const add = Math.max(0, Math.min(gain, 120 - score));        // total score capped at 120
+    const timeBonus = Math.round(4 * speedFrac);          // up to +4 for a fast pick
+    const mult = Math.min(1.5, 1 + 0.1 * streak);         // streak multiplier, caps at x1.5
+    const gain = Math.round((8 + timeBonus) * mult);      // +8 correct + time bonus, x streak
+    const add = Math.max(0, Math.min(gain, 150 - score)); // hard 150 total cap
     score += add; streak++;
     if (streak > bestStreak){ bestStreak = streak; localStorage.setItem('routerush_beststreak', bestStreak); }
     lastResult = 'ok'; revealT = REVEAL_OK;
     flash = { color: 'rgba(56,224,139,A)', a: 0.28 };
     sOK(); buzz(15); if (!reduceMotion) spawnParticles();
-    addPopup('+' + add, COL.good, 34);
+    addPopup('+' + add + (mult > 1.01 ? ' ×' + mult.toFixed(1) : ''), COL.good, 34);
     if (score > best){ best = score; localStorage.setItem('routerush_best', best); }
   } else {
-    lives--; streak = 0;
+    streak = 0;                                           // no fail-out: wrong/slow only resets the streak
     lastResult = (kind === 'timeout') ? 'timeout' : 'bad';
     revealT = REVEAL_BAD;
     flash = { color: 'rgba(255,77,77,A)', a: 0.32 }; shake = reduceMotion ? 0 : 14;
@@ -1189,7 +1215,7 @@ function gameOver(){
   const avgRt = stats.picks ? (stats.rtSum / stats.picks / 1000).toFixed(2) + 's' : '—';
   document.getElementById('overStats').innerHTML =
     'Score <span class="v">' + score + '</span><br>' +
-    'Reached <span class="v">round ' + round + '</span><br>' +
+    'Completed <span class="v">' + Math.min(round, TOTAL_ROUNDS) + '/12 routes</span><br>' +
     '<span style="opacity:.75;font-size:15px;line-height:1.9;display:inline-block;margin-top:6px">' +
       'Best ' + best + ' &middot; Best streak ' + bestStreak + '<br>' +
       'Accuracy ' + acc + '% &middot; Avg ' + avgRt +
@@ -1202,11 +1228,9 @@ function addPopup(text, color, size){
   popups.push({ x: cssW/2, y: cssH*0.42, text, color, size, life: 800 });
 }
 function updateHUD(){
-  let hearts = '';
-  for (let i = 0; i < 3; i++) hearts += '<span class="' + (i < lives ? '' : 'dead') + '">❤️</span>';
-  document.getElementById('lives').innerHTML = hearts;
+  document.getElementById('lives').innerHTML = '';     // no lives (no fail-out)
   document.getElementById('score').textContent = score;
-  document.getElementById('round').textContent = round;
+  document.getElementById('round').textContent = Math.min(Math.max(1, round), TOTAL_ROUNDS);
   document.getElementById('best').textContent = best;
   document.getElementById('streak').textContent = streak;
 }
