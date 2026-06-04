@@ -7,8 +7,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Uber: Best Route" />
-<title>Uber: Best Route</title>
+<meta name="apple-mobile-web-app-title" content="Uber: Path Picker" />
+<title>Uber: Path Picker</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0e14;
@@ -138,7 +138,7 @@
   <button class="choice" id="btnB"><span class="big">B</span><span class="lbl">ROUTE</span></button>
 
   <div class="overlay" id="start">
-    <h1>Uber: Best Route</h1>
+    <h1>Uber: Path Picker</h1>
     <div class="how">
       <div>🗺️ Two routes link the same <b>food shop</b> → <b>house</b>.</div>
       <div>📏 Tap the <b>faster</b> route — usually the shorter one, no numbers.</div>
@@ -209,7 +209,7 @@ if (VER === 2){ qConf.title = 'MAP ROUTER 2'; qConf.tagline = 'tap the faster ro
 if (Q.get('bg')) qConf.bg = Q.get('bg');
 if (Q.get('title')) qConf.title = Q.get('title');
 const CONFIG = Object.assign({
-  title: 'Uber: Best Route',
+  title: 'Uber: Path Picker',
   tagline: 'pick the faster route',
   foods: FOODS,
   brandA: '#3da5ff', brandB: '#ff3d9a',
@@ -1337,7 +1337,7 @@ function shareCard(){
   try {
     const file = new File([dataURLtoBlob(dataUrl)], 'route-rush-' + score + '.png', { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })){
-      navigator.share({ files: [file], title: 'Uber: Best Route', text: `I scored ${score} in Uber: Best Route! Can you beat me?` }).catch(() => {});
+      navigator.share({ files: [file], title: 'Uber: Path Picker', text: `I scored ${score} in Uber: Path Picker! Can you beat me?` }).catch(() => {});
       return;
     }
   } catch (e) {}
