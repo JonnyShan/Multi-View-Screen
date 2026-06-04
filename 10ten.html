@@ -330,6 +330,33 @@
   .dots { display: flex; gap: 7px; justify-content: center; margin: 6px 0 16px; }
   .dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.2); }
   .dots i.on { background: var(--green); width: 18px; border-radius: 4px; }
+
+  /* combo flash */
+  .combo-flash {
+    position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+    font-weight: 900; font-size: clamp(28px, 11vw, 52px); color: var(--green-hi);
+    -webkit-text-stroke: 2px rgba(0, 0, 0, 0.7); paint-order: stroke fill;
+    text-shadow: 0 4px 16px rgba(6, 193, 103, 0.6);
+    pointer-events: none; opacity: 0; z-index: 6; white-space: nowrap;
+  }
+  .combo-flash.go { animation: comboPop 0.8s ease forwards; }
+  @keyframes comboPop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    25%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    70%  { opacity: 1; transform: translate(-50%, -60%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -82%) scale(1); }
+  }
+
+  /* tutorial steps */
+  .tut-steps { display: flex; flex-direction: column; gap: 13px; margin: 10px 0 18px; text-align: left; }
+  .tut-step { display: flex; align-items: center; gap: 13px; }
+  .tut-ico { width: 46px; flex: none; text-align: center; font-size: 28px; }
+  .tut-txt { font-weight: 600; color: var(--muted); font-size: 14.5px; line-height: 1.25; }
+  .tut-txt b { color: #fff; font-weight: 800; }
+  .tut-merge { display: flex; align-items: center; gap: 3px; flex: none; }
+  .tut-merge img { width: 34px; height: 34px; object-fit: contain; }
+  .tut-merge span { color: var(--green); font-weight: 900; font-size: 16px; }
+  .tut-goal { width: 46px; height: 46px; object-fit: contain; flex: none; filter: drop-shadow(0 0 9px rgba(6, 193, 103, 0.55)); }
 </style>
 </head>
 <body>
@@ -359,6 +386,7 @@
       <div class="board" id="board">
         <div class="cells" id="cells"></div>
         <div class="tiles" id="tiles"></div>
+        <div class="combo-flash" id="combo"></div>
 
         <!-- win / game-over overlay (content built in JS) -->
         <div class="overlay" id="overlay"><div class="card" id="ov-card"></div></div>
@@ -366,14 +394,27 @@
         <!-- tutorial overlay -->
         <div class="overlay" id="tutorial">
           <div class="card">
-            <h2 class="green">MERGE THEM ALL!</h2>
-            <p>Swipe to move items and merge them</p>
-            <div class="swipe-demo">
-              <div class="dt a">🍔</div>
-              <div class="dt b">🍔</div>
-              <div class="hand">👆</div>
+            <h2 class="green">HOW TO PLAY</h2>
+            <div class="tut-steps">
+              <div class="tut-step">
+                <div class="tut-ico">👆</div>
+                <div class="tut-txt"><b>Swipe</b> any direction to slide all items.</div>
+              </div>
+              <div class="tut-step">
+                <div class="tut-merge">
+                  <img src="assets/uber/1.png" alt=""><span>+</span><img src="assets/uber/1.png" alt=""><span>=</span><img src="assets/uber/2.png" alt="">
+                </div>
+                <div class="tut-txt"><b>Two of the same</b> merge into the next item.</div>
+              </div>
+              <div class="tut-step">
+                <img class="tut-goal" src="assets/uber/6.png" alt="">
+                <div class="tut-txt">Build up to the <b>Uber Eats Bag</b> to win.</div>
+              </div>
+              <div class="tut-step">
+                <div class="tut-ico">⚡</div>
+                <div class="tut-txt"><b>Fewer swipes = higher score.</b> Plan ahead!</div>
+              </div>
             </div>
-            <div class="dots"><i class="on"></i><i></i><i></i><i></i></div>
             <div class="btn-row"><button class="btn" id="tut-got">GOT IT!</button></div>
           </div>
         </div>
@@ -394,8 +435,18 @@ const CONFIG = {
   target: 6,              // level that wins (Uber Delivery Box)
   startTiles: 2,
   spawn: [ { value: 1, weight: 85 }, { value: 2, weight: 15 } ], // mostly Fries, sometimes Burger
-  maxScore: 150,          // best possible score — earned by a perfect, most-efficient win
-  parSwipes: 32,          // win in this many swipes (or fewer) = full 150; more swipes = lower score
+  maxScore: 150,          // best possible score (also clamps a stored best)
+  // efficiency tiers: win within `maxSwipes` -> that score. Fewer swipes = higher. Edit freely.
+  scoreTiers: [
+    { maxSwipes: 25,       score: 150 },
+    { maxSwipes: 29,       score: 140 },
+    { maxSwipes: 34,       score: 120 },
+    { maxSwipes: 39,       score: 100 },
+    { maxSwipes: 44,       score: 80 },
+    { maxSwipes: 49,       score: 60 },
+    { maxSwipes: 54,       score: 40 },
+    { maxSwipes: Infinity, score: 20 }
+  ],
   animMs: 130,
   swipeThreshold: 22,
   maxUndo: 50,
@@ -543,6 +594,7 @@ const el = {
   ovCard: document.getElementById("ov-card"),
   tutorial: document.getElementById("tutorial"),
   tutGot: document.getElementById("tut-got"),
+  combo: document.getElementById("combo"),
   hint: document.getElementById("hint")
 };
 
@@ -633,9 +685,22 @@ function bumpScore() {
 }
 function updateUndoBtn() { el.undo.disabled = state.history.length === 0; }
 
-// Efficiency score: fewer swipes = higher. A win in <= parSwipes earns the full maxScore.
+// haptic feedback (Android; no-op where unsupported, e.g. iOS Safari)
+function haptic(pattern) {
+  if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
+}
+// "COMBO!" flash for chain cascades / multi-merges in one swipe
+function comboFlash(n) {
+  el.combo.textContent = n >= 3 ? `COMBO ×${n}!` : "COMBO!";
+  el.combo.classList.remove("go");
+  void el.combo.offsetWidth;
+  el.combo.classList.add("go");
+}
+
+// Efficiency score: fewer swipes = higher. Returns the score for the first tier the count fits.
 function scoreFromMoves(m) {
-  return Math.max(0, Math.min(CONFIG.maxScore, Math.round(CONFIG.maxScore * CONFIG.parSwipes / Math.max(m, 1))));
+  for (const t of CONFIG.scoreTiers) { if (m <= t.maxSwipes) return t.score; }
+  return 0;
 }
 
 /* ============================================================
@@ -788,6 +853,11 @@ function move(dir) {
     bumpScore();
     if (maxNew > 0) playMerge(maxNew);
 
+    // combo = a chain cascade (1+1->2->3) or 2+ merges in one swipe
+    const combos = res.merges.reduce((s, mg) => s + mg.removedIds.length, 0);
+    if (combos >= 2) { comboFlash(combos); haptic([0, 22, 30, 28]); }
+    else if (res.merges.length) { haptic(14); }
+
     const sp = spawnRandom();
     if (sp) { createTileEl(sp, true); playSpawn(); }
 
@@ -799,6 +869,7 @@ function move(dir) {
       if (state.score > state.best) state.best = state.score;
       updateScores();
       playWin();
+      haptic([0, 40, 40, 40, 40, 90]);
       showOverlay("win");
     } else if (!anyMovePossible(state.tiles, state.grid)) {
       state.over = true;
