@@ -205,7 +205,7 @@ function hexRGBA(hex, a){ const n = parseInt(hex.slice(1),16); return 'rgba(' + 
 const Q = new URLSearchParams(location.search);
 const VER = Q.get('v') === '2' ? 2 : 1;            // version 2 = real city background image
 const qConf = {};
-if (VER === 2){ qConf.title = 'MAP ROUTER 2'; qConf.tagline = 'tap the faster route'; qConf.bg = 'city-bg.jpg'; }
+if (VER === 2){ qConf.title = 'MAP ROUTER 2'; qConf.tagline = 'tap the faster route'; qConf.bg = 'city-bg.jpg?v=2'; }
 if (Q.get('bg')) qConf.bg = Q.get('bg');
 if (Q.get('title')) qConf.title = Q.get('title');
 const CONFIG = Object.assign({
@@ -213,7 +213,7 @@ const CONFIG = Object.assign({
   tagline: 'pick the faster route',
   foods: FOODS,
   brandA: '#3da5ff', brandB: '#ff3d9a',
-  bg: 'city-bg.jpg',              // background image -> draws the real low-poly city instead of the procedural one
+  bg: 'city-bg.jpg?v=2',          // background image (?v bumps to bust browser/CDN cache on update)
   cta: null                       // { text:'Order now →', url:'https://…' } -> button on game-over (lead-gen)
 }, (window.ROUTE_RUSH_CONFIG || {}), qConf);
 let bgImg = null;                 // loaded background image (version 2)
