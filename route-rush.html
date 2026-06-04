@@ -947,12 +947,7 @@ function drawBadge(r, dim){
 }
 
 function drawStartEnd(t){
-  // tie the route ends to the shop + house buildings with short stubs
-  const sc = iso(city.startBlk.bx+0.5, city.startBlk.by+0.5, 0), ec = iso(city.endBlk.bx+0.5, city.endBlk.by+0.5, 0);
   const s = iso(city.S.x, city.S.y, 0), e = iso(city.E.x, city.E.y, 0);
-  ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = Math.max(3, TW*0.08); ctx.lineCap = 'round'; ctx.setLineDash([]);
-  ctx.beginPath(); ctx.moveTo(sc.x, sc.y); ctx.lineTo(s.x, s.y); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(ec.x, ec.y); ctx.lineTo(e.x, e.y); ctx.stroke();
   // start ring on the food-shop side
   const pulse = 1 + Math.sin(t*4) * 0.12, rad = Math.max(8, TW*0.18);
   ctx.beginPath(); ctx.arc(s.x, s.y, rad*1.7*pulse, 0, Math.PI*2);
