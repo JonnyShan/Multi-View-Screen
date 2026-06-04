@@ -213,7 +213,7 @@ const CONFIG = Object.assign({
   tagline: 'pick the faster route',
   foods: FOODS,
   brandA: '#3da5ff', brandB: '#ff3d9a',
-  bg: null,                       // background image URL/dataURL -> draws a real city instead of the procedural one
+  bg: 'city-bg.jpg',              // background image -> draws the real low-poly city instead of the procedural one
   cta: null                       // { text:'Order now →', url:'https://…' } -> button on game-over (lead-gen)
 }, (window.ROUTE_RUSH_CONFIG || {}), qConf);
 let bgImg = null;                 // loaded background image (version 2)
@@ -236,6 +236,10 @@ function pickN(arr, n){ const a = arr.slice(), out = []; for (let i = 0; i < n &
 let dpr = 1, cssW = 0, cssH = 0;
 let GW = 7, GH = 10;                                // intersections (cols, rows)
 let cell = 60, TW = 60, TH = 30, ISOX = 0, ISOY = 0;
+// road grid measured from city-bg.jpg (normalized image coords: first line + spacing)
+// 6 vertical roads, 7 horizontal roads -> routes run along the photo's streets
+const BG_GRID = { x0: 0.1447, dx: 0.1374, nx: 6, y0: 0.1282, dy: 0.1249, ny: 7 };
+let ISL = null;                                    // island rect {x,y,w,h} when a bg photo is used
 // near top-down projection (90% 2D): flat grid; z gives a small upward extrusion (the 10% 3D)
 function iso(gx, gy, z){ return { x: ISOX + gx * TW, y: ISOY + gy * TH - (z || 0) }; }
 function poly(c, pts){ c.beginPath(); c.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) c.lineTo(pts[i].x, pts[i].y); c.closePath(); c.fill(); }
@@ -262,12 +266,22 @@ let reduceMotion = false; try { reduceMotion = matchMedia('(prefers-reduced-moti
 
 // =================== layout ===================
 function pickGrid(){
+  if (CONFIG.bg){ GW = BG_GRID.nx; GH = BG_GRID.ny; return; }   // match the photo's road grid
   if (cssW > cssH * 1.1) { GW = 12; GH = 8; }        // landscape
   else { GW = 8; GH = 12; }                          // portrait / square
 }
 function computeCell(){
   const availW = cssW - PAD * 2;
   const availH = cssH - HUD_TOP - PAD;
+  if (CONFIG.bg && bgImg){                            // align the grid onto the photo's roads
+    const s = Math.min(availW / bgImg.width, availH / bgImg.height);   // contain: whole city visible, no crop
+    const iw = bgImg.width * s, ih = bgImg.height * s;
+    const ox = PAD + (availW - iw) / 2, oy = HUD_TOP + (availH - ih) / 2;
+    ISL = { x: ox, y: oy, w: iw, h: ih };           // island hugs the image rect (image fills it exactly)
+    TW = BG_GRID.dx * iw; TH = BG_GRID.dy * ih; cell = TW;
+    ISOX = ox + BG_GRID.x0 * iw; ISOY = oy + BG_GRID.y0 * ih;
+    return;
+  }
   TW = Math.min(availW / (GW - 1), availH / (GH - 1));
   TH = TW; cell = TW;
   const gridW = TW * (GW - 1), gridH = TW * (GH - 1);
@@ -531,8 +545,10 @@ function buildStatic(){
   octx.clearRect(0,0,cssW,cssH);
   octx.fillStyle = '#0b0e14'; octx.fillRect(0,0,cssW,cssH);
 
-  const cN = iso(0,0,0), cS = iso(GW-1,GH-1,0);
-  const bx0 = cN.x, by0 = cN.y, bw = cS.x - cN.x, bh = cS.y - cN.y, brad = Math.min(bw,bh)*0.05;
+  let bx0, by0, bw, bh;
+  if (bgImg && ISL){ bx0 = ISL.x; by0 = ISL.y; bw = ISL.w; bh = ISL.h; }   // photo fills the whole play area
+  else { const cN = iso(0,0,0), cS = iso(GW-1,GH-1,0); bx0 = cN.x; by0 = cN.y; bw = cS.x - cN.x; bh = cS.y - cN.y; }
+  const brad = Math.min(bw,bh)*0.05;
   // drop shadow under the island
   octx.fillStyle = 'rgba(0,0,0,.4)'; rr(octx, bx0+5, by0+9, bw, bh, brad); octx.fill();
   // VERSION 2: a real city background image fills the island (cover-fit, rounded)
@@ -579,11 +595,6 @@ function buildStatic(){
   for (const s of city.shops) obj.push({ d: s.bx + s.by, f: () => drawShop3D(s) });
   for (const tw of city.towers) obj.push({ d: tw.bx + tw.by, f: () => drawTower3D(tw) });
   for (const p of city.parks) obj.push({ d: p.bx + p.by + 0.5, f: () => drawParkTrees(p) });
-  for (const pc of city.parkedCars){
-    const gx = pc.axis==='h' ? pc.pos : pc.line + 0.32*pc.side;
-    const gy = pc.axis==='h' ? pc.line + 0.32*pc.side : pc.pos;
-    obj.push({ d: gx + gy, f: () => { const b = iso(gx,gy,0); drawIsoCarScreen(octx, b.x, b.y, pc.axis==='h'?'x':'y', pc.color, TW, { dir: pc.side, kind: pc.kind }); } });
-  }
   obj.sort((a,b) => a.d - b.d);
   for (const o of obj) o.f();
 }
@@ -877,7 +888,7 @@ function drawCars(t){
     if (car.axis === 'h'){ gx = car.pos; gy = car.line + lane; gAxis = 'x'; }
     else { gx = car.line + lane; gy = car.pos; gAxis = 'y'; }
     const b = iso(gx, gy, 0);
-    drawIsoCarScreen(ctx, b.x, b.y, gAxis, car.color, TW, { dir: car.dir, kind: car.kind });
+    drawIsoCarScreen(ctx, b.x, b.y, gAxis, car.color, TW*0.5, { dir: car.dir, kind: car.kind });
   }
 }
 
@@ -1037,7 +1048,6 @@ function frame(ts){
     ctx.save();
     if (intro < 1){ ctx.globalAlpha = 0.25 + 0.75*intro; ctx.translate(mid.x, mid.y); ctx.scale(0.95 + 0.05*intro, 0.95 + 0.05*intro); ctx.translate(-mid.x, -mid.y); }
     ctx.drawImage(off, 0, 0, cssW, cssH);           // static city / background photo
-    if (!bgImg) drawCars(dt/1000);                  // photo already has its own cars
     ctx.fillStyle = TINTS[Math.floor((round-1)/4) % TINTS.length]; ctx.fillRect(0, 0, cssW, cssH);   // day/night tint + focus scrim
 
     const frac = drawing ? Math.min(1, drawT / DRAW_MS) : 1;
@@ -1058,13 +1068,6 @@ function frame(ts){
     } else {
       if (!reveal) for (const r of [routeA, routeB]) drawJam(r, t);   // traffic-jam markers
       for (const r of [routeA, routeB]) drawBadge(r, reveal && !r.correct);
-    }
-    // reward: a car drives the correct route during the reveal
-    if (reveal){
-      const cr = correctRoute();
-      const p = Math.min(1, (1 - revealT / revealDur) * 1.2);
-      const car = carAlongRoute(cr, p);
-      drawIsoCarScreen(ctx, car.x, car.y, car.gAxis, '#ffe27a', TW * 1.15, { dir: car.dir });
     }
     drawStartEnd(t);
     drawTimerRing();
@@ -1387,11 +1390,11 @@ document.addEventListener('touchmove', e => e.preventDefault(), { passive: false
 function applyBg(src){
   if (!src){ bgImg = null; if (city) buildStatic(); return; }
   const im = new Image();
-  im.onload = () => { bgImg = im; if (city) buildStatic(); };
+  im.onload = () => { bgImg = im; computeCell(); if (city) buildStatic(); };   // re-align grid to the photo's roads
   im.onerror = () => { bgImg = null; if (city) buildStatic(); };   // missing file -> procedural fallback
   im.src = src;
 }
-if (CONFIG.bg) applyBg(localStorage.getItem('routerush_bg') || CONFIG.bg);   // V2 deep-link (?v=2) only
+if (CONFIG.bg) applyBg(CONFIG.bg);   // load the baked city background
 
 resize();
 updateHUD();
