@@ -236,6 +236,8 @@
   .card h2.green { color: var(--green); }
   .card h2.danger { color: var(--danger); }
   .card p { margin: 0 0 18px; color: var(--text); font-weight: 600; opacity: 0.9; }
+  .swipes-line { margin: 0 0 14px !important; font-weight: 800; opacity: 1 !important; }
+  .swipes-line b { color: var(--green); font-size: 1.25em; }
 
   .win-box {
     width: 130px; height: 130px;
@@ -336,7 +338,7 @@
     <div class="header">
       <div class="logo"><span class="u">Uber</span><span class="e">Eats</span></div>
       <div class="scorebox">
-        <div class="seg"><div class="label">Score</div><div class="value" id="score">0</div></div>
+        <div class="seg"><div class="label">Swipes</div><div class="value" id="score">0</div></div>
         <div class="seg"><div class="label">Best</div><div class="value" id="best">0</div></div>
       </div>
     </div>
@@ -392,8 +394,8 @@ const CONFIG = {
   target: 6,              // level that wins (Uber Delivery Box)
   startTiles: 2,
   spawn: [ { value: 1, weight: 85 }, { value: 2, weight: 15 } ], // mostly Fries, sometimes Burger
-  scoreForMerge: (newValue) => newValue * newValue, // higher items = far more points
-  maxScore: 150,          // total score is capped here (highest achievable)
+  maxScore: 150,          // best possible score — earned by a perfect, most-efficient win
+  parSwipes: 32,          // win in this many swipes (or fewer) = full 150; more swipes = lower score
   animMs: 130,
   swipeThreshold: 22,
   maxUndo: 50,
@@ -457,7 +459,6 @@ function computeMove(tiles, grid, dir) {
   const survivors = [];
   const newGrid = emptyGrid();
   let moved = false;
-  let scoreGained = 0;
 
   for (const line of lineCells(dir)) {
     const present = [];
@@ -478,7 +479,6 @@ function computeMove(tiles, grid, dir) {
         const b = slots.pop();
         const nv = b.value + 1;
         slots.push({ value: nv, ids: [...b.ids, ...a.ids], merged: true });
-        scoreGained += CONFIG.scoreForMerge(nv);
       }
     }
 
@@ -503,7 +503,7 @@ function computeMove(tiles, grid, dir) {
   const newTiles = new Map();
   for (const s of survivors) newTiles.set(s.id, { id: s.id, value: s.value, r: s.r, c: s.c });
 
-  return { moved, scoreGained, movements, merges, newGrid, newTiles };
+  return { moved, movements, merges, newGrid, newTiles };
 }
 
 function anyMovePossible(tiles, grid) {
@@ -519,6 +519,7 @@ const state = {
   grid: emptyGrid(),
   score: 0,
   best: 0,
+  moves: 0,
   won: false,
   over: false,
   muted: false,
@@ -622,8 +623,8 @@ function renderAll() {
 }
 
 function updateScores() {
-  el.score.textContent = state.score;
-  el.best.textContent = state.best;
+  el.score.textContent = state.moves;   // left pill = live swipe count (fewer is better)
+  el.best.textContent = state.best;      // best efficiency score (0..maxScore)
 }
 function bumpScore() {
   el.score.classList.remove("pulse");
@@ -632,14 +633,9 @@ function bumpScore() {
 }
 function updateUndoBtn() { el.undo.disabled = state.history.length === 0; }
 
-function floatScore(r, c, amount) {
-  const f = document.createElement("div");
-  f.className = "floater";
-  f.textContent = "+" + amount;
-  f.style.left = (pos(c) + CELL / 2) + "%";
-  f.style.top = (pos(r) + CELL / 2) + "%";
-  el.tiles.appendChild(f);
-  f.addEventListener("animationend", () => f.remove(), { once: true });
+// Efficiency score: fewer swipes = higher. A win in <= parSwipes earns the full maxScore.
+function scoreFromMoves(m) {
+  return Math.max(0, Math.min(CONFIG.maxScore, Math.round(CONFIG.maxScore * CONFIG.parSwipes / Math.max(m, 1))));
 }
 
 /* ============================================================
@@ -674,7 +670,7 @@ function playOver() { [0, -3, -7].forEach((s, i) => setTimeout(() => blip(220 * 
 function save() {
   try {
     localStorage.setItem(CONFIG.storageKey, JSON.stringify({
-      best: state.best, score: state.score, won: state.won, muted: state.muted,
+      best: state.best, score: state.score, won: state.won, muted: state.muted, moves: state.moves,
       tiles: [...state.tiles.values()].map(t => ({ v: t.value, r: t.r, c: t.c }))
     }));
   } catch (e) {}
@@ -702,7 +698,7 @@ function spawnRandom() {
 
 function snapshot() {
   return {
-    score: state.score, won: state.won,
+    score: state.score, won: state.won, moves: state.moves,
     tiles: [...state.tiles.values()].map(t => ({ id: t.id, value: t.value, r: t.r, c: t.c }))
   };
 }
@@ -721,6 +717,7 @@ function loadSnapshot(snap) {
   }
   state.score = snap.score;
   state.won = snap.won;
+  state.moves = snap.moves || 0;
   state.over = false;
 }
 
@@ -728,6 +725,7 @@ function newGame() {
   state.tiles = new Map();
   state.grid = emptyGrid();
   state.score = 0;
+  state.moves = 0;
   state.won = false;
   state.over = false;
   state.history = [];
@@ -754,6 +752,7 @@ function move(dir) {
 
   ensureAudio();
   pushHistory();
+  state.moves++;
   hideHint();
   state.busy = true;
 
@@ -782,16 +781,11 @@ function move(dir) {
         void e.offsetWidth;
         e.classList.add("pop");
       }
-      floatScore(mg.r, mg.c, CONFIG.scoreForMerge(mg.newValue));
       maxNew = Math.max(maxNew, mg.newValue);
     }
 
-    if (res.scoreGained > 0) {
-      state.score = Math.min(state.score + res.scoreGained, CONFIG.maxScore);
-      if (state.score > state.best) state.best = state.score;
-      updateScores();
-      bumpScore();
-    }
+    updateScores();   // live swipe count
+    bumpScore();
     if (maxNew > 0) playMerge(maxNew);
 
     const sp = spawnRandom();
@@ -801,6 +795,9 @@ function move(dir) {
 
     if (!state.won && maxNew >= CONFIG.target) {
       state.won = true;
+      state.score = scoreFromMoves(state.moves);     // efficiency score, locked in at the win
+      if (state.score > state.best) state.best = state.score;
+      updateScores();
       playWin();
       showOverlay("win");
     } else if (!anyMovePossible(state.tiles, state.grid)) {
@@ -833,6 +830,7 @@ function showOverlay(kind) {
              onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
         <span class="emoji" style="display:none">${CONFIG.items[CONFIG.target].emoji}</span>
       </div>
+      <p class="swipes-line">Delivered in <b>${state.moves}</b> swipe${state.moves === 1 ? "" : "s"}</p>
       ${miniScores()}
       <div class="btn-row">
         <button class="btn" data-act="again">PLAY AGAIN</button>
@@ -843,7 +841,8 @@ function showOverlay(kind) {
     el.ovCard.innerHTML = `
       <h2 class="danger">GAME OVER</h2>
       <p>No more moves left!</p>
-      ${miniScores()}
+      <p class="swipes-line">Used <b>${state.moves}</b> swipe${state.moves === 1 ? "" : "s"} — no delivery</p>
+      <div class="mini-scores"><div class="seg"><div class="label">Best</div><div class="value">${state.best}</div></div></div>
       <div class="btn-row">
         <button class="btn outline" data-act="again">TRY AGAIN</button>
         <button class="btn secondary" data-act="home">HOME</button>
@@ -947,6 +946,7 @@ function init() {
 
   if (saved && saved.tiles && saved.tiles.length) {
     state.score = Math.min(saved.score || 0, CONFIG.maxScore);
+    state.moves = saved.moves || 0;
     state.won = !!saved.won;
     for (const t of saved.tiles) addTile(t.v, t.r, t.c);
     state.over = !anyMovePossible(state.tiles, state.grid);
