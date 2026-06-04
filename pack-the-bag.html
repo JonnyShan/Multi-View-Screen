@@ -483,12 +483,22 @@
     bctx.imageSmoothingQuality = "high";
   }
 
+  // sprites whose art has a handle on top: fraction of source-image HEIGHT that is the handle.
+  // body maps to the full cell footprint; handle overhangs ABOVE it. Locked pieces draw in
+  // placement order, so a piece landing on the bag is drawn later and paints over the handle
+  // => compact, not floating. Only applied at rot 0 (handle pointing up).
+  const HANDLE_FRAC = { ubereats: 0.18, bigbag: 0.19 };
+
   // draw a piece's whole sprite over its cell bounding box (with optional land-squash)
   function drawSprite(ctx, key, cells, gx, gy, rot, alpha, squashP) {
     const spr = SPRITES[PIECES[key].sprite];
     if (!spr) return;
     const cols = cells[0].length, rows = cells.length;
     const w = cols * cell, h = rows * cell, x = gx * cell, y = gy * cell;
+    // handle overhang: stretch art upward so the body fills the footprint and the handle pokes above
+    let dy = y, dh = h;
+    const hf = HANDLE_FRAC[PIECES[key].sprite];
+    if (hf && rot === 0) { dh = h / (1 - hf); dy = y - (dh - h); }
     ctx.save();
     if (alpha != null) ctx.globalAlpha = alpha;
     if (squashP) {
@@ -498,7 +508,7 @@
       ctx.scale(sx, sy);
       ctx.translate(-(x + w / 2), -(y + h));
     }
-    ctx.drawImage(spr.rots[rot], x, y, w, h);
+    ctx.drawImage(spr.rots[rot], x, dy, w, dh);
     ctx.restore();
   }
 
