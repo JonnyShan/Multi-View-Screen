@@ -272,7 +272,9 @@ function pickGrid(){
 }
 function computeCell(){
   const availW = cssW - PAD * 2;
-  const availH = cssH - HUD_TOP - PAD;
+  // reserve the bottom A/B button zone so the map sits above it (CSS height clamp(116,17vh,168) + offset/safe-area)
+  const btnH = Math.min(168, Math.max(116, 0.17 * cssH));
+  const availH = cssH - HUD_TOP - (btnH + 30);
   if (CONFIG.bg && bgImg){                            // align the grid onto the photo's roads
     const s = Math.min(availW / bgImg.width, availH / bgImg.height);   // contain: whole city visible, no crop
     const iw = bgImg.width * s, ih = bgImg.height * s;
