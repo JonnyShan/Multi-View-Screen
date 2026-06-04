@@ -454,30 +454,32 @@ function zigStair(a, b, turns){
   }
   return pts;
 }
+// clean one-bend L between a and b (minimal Manhattan)
+function lShape(a, b, viaX){
+  if (a.x === b.x || a.y === b.y) return [{x:a.x,y:a.y},{x:b.x,y:b.y}];
+  const bend = viaX ? {x:b.x,y:a.y} : {x:a.x,y:b.y};
+  return [{x:a.x,y:a.y}, bend, {x:b.x,y:b.y}];
+}
+// clean rectangular detour (⊐): bulge out by m on a roomy perpendicular side — 90° turns only, length = Manhattan + 2m
+function detourRect(a, b, m){
+  const minx=Math.min(a.x,b.x), maxx=Math.max(a.x,b.x), miny=Math.min(a.y,b.y), maxy=Math.max(a.y,b.y);
+  const room={ left:minx, right:(GW-1)-maxx, up:miny, down:(GH-1)-maxy };
+  let sides=['left','right','up','down'].filter(s=>room[s]>=1);
+  if (a.x===b.x) sides = sides.filter(s=>s==='left'||s==='right');   // vertical line -> bulge sideways
+  else if (a.y===b.y) sides = sides.filter(s=>s==='up'||s==='down'); // horizontal line -> bulge up/down
+  const side = choice(sides.length ? sides : ['right']);
+  const k = Math.max(1, Math.min(m, room[side] || 1));
+  if (side==='left'){  const x=minx-k; return [{x:a.x,y:a.y},{x,y:a.y},{x,y:b.y},{x:b.x,y:b.y}]; }
+  if (side==='right'){ const x=maxx+k; return [{x:a.x,y:a.y},{x,y:a.y},{x,y:b.y},{x:b.x,y:b.y}]; }
+  if (side==='up'){    const y=miny-k; return [{x:a.x,y:a.y},{x:a.x,y},{x:b.x,y},{x:b.x,y:b.y}]; }
+  const y=maxy+k;      return [{x:a.x,y:a.y},{x:a.x,y},{x:b.x,y},{x:b.x,y:b.y}];
+}
 
 function generateRoutes(S, E, desiredM){
-  const minx = Math.min(S.x,E.x), maxx = Math.max(S.x,E.x);
-  const miny = Math.min(S.y,E.y), maxy = Math.max(S.y,E.y);
-  const rooms = { left:minx, right:(GW-1)-maxx, up:miny, down:(GH-1)-maxy };
-  const sides = Object.keys(rooms).filter(s => rooms[s] > 0);
-  // prefer a side roomy enough for the full target gap; else the roomiest side
-  let cand = sides.filter(s => rooms[s] >= desiredM);
-  if (!cand.length){ const mx = Math.max(0, ...sides.map(s => rooms[s])); cand = sides.filter(s => rooms[s] === mx); }
-  const side = choice(cand.length ? cand : ['right']);
-  const m = Math.max(1, Math.min(desiredM, rooms[side] || 1));
-
-  // LONG route: overshoot the chosen side by m (adds 2m), each leg a zigzag
-  const midY = Math.max(miny, Math.min(maxy, Math.round((S.y + E.y) / 2)));
-  const midX = Math.max(minx, Math.min(maxx, Math.round((S.x + E.x) / 2)));
-  let P;
-  if (side === 'left')       P = { x: minx - m, y: midY };
-  else if (side === 'right') P = { x: maxx + m, y: midY };
-  else if (side === 'up')    P = { x: midX, y: miny - m };
-  else                       P = { x: midX, y: maxy + m };
-  const longR = routeFromCorners(zigStair(S, P, ri(2,3)).concat(zigStair(P, E, ri(2,3)).slice(1)));
-
-  // SHORT route: a winding monotone zigzag (length == Manhattan distance), several turns
-  const shortR = routeFromCorners(zigStair(S, E, ri(5,8)));
+  // SHORT: a clean one-bend L (minimal distance)
+  const shortR = routeFromCorners(lShape(S, E, Math.random() < 0.5));
+  // LONG: a clean rectangular detour, longer by 2m, right-angle turns only
+  const longR  = routeFromCorners(detourRect(S, E, desiredM));
 
   // traffic-jam twist (from round 5): each jam adds effective length, so the
   // shorter-LOOKING route can actually be slower — player must read jams too.
