@@ -248,7 +248,7 @@ function bil(tA, tB, bB, bA, u, v){ return { x: (tA.x*(1-u)+tB.x*u)*(1-v) + (bA.
 
 // ---- game state ----
 let state = 'idle';                                // idle | draw | play | reveal | over
-let score = 0, best = +(localStorage.getItem('routerush_best') || 0);
+let score = 0, best = Math.min(120, +(localStorage.getItem('routerush_best') || 0));
 let lives = 3, streak = 0, round = 0;
 let timeLeft = 0, timeMax = 1, drawT = 0, revealT = 0, revealDur = 1;
 let chosen = null, lastResult = null;              // 'ok' | 'bad' | 'timeout'
@@ -1151,13 +1151,14 @@ function resolve(kind){
   if (good) stats.correct++;
   if (good){
     const speedFrac = Math.max(0, timeLeft / timeMax);   // 1 = instant, 0 = last moment
-    const gain = Math.min(120, Math.round(20 + 100 * speedFrac) + streak * 2);   // speed-dominant, capped at 120
-    score += gain; streak++;
+    const gain = Math.round(5 + 15 * speedFrac) + streak;        // ~5..20 per answer (speed-dominant)
+    const add = Math.max(0, Math.min(gain, 120 - score));        // total score capped at 120
+    score += add; streak++;
     if (streak > bestStreak){ bestStreak = streak; localStorage.setItem('routerush_beststreak', bestStreak); }
     lastResult = 'ok'; revealT = REVEAL_OK;
     flash = { color: 'rgba(56,224,139,A)', a: 0.28 };
     sOK(); buzz(15); if (!reduceMotion) spawnParticles();
-    addPopup('+' + gain, COL.good, 34);
+    addPopup('+' + add, COL.good, 34);
     if (score > best){ best = score; localStorage.setItem('routerush_best', best); }
   } else {
     lives--; streak = 0;
