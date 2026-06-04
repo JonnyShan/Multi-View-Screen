@@ -43,13 +43,16 @@
   .controls + .controls{margin-top:9px}
 
   .url-field{
-    display:flex; flex:1 1 340px; min-width:230px;
-    background:var(--bg-3); border:1px solid var(--line-2);
-    border-radius:10px; overflow:hidden; transition:border-color .15s, box-shadow .15s;
+    display:flex; align-items:center; flex:1 1 480px; min-width:280px;
+    background:#212d40; border:2px solid #3f5d92;
+    border-radius:13px; overflow:hidden;
+    box-shadow:0 0 0 4px rgba(76,141,255,.12), 0 6px 18px -8px rgba(0,0,0,.5);
+    transition:border-color .15s, box-shadow .15s;
   }
-  .url-field:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(76,141,255,.15)}
-  .url-field input{flex:1;background:transparent;border:0;outline:0;color:var(--text);padding:10px 12px;font-size:14px}
-  .url-field input::placeholder{color:var(--text-dim)}
+  .url-field:focus-within{border-color:var(--accent);box-shadow:0 0 0 4px rgba(76,141,255,.30), 0 6px 22px -8px rgba(0,0,0,.6)}
+  .url-ico{display:flex;align-items:center;padding:0 2px 0 14px;color:#8fb4ff;flex:0 0 auto}
+  .url-field input{flex:1;background:transparent;border:0;outline:0;color:var(--text);padding:15px 14px;font-size:17px;font-weight:500;letter-spacing:.2px}
+  .url-field input::placeholder{color:#9fb0c6;font-weight:400}
 
   button{
     font:inherit;cursor:pointer;color:var(--text);
@@ -63,7 +66,7 @@
 
   .btn-primary{background:linear-gradient(180deg,var(--accent),var(--accent-2));border-color:transparent;font-weight:600;padding:9px 18px}
   .btn-primary:hover{filter:brightness(1.08)}
-  .url-field .btn-primary{border-radius:0;border:0;border-left:1px solid rgba(0,0,0,.25)}
+  .url-field .btn-primary{border-radius:0;border:0;border-left:1px solid rgba(0,0,0,.25);font-size:15px;font-weight:700;padding:14px 26px}
 
   .zoom{display:flex;align-items:center;gap:4px;background:var(--bg-3);border:1px solid var(--line-2);border-radius:10px;padding:3px}
   .zoom button{border:0;background:transparent;padding:6px 11px;font-size:16px;line-height:1;border-radius:7px}
@@ -194,8 +197,13 @@
 
   <div class="controls">
     <div class="url-field">
+      <span class="url-ico" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18"/>
+        </svg>
+      </span>
       <input id="url" type="text" spellcheck="false" autocomplete="off" list="recentUrls"
-             placeholder="Type a URL (e.g. example.com) and hit Preview or Enter">
+             placeholder="Enter a website URL — e.g. example.com">
       <button class="btn-primary" id="go">Preview</button>
     </div>
     <datalist id="recentUrls"></datalist>
