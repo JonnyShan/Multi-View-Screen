@@ -1156,12 +1156,13 @@ function resolve(kind){
     const timeBonus = Math.round(4 * speedFrac);          // up to +4 for a fast pick
     const mult = Math.min(1.5, 1 + 0.1 * streak);         // streak multiplier, caps at x1.5
     const gain = Math.round((8 + timeBonus) * mult);      // +8 correct + time bonus, x streak
-    score += gain; streak++;
+    const add = Math.max(0, Math.min(gain, 150 - score)); // hard 150 total cap
+    score += add; streak++;
     if (streak > bestStreak){ bestStreak = streak; localStorage.setItem('routerush_beststreak', bestStreak); }
     lastResult = 'ok'; revealT = REVEAL_OK;
     flash = { color: 'rgba(56,224,139,A)', a: 0.28 };
     sOK(); buzz(15); if (!reduceMotion) spawnParticles();
-    addPopup('+' + gain + (mult > 1.01 ? ' ×' + mult.toFixed(1) : ''), COL.good, 34);
+    addPopup('+' + add + (mult > 1.01 ? ' ×' + mult.toFixed(1) : ''), COL.good, 34);
     if (score > best){ best = score; localStorage.setItem('routerush_best', best); }
   } else {
     streak = 0;                                           // no fail-out: wrong/slow only resets the streak
