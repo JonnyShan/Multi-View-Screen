@@ -52,10 +52,11 @@
   #nextWrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
   #nextWrap .k { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; opacity: .55; font-weight: 700; }
   #next { background: rgba(255,255,255,.05); border-radius: 8px; }
-  #muteBtn {
+  #muteBtn, #musicBtn {
     background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18);
     color: #fff; border-radius: 9px; width: 38px; height: 38px; font-size: 17px; cursor: pointer;
   }
+  #musicBtn.off { opacity: .4; }
 
   /* ---------- Playfield ---------- */
   #playfield {
@@ -156,7 +157,8 @@
       <div class="stat"><div class="k">Score</div><div class="v" id="score">0</div></div>
       <div class="stat"><div class="k">Bags</div><div class="v green" id="bags">0</div></div>
       <div id="nextWrap"><div class="k">Next</div><canvas id="next" width="60" height="60"></canvas></div>
-      <button id="muteBtn" title="Sound">🔊</button>
+      <button id="musicBtn" title="Music on/off">🎵</button>
+      <button id="muteBtn" title="Sound effects">🔊</button>
     </div>
   </div>
 
@@ -567,14 +569,14 @@
   }
   // ---------- Background music (looping mp3) ----------
   const MUSIC_VOL = 0.6;
-  let bgm = null, musicOn = false;
+  let bgm = null, musicOn = false, musicOff = false;
   function startMusic() {
-    if (musicOn) return;
+    if (musicOn || musicOff) return;
     try {
       bgm = new Audio("assets/music.mp3");
       bgm.loop = true;
       bgm.volume = MUSIC_VOL;
-      bgm.muted = muted;
+      bgm.muted = muted || musicOff;
       bgm.play().catch(function () {});
       musicOn = true;
     } catch (e) {}
@@ -583,8 +585,20 @@
   const muteBtn = document.getElementById("muteBtn");
   muteBtn.addEventListener("click", () => {
     muted = !muted; muteBtn.textContent = muted ? "🔇" : "🔊";
-    if (bgm) bgm.muted = muted;
+    if (bgm) bgm.muted = muted || musicOff;
     try { localStorage.setItem("ptb_muted", muted ? "1" : "0"); } catch (e) {}
+  });
+
+  // music-only toggle (top-right 🎵)
+  const musicBtn = document.getElementById("musicBtn");
+  function renderMusicBtn() { musicBtn.classList.toggle("off", musicOff); musicBtn.title = musicOff ? "Music: off" : "Music: on"; }
+  musicBtn.addEventListener("click", () => {
+    musicOff = !musicOff;
+    renderMusicBtn();
+    if (musicOff) { if (bgm) bgm.muted = true; }
+    else if (bgm) bgm.muted = muted;
+    else startMusic();
+    try { localStorage.setItem("ptb_music_off", musicOff ? "1" : "0"); } catch (e) {}
   });
 
   // ---------- Leaderboard (top 5, localStorage) ----------
@@ -810,6 +824,8 @@
 
   // ---------- Init ----------
   try { muted = localStorage.getItem("ptb_muted") === "1"; muteBtn.textContent = muted ? "🔇" : "🔊"; } catch (e) {}
+  try { musicOff = localStorage.getItem("ptb_music_off") === "1"; } catch (e) {}
+  renderMusicBtn();
   grid = newGrid();
   fit();
   render();
