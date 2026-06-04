@@ -1151,7 +1151,7 @@ function resolve(kind){
   if (good) stats.correct++;
   if (good){
     const speedFrac = Math.max(0, timeLeft / timeMax);   // 1 = instant, 0 = last moment
-    const gain = Math.round(25 + 475 * speedFrac) + streak * 4;   // score is mostly speed
+    const gain = Math.min(120, Math.round(20 + 100 * speedFrac) + streak * 2);   // speed-dominant, capped at 120
     score += gain; streak++;
     if (streak > bestStreak){ bestStreak = streak; localStorage.setItem('routerush_beststreak', bestStreak); }
     lastResult = 'ok'; revealT = REVEAL_OK;
