@@ -238,7 +238,7 @@ let GW = 7, GH = 10;                                // intersections (cols, rows
 let cell = 60, TW = 60, TH = 30, ISOX = 0, ISOY = 0;
 // road grid measured from city-bg.jpg (normalized image coords: first line + spacing)
 // 6 vertical roads, 7 horizontal roads -> routes run along the photo's streets
-const BG_GRID = { x0: 0.1447, dx: 0.1374, nx: 6, y0: 0.1282, dy: 0.1249, ny: 7 };
+const BG_GRID = { x0: 0.0714, dx: 0.1429, nx: 7, y0: 0.1140, dy: 0.1036, ny: 9 };
 let ISL = null;                                    // island rect {x,y,w,h} when a bg photo is used
 // near top-down projection (90% 2D): flat grid; z gives a small upward extrusion (the 10% 3D)
 function iso(gx, gy, z){ return { x: ISOX + gx * TW, y: ISOY + gy * TH - (z || 0) }; }
