@@ -240,9 +240,10 @@
     BN: { sprite: "nana",      cells: [[1,0],[1,0],[1,1]] },  // banana
     AV: { sprite: "toast",     cells: [[1,0],[1,1],[0,1]] },  // avocado toast
     TR: { sprite: "toilet",    cells: [[1]] },                // toilet roll (1 cell)
-    BB: { sprite: "bigbag",    cells: [[1,1],[1,1],[1,1]] }   // big bag (6 cells, once per game)
+    SH: { sprite: "shampoo",   cells: [[1],[1]] },            // shampoo (1 wide x 2 tall)
+    BB: { sprite: "parcel",    cells: [[1,1,1],[1,1,1]] }     // Uber Parcel (3 wide x 2 tall, 6 cells, once per game)
   };
-  const KEYS = ["I", "O", "L", "S", "T", "BN", "AV", "TR"];  // common shuffle bag (BB is special-injected)
+  const KEYS = ["I", "O", "L", "S", "T", "BN", "AV", "TR", "SH"];  // common shuffle bag (BB is special-injected)
   const SPRITE_SRC = {
     sub: "assets/sub.png",
     ubereats: "assets/ubereats.png",
@@ -252,7 +253,8 @@
     nana: "assets/nana.png",
     toast: "assets/toast.png",
     toilet: "assets/toilet.png",
-    bigbag: "assets/bigbag.png"
+    shampoo: "assets/shampoo.png",
+    parcel: "assets/parcel.png"
   };
   const SPRITES = {}; // key -> { rots: [canvas x4] }  (rots[r] = image rotated r*90° CW)
 
@@ -487,7 +489,7 @@
   // body maps to the full cell footprint; handle overhangs ABOVE it. Locked pieces draw in
   // placement order, so a piece landing on the bag is drawn later and paints over the handle
   // => compact, not floating. Only applied at rot 0 (handle pointing up).
-  const HANDLE_FRAC = { ubereats: 0.18, bigbag: 0.19 };
+  const HANDLE_FRAC = { ubereats: 0.18 };
 
   // draw a piece's whole sprite over its cell bounding box (with optional land-squash)
   function drawSprite(ctx, key, cells, gx, gy, rot, alpha, squashP) {
