@@ -231,19 +231,27 @@
   // ---------- Pieces: tetromino-style food shapes wired to the sliced sprite art ----------
   // matrix = collision silhouette; the whole sprite image is drawn over the piece bbox.
   const PIECES = {
-    I: { sprite: "sub",       cells: [[1,1,1,1]] },
-    O: { sprite: "ubereats",  cells: [[1,1],[1,1]] },
-    L: { sprite: "banana",    cells: [[1,0],[1,0],[1,1]] },
-    S: { sprite: "eggs",      cells: [[1,0],[1,1],[0,1]] },
-    T: { sprite: "groceries", cells: [[1,1,1],[0,1,0]] }
+    I:  { sprite: "sub",       cells: [[1,1,1,1]] },
+    O:  { sprite: "ubereats",  cells: [[1,1],[1,1]] },        // green Uber Eats bag
+    L:  { sprite: "banana",    cells: [[1,0],[1,0],[1,1]] },  // combo meal
+    S:  { sprite: "eggs",      cells: [[1,0],[1,1],[0,1]] },  // eggs + milk
+    T:  { sprite: "groceries", cells: [[1,1,1],[0,1,0]] },    // takeout
+    BN: { sprite: "nana",      cells: [[1,0],[1,0],[1,1]] },  // banana
+    AV: { sprite: "toast",     cells: [[1,0],[1,1],[0,1]] },  // avocado toast
+    TR: { sprite: "toilet",    cells: [[1]] },                // toilet roll (1 cell)
+    BB: { sprite: "bigbag",    cells: [[1,1],[1,1],[1,1]] }   // big bag (6 cells, once per game)
   };
-  const KEYS = Object.keys(PIECES);
+  const KEYS = ["I", "O", "L", "S", "T", "BN", "AV", "TR"];  // common shuffle bag (BB is special-injected)
   const SPRITE_SRC = {
     sub: "assets/sub.png",
     ubereats: "assets/ubereats.png",
     banana: "assets/banana.png",
     eggs: "assets/eggs.png",
-    groceries: "assets/groceries.png"
+    groceries: "assets/groceries.png",
+    nana: "assets/nana.png",
+    toast: "assets/toast.png",
+    toilet: "assets/toilet.png",
+    bigbag: "assets/bigbag.png"
   };
   const SPRITES = {}; // key -> { rots: [canvas x4] }  (rots[r] = image rotated r*90° CW)
 
@@ -330,6 +338,7 @@
     return { key: key, sprite: PIECES[key].sprite, cells: PIECES[key].cells.map(r => r.slice()) };
   }
   let queue = [];
+  let pullCount = 0, bigBagUsed = false, bigBagAt = 12; // BB injected once at this pull (randomised per game)
   function shuffledBag() {
     const a = KEYS.slice();
     for (let i = a.length - 1; i > 0; i--) {
@@ -338,7 +347,12 @@
     }
     return a;
   }
-  function pullKey() { if (queue.length === 0) queue = shuffledBag(); return queue.shift(); }
+  function pullKey() {
+    pullCount++;
+    if (!bigBagUsed && pullCount >= bigBagAt) { bigBagUsed = true; return "BB"; } // big bag once per game
+    if (queue.length === 0) queue = shuffledBag();
+    return queue.shift();
+  }
 
   function spawn() {
     cur = makePiece(nextKey || pullKey());
@@ -763,6 +777,7 @@
   function start() {
     if (!ready) return;
     grid = newGrid(); placed = []; queue = []; packedRows.clear();
+    pullCount = 0; bigBagUsed = false; bigBagAt = 9 + Math.floor(Math.random() * 14); // big bag arrives once, pull 9..22
     score = 0; bags = 0; nextKey = null;
     particles.length = 0; popups.length = 0; shakeMag = 0; lockSquash = null; board.style.transform = "";
     updateHud();
