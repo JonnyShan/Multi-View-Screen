@@ -509,6 +509,9 @@ function layoutRoutePixels(){
       r.cum.push(r.cum[i-1] + Math.hypot(dx, dy));
     }
     r.totalPx = r.cum[r.cum.length - 1];
+    // split overlapping routes into twin lanes (A left, B right) so divergence is visible
+    const lane = Math.max(4, cell * 0.13);
+    r.drawPixels = offsetPolyline(r.pixels, (r.label === 'A' ? lane : -lane));
     // badge anchor: a point partway along, A earlier / B later so they separate
     r.badge = pointAtFrac(r, r.label === 'A' ? 0.42 : 0.58);
   }
@@ -896,9 +899,28 @@ function drawCars(t){
   }
 }
 
+// offset a polyline by perpendicular distance d (mitered) — used to split A/B into twin lanes
+function offsetPolyline(pts, d){
+  if (!d || pts.length < 2) return pts;
+  const n = pts.length, seg = [];
+  for (let i = 0; i < n-1; i++){
+    let dx = pts[i+1].x - pts[i].x, dy = pts[i+1].y - pts[i].y; const L = Math.hypot(dx,dy) || 1;
+    seg.push({ nx: dy/L, ny: -dx/L });            // left normal of the segment
+  }
+  const out = [];
+  for (let i = 0; i < n; i++){
+    let nx, ny;
+    if (i === 0){ nx = seg[0].nx; ny = seg[0].ny; }
+    else if (i === n-1){ nx = seg[n-2].nx; ny = seg[n-2].ny; }
+    else { const a = seg[i-1], b = seg[i], k = 1 + (a.nx*b.nx + a.ny*b.ny);
+      if (k > 0.01){ nx = (a.nx+b.nx)/k; ny = (a.ny+b.ny)/k; } else { nx = b.nx; ny = b.ny; } }
+    out.push({ x: pts[i].x + nx*d, y: pts[i].y + ny*d });
+  }
+  return out;
+}
 function strokeRoute(r, frac, opts){
   opts = opts || {};
-  const pts = r.pixels, target = r.totalPx * frac;
+  const pts = r.drawPixels || r.pixels, target = r.totalPx * frac;
   // build the partial point list up to `frac`
   const path = [pts[0]];
   for (let i = 1; i < pts.length; i++){
@@ -909,7 +931,7 @@ function strokeRoute(r, frac, opts){
       break;
     }
   }
-  const w = Math.max(7, Math.min(22, cell*0.2));
+  const w = Math.max(6, Math.min(16, cell*0.16));
   const color = opts.color || r.color;
   ctx.lineJoin = ctx.lineCap = 'round';
   // white outline + dark casing so routes pop against the city
