@@ -220,7 +220,6 @@ const CONFIG = Object.assign({
 let bgImg = null;                 // loaded background image (version 2)
 COL.A = CONFIG.brandA; COL.Aglow = hexRGBA(CONFIG.brandA, .85);
 COL.B = CONFIG.brandB; COL.Bglow = hexRGBA(CONFIG.brandB, .85);
-COL.cross = '#b15cff';            // purple = where the two routes cross over / share road
 // day / dusk / night / dawn tint+scrim, cycled every 4 rounds (mutes city; routes drawn on top)
 const TINTS = ['rgba(9,11,18,.30)', 'rgba(42,20,10,.34)', 'rgba(8,12,30,.42)', 'rgba(26,12,30,.36)'];
 // blend a hex toward a target hex by amt (0..1) -> hex
@@ -510,16 +509,11 @@ function layoutRoutePixels(){
       r.cum.push(r.cum[i-1] + Math.hypot(dx, dy));
     }
     r.totalPx = r.cum[r.cum.length - 1];
+    // split overlapping routes into twin lanes (A left, B right) so divergence is visible
+    const lane = Math.max(4, cell * 0.13);
+    r.drawPixels = offsetPolyline(r.pixels, (r.label === 'A' ? lane : -lane));
     // badge anchor: a point partway along, A earlier / B later so they separate
     r.badge = pointAtFrac(r, r.label === 'A' ? 0.42 : 0.58);
-  }
-  // tag segments shared by BOTH routes (the crossover) -> drawn purple
-  if (routeA && routeB){
-    const ek = (a,b) => { const p=a.x+','+a.y, q=b.x+','+b.y; return p<q ? p+'|'+q : q+'|'+p; };
-    const edges = r => { const s=new Set(); for (let i=1;i<r.corners.length;i++) s.add(ek(r.corners[i-1],r.corners[i])); return s; };
-    const eA=edges(routeA), eB=edges(routeB);
-    for (const r of [routeA, routeB]){ const other = r===routeA ? eB : eA; r.sharedSeg = [];
-      for (let i=1;i<r.corners.length;i++) r.sharedSeg[i-1] = other.has(ek(r.corners[i-1], r.corners[i])); }
   }
 }
 function pointAtFrac(r, frac){
@@ -926,16 +920,14 @@ function offsetPolyline(pts, d){
 }
 function strokeRoute(r, frac, opts){
   opts = opts || {};
-  const pts = r.pixels, target = r.totalPx * frac;
-  // build the partial point list up to `frac`, with a shared/crossover flag per segment
-  const path = [pts[0]], segShared = [];
+  const pts = r.drawPixels || r.pixels, target = r.totalPx * frac;
+  // build the partial point list up to `frac`
+  const path = [pts[0]];
   for (let i = 1; i < pts.length; i++){
-    const shared = r.sharedSeg ? !!r.sharedSeg[i-1] : false;
-    if (r.cum[i] <= target){ path.push(pts[i]); segShared.push(shared); }
+    if (r.cum[i] <= target){ path.push(pts[i]); }
     else {
       const seg = r.cum[i] - r.cum[i-1] || 1, tt = (target - r.cum[i-1]) / seg;
       path.push({ x: pts[i-1].x + (pts[i].x-pts[i-1].x)*tt, y: pts[i-1].y + (pts[i].y-pts[i-1].y)*tt });
-      segShared.push(shared);
       break;
     }
   }
@@ -947,13 +939,9 @@ function strokeRoute(r, frac, opts){
   line(path); ctx.stroke();
   ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = w + 4;
   line(path); ctx.stroke();
-  // colour fill — purple on segments where the two routes cross over / share road
+  // glow
   if (opts.glow){ ctx.save(); ctx.shadowColor = opts.glow; ctx.shadowBlur = 22; }
-  ctx.lineWidth = w;
-  for (let i = 1; i < path.length; i++){
-    ctx.strokeStyle = segShared[i-1] ? COL.cross : color;
-    ctx.beginPath(); ctx.moveTo(path[i-1].x, path[i-1].y); ctx.lineTo(path[i].x, path[i].y); ctx.stroke();
-  }
+  ctx.strokeStyle = color; ctx.lineWidth = w; line(path); ctx.stroke();
   if (opts.glow) ctx.restore();
   // flowing dashes travelling toward the destination (direction cue)
   if (opts.flow != null){
