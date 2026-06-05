@@ -155,7 +155,6 @@
     <div id="overStats"></div>
     <div class="overbtns">
       <button class="btn" id="againBtn">↺ Play again</button>
-      <button class="btn btn2" id="shareBtn">📤 Share score</button>
     </div>
   </div>
 
@@ -1338,61 +1337,6 @@ function requestWakeLock(){ try { if (navigator.wakeLock) navigator.wakeLock.req
 function goFullscreen(){ try { const el = document.documentElement; if (el.requestFullscreen) el.requestFullscreen().catch(()=>{}); } catch (e) {} }
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('againBtn').addEventListener('click', startGame);
-document.getElementById('shareBtn').addEventListener('click', shareCard);
-
-// =================== share score card ===================
-function makeCardCanvas(){
-  const W = 1080, H = 1350, cv = document.createElement('canvas');
-  cv.width = W; cv.height = H;
-  const g = cv.getContext('2d');
-  // background
-  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0c1424'); bg.addColorStop(1, '#162a4a');
-  g.fillStyle = bg; g.fillRect(0, 0, W, H);
-  // faint street grid
-  g.strokeStyle = 'rgba(255,255,255,.05)'; g.lineWidth = 6;
-  for (let i = 1; i < 8; i++){ g.beginPath(); g.moveTo(i*W/8, 0); g.lineTo(i*W/8, H); g.stroke(); }
-  for (let i = 1; i < 10; i++){ g.beginPath(); g.moveTo(0, i*H/10); g.lineTo(W, i*H/10); g.stroke(); }
-  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-  // title
-  const tg = g.createLinearGradient(W*0.2, 0, W*0.8, 0); tg.addColorStop(0, '#3da5ff'); tg.addColorStop(1, '#ff3d9a');
-  g.fillStyle = tg; g.font = '900 100px system-ui, sans-serif'; g.fillText(CONFIG.title, W/2, 200);
-  g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '600 40px system-ui, sans-serif'; g.fillText(CONFIG.tagline, W/2, 262);
-  // shop -> house route motif
-  const my = 440;
-  g.lineCap = 'round'; g.lineWidth = 22;
-  g.strokeStyle = '#3da5ff'; g.beginPath(); g.moveTo(300, my-6); g.lineTo(540, my-6); g.lineTo(540, my-80); g.lineTo(W-300, my-80); g.stroke();
-  g.strokeStyle = '#ff3d9a'; g.beginPath(); g.moveTo(300, my+36); g.lineTo(760, my+36); g.lineTo(760, my+96); g.lineTo(W-300, my+96); g.stroke();
-  g.font = '120px system-ui, "Apple Color Emoji", sans-serif';
-  g.fillText('🍕', 195, my+48); g.fillText('🏠', W-195, my+48);
-  // score panel
-  g.fillStyle = 'rgba(255,255,255,.06)'; rr(g, 120, 660, W-240, 470, 40); g.fill();
-  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = '700 48px system-ui, sans-serif'; g.fillText('SCORE', W/2, 770);
-  const sg = g.createLinearGradient(0, 0, W, 0); sg.addColorStop(0, '#7ec2ff'); sg.addColorStop(1, '#ff85bf');
-  g.fillStyle = sg; g.font = '900 240px system-ui, sans-serif'; g.fillText(String(score), W/2, 980);
-  g.fillStyle = '#fff'; g.font = '700 54px system-ui, sans-serif'; g.fillText('Reached round ' + round, W/2, 1065);
-  g.fillStyle = 'rgba(255,255,255,.6)'; g.font = '600 42px system-ui, sans-serif'; g.fillText('Best ' + best, W/2, 1120);
-  // footer
-  g.fillStyle = 'rgba(255,255,255,.55)'; g.font = '600 42px system-ui, sans-serif'; g.fillText('Can you beat me? 🚗💨', W/2, 1250);
-  return cv;
-}
-function dataURLtoBlob(d){
-  const b = atob(d.split(',')[1]), u = new Uint8Array(b.length);
-  for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
-  return new Blob([u], { type: 'image/png' });
-}
-function shareCard(){
-  const dataUrl = makeCardCanvas().toDataURL('image/png');
-  try {
-    const file = new File([dataURLtoBlob(dataUrl)], 'route-rush-' + score + '.png', { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })){
-      navigator.share({ files: [file], title: 'Uber: Path Picker', text: `I scored ${score} in Uber: Path Picker! Can you beat me?` }).catch(() => {});
-      return;
-    }
-  } catch (e) {}
-  const a = document.createElement('a');
-  a.href = dataUrl; a.download = 'route-rush-' + score + '.png';
-  document.body.appendChild(a); a.click(); a.remove();
-}
 
 // =================== boot ===================
 // brand the start screen
