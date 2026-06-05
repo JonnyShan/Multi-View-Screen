@@ -132,7 +132,7 @@
     <div id="right"><button id="muteBtn">🔊</button></div>
   </div>
   <div id="timerwrap"><div id="timerfill"></div></div>
-  <div id="prompt">Pick the Smartest Route<small>smart route planning — watch 🔴 traffic</small></div>
+  <div id="prompt">Pick the Smartest Route<small>smart route planning — spot the shorter route, fast</small></div>
 
   <button class="choice" id="btnA"><span class="big">A</span><span class="lbl">ROUTE</span></button>
   <button class="choice" id="btnB"><span class="big">B</span><span class="lbl">ROUTE</span></button>
@@ -142,7 +142,7 @@
     <div class="how">
       <div>🗺️ Two routes link the same <b>food shop</b> → <b>house</b>.</div>
       <div>📏 Tap the <b>smartest</b> route — usually the shorter one, no numbers.</div>
-      <div>🔴 Later routes add <b>traffic</b> — a shorter route with jams can be slower.</div>
+      <div>🧭 Routes wind more and look closer in length as you go.</div>
       <div>⚡ Correct +8, fast pick up to +4, streak boosts to <b>×1.5</b>.</div>
       <div>🏁 <b>12 routes</b>, ~4–5s each. No fail-out — chase the high score.</div>
     </div>
@@ -155,7 +155,6 @@
     <div id="overStats"></div>
     <div class="overbtns">
       <button class="btn" id="againBtn">↺ Play again</button>
-      <button class="btn btn2" id="shareBtn">📤 Share score</button>
     </div>
   </div>
 
@@ -184,8 +183,8 @@ const DRAW_MS = 420;                               // route draw-in animation
 const REVEAL_OK = 950, REVEAL_BAD = 1350;          // reveal hold (car drives the route)
 const INSET = 2;                                   // start/end inset from grid edges
 const TOTAL_ROUNDS = 12;                            // fixed run length (no fail-out)
-function roundTime(r){ return 5000 - (r - 1) * 90; }                       // 5.0s -> ~4.0s per decision (4-5s)
-function roundMargin(r){ return Math.max(1, 3 - Math.floor((r - 1) / 4)); } // route length gap
+function roundTime(r){ return 4200 - (r - 1) * 110; }                       // ~4.2s -> ~3.0s per decision (tighter)
+function roundMargin(r){ return Math.max(1, 2 - Math.floor((r - 1) / 2)); } // gap mostly +2 -> near-ties, very hard to eyeball
 
 // ---- palette ----
 const COL = {
@@ -474,24 +473,37 @@ function detourRect(a, b, m){
   if (side==='up'){    const y=miny-k; return [{x:a.x,y:a.y},{x:a.x,y},{x:b.x,y},{x:b.x,y:b.y}]; }
   const y=maxy+k;      return [{x:a.x,y:a.y},{x:a.x,y},{x:b.x,y},{x:b.x,y:b.y}];
 }
+// insert one clean square "nub" (+2 length, 90° turns only) on a straight run >=3 — adds wiggle without U-turns
+function addNub(corners){
+  for (let i = 1; i < corners.length; i++){
+    const a = corners[i-1], b = corners[i];
+    const sx = Math.sign(b.x-a.x), sy = Math.sign(b.y-a.y);
+    if (Math.abs(b.x-a.x) + Math.abs(b.y-a.y) < 3) continue;     // need room for in/out/back
+    const perps = (sy===0) ? [{x:0,y:-1},{x:0,y:1}] : [{x:-1,y:0},{x:1,y:0}];
+    for (const p of perps){
+      const m0 = { x:a.x+sx, y:a.y+sy };
+      const u  = { x:m0.x+p.x, y:m0.y+p.y };
+      const u2 = { x:u.x+sx,  y:u.y+sy };
+      const m1 = { x:m0.x+sx, y:m0.y+sy };
+      if ([m0,u,u2,m1].some(q => q.x<0||q.x>GW-1||q.y<0||q.y>GH-1)) continue;
+      return [...corners.slice(0,i), m0, u, u2, m1, ...corners.slice(i)];
+    }
+  }
+  return null;
+}
 
 function generateRoutes(S, E, desiredM){
-  // SHORT: a clean one-bend L (minimal distance)
-  const shortR = routeFromCorners(lShape(S, E, Math.random() < 0.5));
-  // LONG: a clean rectangular detour, longer by 2m, right-angle turns only
-  const longR  = routeFromCorners(detourRect(S, E, desiredM));
+  const turns = () => ri(4, 6);
+  // SHORT: a wiggly monotone staircase (minimal Manhattan length, many right-angle turns)
+  const shortR = routeFromCorners(zigStair(S, E, turns()));
+  // LONG: a wiggly staircase + clean square nub(s) so it's a bit longer but hard to tell apart
+  let lc = zigStair(S, E, turns()), nubs = 0;
+  for (let i = 0; i < Math.max(1, desiredM); i++){ const r = addNub(lc); if (r){ lc = r; nubs++; } }
+  if (nubs === 0) lc = detourRect(S, E, Math.max(1, desiredM));   // fallback: guarantee long > short
+  const longR = routeFromCorners(lc);
 
-  // traffic-jam twist (from round 5): each jam adds effective length, so the
-  // shorter-LOOKING route can actually be slower — player must read jams too.
-  const JAM_PEN = 3;
-  let jamS = 0, jamL = 0;
-  if (round >= 5 && Math.random() < 0.6){
-    if (Math.random() < 0.7) jamS = ri(1, 2); else jamL = ri(1, 2);
-  }
-  shortR.jam = jamS; longR.jam = jamL;
-  shortR.cost = shortR.edges + jamS * JAM_PEN;
-  longR.cost = longR.edges + jamL * JAM_PEN;
-  const shortWins = shortR.cost <= longR.cost;
+  // correct = the genuinely shorter route (no traffic jams / no-go zones)
+  const shortWins = shortR.edges <= longR.edges;
   shortR.correct = shortWins; longR.correct = !shortWins;
 
   // randomly assign which is A and which is B
@@ -1019,21 +1031,6 @@ function spawnParticles(){
       size: 6 + Math.random()*8, color: cols[i % cols.length], life: 700 + Math.random()*500 });
   }
 }
-// red traffic-jam pucks along a jammed route
-function drawJam(r, t){
-  if (!r.jam) return;
-  const pulse = 0.6 + 0.4*Math.sin(t*6);
-  for (let k = 1; k <= r.jam; k++){
-    const p = pointAtFrac(r, k/(r.jam+1)), rad = Math.max(7, TW*0.13);
-    ctx.save(); ctx.shadowColor = 'rgba(255,40,40,.95)'; ctx.shadowBlur = TW*0.45*pulse;   // brake-light glow
-    ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, Math.PI*2);
-    ctx.fillStyle = 'rgba(255,60,60,' + (0.85*pulse).toFixed(2) + ')'; ctx.fill();
-    ctx.restore();
-    ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
-    ctx.fillStyle = '#fff'; ctx.font = '900 ' + (rad*1.1|0) + 'px system-ui, sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', p.x, p.y + 1);
-  }
-}
 // circular countdown near the thumb (bottom-centre, between the A/B buttons)
 function drawTimerRing(){
   if (state !== 'play' && state !== 'draw') return;
@@ -1089,7 +1086,6 @@ function frame(ts){
     if (drawing){
       for (const r of [routeA, routeB]){ const hp = pointAtFrac(r, frac); ctx.beginPath(); ctx.arc(hp.x, hp.y, Math.max(5, TW*0.13), 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill(); }
     } else {
-      if (!reveal) for (const r of [routeA, routeB]) drawJam(r, t);   // traffic-jam markers
       for (const r of [routeA, routeB]) drawBadge(r, reveal && !r.correct);
     }
     drawStartEnd(t);
@@ -1316,61 +1312,6 @@ function requestWakeLock(){ try { if (navigator.wakeLock) navigator.wakeLock.req
 function goFullscreen(){ try { const el = document.documentElement; if (el.requestFullscreen) el.requestFullscreen().catch(()=>{}); } catch (e) {} }
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('againBtn').addEventListener('click', startGame);
-document.getElementById('shareBtn').addEventListener('click', shareCard);
-
-// =================== share score card ===================
-function makeCardCanvas(){
-  const W = 1080, H = 1350, cv = document.createElement('canvas');
-  cv.width = W; cv.height = H;
-  const g = cv.getContext('2d');
-  // background
-  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0c1424'); bg.addColorStop(1, '#162a4a');
-  g.fillStyle = bg; g.fillRect(0, 0, W, H);
-  // faint street grid
-  g.strokeStyle = 'rgba(255,255,255,.05)'; g.lineWidth = 6;
-  for (let i = 1; i < 8; i++){ g.beginPath(); g.moveTo(i*W/8, 0); g.lineTo(i*W/8, H); g.stroke(); }
-  for (let i = 1; i < 10; i++){ g.beginPath(); g.moveTo(0, i*H/10); g.lineTo(W, i*H/10); g.stroke(); }
-  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-  // title
-  const tg = g.createLinearGradient(W*0.2, 0, W*0.8, 0); tg.addColorStop(0, '#3da5ff'); tg.addColorStop(1, '#ff3d9a');
-  g.fillStyle = tg; g.font = '900 100px system-ui, sans-serif'; g.fillText(CONFIG.title, W/2, 200);
-  g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '600 40px system-ui, sans-serif'; g.fillText(CONFIG.tagline, W/2, 262);
-  // shop -> house route motif
-  const my = 440;
-  g.lineCap = 'round'; g.lineWidth = 22;
-  g.strokeStyle = '#3da5ff'; g.beginPath(); g.moveTo(300, my-6); g.lineTo(540, my-6); g.lineTo(540, my-80); g.lineTo(W-300, my-80); g.stroke();
-  g.strokeStyle = '#ff3d9a'; g.beginPath(); g.moveTo(300, my+36); g.lineTo(760, my+36); g.lineTo(760, my+96); g.lineTo(W-300, my+96); g.stroke();
-  g.font = '120px system-ui, "Apple Color Emoji", sans-serif';
-  g.fillText('🍕', 195, my+48); g.fillText('🏠', W-195, my+48);
-  // score panel
-  g.fillStyle = 'rgba(255,255,255,.06)'; rr(g, 120, 660, W-240, 470, 40); g.fill();
-  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = '700 48px system-ui, sans-serif'; g.fillText('SCORE', W/2, 770);
-  const sg = g.createLinearGradient(0, 0, W, 0); sg.addColorStop(0, '#7ec2ff'); sg.addColorStop(1, '#ff85bf');
-  g.fillStyle = sg; g.font = '900 240px system-ui, sans-serif'; g.fillText(String(score), W/2, 980);
-  g.fillStyle = '#fff'; g.font = '700 54px system-ui, sans-serif'; g.fillText('Reached round ' + round, W/2, 1065);
-  g.fillStyle = 'rgba(255,255,255,.6)'; g.font = '600 42px system-ui, sans-serif'; g.fillText('Best ' + best, W/2, 1120);
-  // footer
-  g.fillStyle = 'rgba(255,255,255,.55)'; g.font = '600 42px system-ui, sans-serif'; g.fillText('Can you beat me? 🚗💨', W/2, 1250);
-  return cv;
-}
-function dataURLtoBlob(d){
-  const b = atob(d.split(',')[1]), u = new Uint8Array(b.length);
-  for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
-  return new Blob([u], { type: 'image/png' });
-}
-function shareCard(){
-  const dataUrl = makeCardCanvas().toDataURL('image/png');
-  try {
-    const file = new File([dataURLtoBlob(dataUrl)], 'route-rush-' + score + '.png', { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })){
-      navigator.share({ files: [file], title: 'Uber: Path Picker', text: `I scored ${score} in Uber: Path Picker! Can you beat me?` }).catch(() => {});
-      return;
-    }
-  } catch (e) {}
-  const a = document.createElement('a');
-  a.href = dataUrl; a.download = 'route-rush-' + score + '.png';
-  document.body.appendChild(a); a.click(); a.remove();
-}
 
 // =================== boot ===================
 // brand the start screen
