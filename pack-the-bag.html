@@ -235,16 +235,9 @@
     </button>
   </div>
 
-  <!-- Start (title splash — tap to play) -->
+  <!-- Loading screen (then the How-to-Play screen takes over) -->
   <div class="overlay" id="startOv">
-    <img id="titleImg" src="assets/title.png" alt="Uber Stacker — Stack. Match. Deliver." />
     <div id="startVeil">Loading…</div>
-    <div id="startTut">
-      <div class="tHead">How to play</div>
-      <div class="tBody">Stack the perfect <b>Uber Eats</b> delivery bag to earn points! The more items you stack, the more points you earn.</div>
-      <button id="howBtn">▶ How to play</button>
-      <div class="tTap">TAP TO PLAY</div>
-    </div>
   </div>
 
   <!-- How to play (auto-playing demo) -->
@@ -261,7 +254,6 @@
     </div>
     <p class="htHint">Slide &amp; rotate each item, then drop it. Pack <b>tight with no gaps</b> — the fuller the bag, the more points.</p>
     <div class="htActions">
-      <button id="howClose">Back</button>
       <button class="cta" id="howPlay" style="margin-top:0">Play ▶</button>
     </div>
   </div>
@@ -946,8 +938,6 @@
   window.addEventListener("orientationchange", () => setTimeout(fit, 200));
   window.addEventListener("blur", () => { if (state === "playing") togglePause(); });
 
-  // ---------- Start splash: tap the title to play ----------
-  document.getElementById("startOv").addEventListener("click", () => start());
 
   // ---------- Init ----------
   try { muted = localStorage.getItem("ptb_muted") === "1"; muteBtn.textContent = muted ? "🔇" : "🔊"; } catch (e) {}
@@ -959,8 +949,7 @@
   renderLB("lbListStart", -1);
   raf = requestAnimationFrame(loop);
 
-  // ---------- How-to-play intro: auto-playing gameplay demo ----------
-  const HOW_KEY = "ptb_seen_howto";
+  // ---------- How-to-play: auto-playing gameplay demo (this is the start screen) ----------
   const demoCv = document.getElementById("demoCv");
   const dctx = demoCv.getContext("2d");
   const DCOLS = 6, DROWS = 9, DCELL = demoCv.width / DCOLS;
@@ -1027,17 +1016,14 @@
   function hideHowto() {
     document.getElementById("howOv").classList.add("hidden");
     if (demoRAF) { cancelAnimationFrame(demoRAF); demoRAF = null; }
-    try { localStorage.setItem(HOW_KEY, "1"); } catch (e) {}
   }
   document.getElementById("howPlay").addEventListener("click", () => { hideHowto(); start(); });
-  document.getElementById("howClose").addEventListener("click", () => { hideHowto(); });
-  document.getElementById("howBtn").addEventListener("click", (e) => { e.stopPropagation(); showHowto(); });
 
   loadSprites().then(() => {
     ready = true;
     drawNext();
-    document.getElementById("startOv").classList.add("ready");
-    try { if (!localStorage.getItem(HOW_KEY)) showHowto(); } catch (e) { showHowto(); }
+    document.getElementById("startOv").classList.add("hidden"); // drop the loading screen
+    showHowto();                                                // How-to-Play is the start screen
   }).catch((src) => {
     document.getElementById("startVeil").textContent = "Failed to load art";
     console.error("sprite load failed:", src);
