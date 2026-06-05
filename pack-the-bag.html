@@ -146,6 +146,19 @@
     background: rgba(0,0,0,.72); color: #fff; font-weight: 800; font-size: 17px; letter-spacing: 1.5px;
   }
   #startOv.ready #startVeil { display: none; }
+  /* start-screen tutorial card */
+  #startTut {
+    position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%);
+    width: min(88%, 360px); text-align: center; color: #fff;
+    background: rgba(0,0,0,.66); border: 1.5px solid var(--green); border-radius: 14px;
+    padding: 13px 16px 12px; box-shadow: 0 8px 26px rgba(0,0,0,.45); backdrop-filter: blur(3px);
+  }
+  #startTut .tHead { color: var(--green); font-weight: 900; font-size: 15px; letter-spacing: .3px; margin-bottom: 5px; }
+  #startTut .tBody { font-size: 13.5px; line-height: 1.45; }
+  #startTut .tBody b { color: var(--green); }
+  #startTut .tTap { margin-top: 10px; font-size: 12px; font-weight: 800; letter-spacing: 2px; color: var(--green); animation: tapBlink 1.4s ease-in-out infinite; }
+  @keyframes tapBlink { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+  #startOv:not(.ready) #startTut { display: none; }
 </style>
 </head>
 <body>
@@ -192,6 +205,11 @@
   <div class="overlay" id="startOv">
     <img id="titleImg" src="assets/title.png" alt="Uber Stacker — Stack. Match. Deliver." />
     <div id="startVeil">Loading…</div>
+    <div id="startTut">
+      <div class="tHead">How to play</div>
+      <div class="tBody">Stack the perfect <b>Uber Eats</b> delivery bag to earn points! The more items you stack, the more points you earn.</div>
+      <div class="tTap">TAP TO PLAY</div>
+    </div>
   </div>
 
   <!-- Win -->
