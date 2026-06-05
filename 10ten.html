@@ -352,7 +352,7 @@
   .demo-cells { position: absolute; inset: 0; padding: var(--gap); display: grid; gap: var(--gap); }
   .demo-cells .dc { border-radius: 11px; background: rgba(255,255,255,0.03); border: 1px solid rgba(47,211,95,0.14); }
   .demo-tiles { position: absolute; inset: 0; }
-  .dgt { position: absolute; display: grid; place-items: center; transition: left 0.46s ease, opacity 0.3s ease; }
+  .dgt { position: absolute; display: grid; place-items: center; transition: left 0.46s ease, top 0.46s ease, opacity 0.3s ease; }
   .dgt img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4)); }
   .dgt .dn { position: absolute; right: 4%; bottom: 1%; color: var(--green); font-weight: 900;
     font-size: clamp(11px, 4.5vw, 16px); -webkit-text-stroke: 1.4px rgba(0,0,0,0.75); paint-order: stroke fill; }
@@ -957,31 +957,12 @@ function spawnConfetti() {
 /* ============================================================
    TUTORIAL
    ============================================================ */
-// Looping scenes that teach the WHOLE board: one swipe moves everything,
-// many different items merge at once, and the chain builds to the winning Bag.
-const DEMO_SCENES = [
-  {
-    cap: "One swipe moves the whole board — matching items level up",
-    hand: 1,
-    grid: [
-      [1, 0, 1, 0],   // burgers  -> coffee
-      [0, 2, 0, 2],   // coffees  -> noodles
-      [3, 3, 0, 0],   // noodles  -> smoothie
-      [0, 0, 0, 0],
-    ],
-  },
-  {
-    cap: "Keep building up to the Uber Eats Bag to win!",
-    hand: 0,
-    grid: [
-      [4, 0, 4, 0],   // smoothies -> groceries
-      [5, 5, 0, 0],   // groceries -> BAG (win)
-      [0, 0, 0, 0],
-      [0, 0, 0, 0],
-    ],
-  },
-];
-let demoIdx = 0, demoTimers = [], demoBuilt = false;
+// A real auto-playing game on the tutorial grid: starts with two burgers,
+// each swipe slides + merges the whole board, then a fresh burger spawns
+// in an empty cell — exactly like real play. Loops on win or when stuck.
+const DEMO_CAP = "Match two of the same to level up — a new burger drops in every move";
+let demoTimers = [], demoBuilt = false;
+let dBoard, dTiles, dNextId, dMoves;
 function buildDemoGrid() {
   if (demoBuilt) return;
   el.demoGrid.style.setProperty("--gap", GAP + "%");
@@ -993,66 +974,153 @@ function buildDemoGrid() {
   }
   demoBuilt = true;
 }
-function dgt(v, r, c, id) {
-  return `<div class="dgt" data-id="${id}" style="left:${pos(c)}%;top:${pos(r)}%;width:${CELL}%;height:${CELL}%">` +
-         `<img src="${CONFIG.itemImg(v)}" alt=""><span class="dn">${v}</span></div>`;
-}
 function setHand(c, r, vis) {
   el.demoHand.style.left = (pos(c) + CELL / 2) + "%";
   el.demoHand.style.top = (pos(r) + CELL / 2) + "%";
   el.demoHand.style.opacity = vis ? "1" : "0";
 }
 function stopDemo() { demoTimers.forEach(clearTimeout); demoTimers = []; }
-// 2048-style slide of ONE row to the left with +1 leveling.
-// Returns per-tile motion so each original item can be animated to its spot.
-function simRowLeft(vals, r) {
-  const tiles = [];
-  for (let c = 0; c < vals.length; c++) if (vals[c]) tiles.push({ v: vals[c], from: c });
-  const moves = [];
-  let out = 0, i = 0;
-  while (i < tiles.length) {
-    if (i + 1 < tiles.length && tiles[i].v === tiles[i + 1].v) {
-      moves.push({ v: tiles[i].v, r, from: tiles[i].from, to: out, vanish: false, becomes: tiles[i].v + 1 });
-      moves.push({ v: tiles[i + 1].v, r, from: tiles[i + 1].from, to: out, vanish: true });
-      out++; i += 2;
-    } else {
-      moves.push({ v: tiles[i].v, r, from: tiles[i].from, to: out, vanish: false });
-      out++; i += 1;
+// place a tile of value v at (r,c); pop it in
+function dPlace(v, r, c, pop) {
+  const id = dNextId++;
+  const node = document.createElement("div");
+  node.className = "dgt";
+  node.style.left = pos(c) + "%"; node.style.top = pos(r) + "%";
+  node.style.width = CELL + "%"; node.style.height = CELL + "%";
+  node.innerHTML = `<img src="${CONFIG.itemImg(v)}" alt=""><span class="dn">${v}</span>`;
+  if (pop) node.style.opacity = "0";
+  el.demoTiles.appendChild(node);
+  dBoard[r][c] = id;
+  dTiles[id] = { v, el: node, r, c };
+  if (pop) requestAnimationFrame(() => {
+    node.style.opacity = "1"; node.classList.add("pop");
+    demoTimers.push(setTimeout(() => node.classList.remove("pop"), 360));
+  });
+  return id;
+}
+function dReset() {
+  el.demoTiles.innerHTML = "";
+  dBoard = Array.from({ length: N }, () => Array(N).fill(0));
+  dTiles = {}; dNextId = 1; dMoves = 0;
+  el.demoEq.textContent = DEMO_CAP;
+  el.demoHand.style.opacity = "0";
+  dPlace(1, 1, 0, true);   // start with two burgers, a gap apart so the slide reads clearly
+  dPlace(1, 1, 2, true);
+}
+// cells of line k (front -> back) for a swipe direction
+function dLine(dir, k) {
+  const a = [];
+  for (let i = 0; i < N; i++) {
+    if (dir === "left") a.push([k, i]);
+    else if (dir === "right") a.push([k, N - 1 - i]);
+    else if (dir === "up") a.push([i, k]);
+    else a.push([N - 1 - i, k]);
+  }
+  return a;
+}
+// plan a swipe: list of tile movements (+ merges), how many merges, whether anything moved
+function dPlan(dir) {
+  const moves = []; let merges = 0, moved = false;
+  for (let k = 0; k < N; k++) {
+    const cells = dLine(dir, k);
+    const ids = cells.map(([r, c]) => dBoard[r][c]).filter(Boolean);
+    let out = 0, i = 0;
+    while (i < ids.length) {
+      const id = ids[i];
+      if (i + 1 < ids.length && dTiles[ids[i + 1]].v === dTiles[id].v) {
+        const [tr, tc] = cells[out];
+        moves.push({ id, toR: tr, toC: tc, survive: true, becomes: dTiles[id].v + 1 });
+        moves.push({ id: ids[i + 1], toR: tr, toC: tc, survive: false });
+        merges++; moved = true; out++; i += 2;
+      } else {
+        const [tr, tc] = cells[out];
+        moves.push({ id, toR: tr, toC: tc, survive: true });
+        if (tr !== dTiles[id].r || tc !== dTiles[id].c) moved = true;
+        out++; i += 1;
+      }
     }
   }
-  return moves;
+  return { moves, merges, moved };
+}
+// pick a direction: prefer the one that merges the most (keeps the chain climbing).
+// alternate the tie-break order each move so tiles settle into a corner — looks like real play.
+function dChoose() {
+  const order = (dMoves % 2 === 0) ? ["up", "left", "down", "right"] : ["left", "up", "right", "down"];
+  let best = null;
+  for (const d of order) {
+    const p = dPlan(d);
+    if (p.moved && (!best || p.merges > best.p.merges)) best = { d, p };
+  }
+  return best;
+}
+function dHandSwipe(dir) {
+  const mid = Math.round((N - 1) / 2);
+  let sc, sr, ec, er;
+  if (dir === "left")  { sr = er = mid; sc = N - 1; ec = 0; }
+  else if (dir === "right") { sr = er = mid; sc = 0; ec = N - 1; }
+  else if (dir === "up")    { sc = ec = mid; sr = N - 1; er = 0; }
+  else                      { sc = ec = mid; sr = 0; er = N - 1; }
+  el.demoHand.style.transition = "none";
+  setHand(sc, sr, false);
+  requestAnimationFrame(() => {
+    el.demoHand.style.transition = "left 0.42s ease, top 0.42s ease, opacity 0.25s ease";
+    setHand(sc, sr, true);
+    demoTimers.push(setTimeout(() => setHand(ec, er, true), 110));
+    demoTimers.push(setTimeout(() => { el.demoHand.style.opacity = "0"; }, 640));
+  });
+}
+function dApply(p) {
+  // slide every tile to its new spot
+  p.moves.forEach(m => {
+    const t = dTiles[m.id];
+    t.el.style.left = pos(m.toC) + "%"; t.el.style.top = pos(m.toR) + "%";
+    t.r = m.toR; t.c = m.toC;
+  });
+  // after the slide: resolve merges, rebuild the board
+  demoTimers.push(setTimeout(() => {
+    dBoard = Array.from({ length: N }, () => Array(N).fill(0));
+    p.moves.forEach(m => {
+      const t = dTiles[m.id];
+      if (!m.survive) { t.el.style.opacity = "0"; demoTimers.push(setTimeout(() => t.el.remove(), 200)); delete dTiles[m.id]; return; }
+      if (m.becomes) {
+        t.v = m.becomes;
+        t.el.querySelector("img").src = CONFIG.itemImg(m.becomes);
+        t.el.querySelector(".dn").textContent = m.becomes;
+        t.el.classList.remove("pop"); void t.el.offsetWidth; t.el.classList.add("pop");
+        t.el.style.zIndex = "2";
+      }
+      dBoard[m.toR][m.toC] = m.id;
+    });
+    dMoves++;
+    // win? show the bag moment, then restart from two burgers
+    if (Object.values(dTiles).some(t => t.v >= CONFIG.target)) {
+      el.demoEq.textContent = "You built the Uber Eats Bag — you win! 🛍️";
+      demoTimers.push(setTimeout(() => { dReset(); demoTimers.push(setTimeout(demoTick, 650)); }, 1700));
+      return;
+    }
+    if (dMoves > 22) {                          // keep the loop short so the 2-burger start is shown often
+      demoTimers.push(setTimeout(() => { dReset(); demoTimers.push(setTimeout(demoTick, 700)); }, 600));
+      return;
+    }
+    dSpawn();                                   // a new burger drops in every move
+    demoTimers.push(setTimeout(demoTick, 900));
+  }, 480));
+}
+function dSpawn() {
+  const empties = [];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!dBoard[r][c]) empties.push([r, c]);
+  if (!empties.length) return;
+  const [r, c] = empties[Math.floor(Math.random() * empties.length)];
+  dPlace(1, r, c, true);
 }
 function demoTick() {
   stopDemo();
-  const scene = DEMO_SCENES[demoIdx % DEMO_SCENES.length];
-  let moves = [];
-  scene.grid.forEach((row, r) => { moves = moves.concat(simRowLeft(row, r)); });
-
-  el.demoTiles.innerHTML = moves.map((m, idx) => dgt(m.v, m.r, m.from, "t" + idx)).join("");
-  const nodes = moves.map((m, idx) => el.demoTiles.querySelector('[data-id="t' + idx + '"]'));
-  el.demoEq.textContent = scene.cap;
-
-  setHand(N - 1, scene.hand, false);
-  demoTimers.push(setTimeout(() => setHand(N - 1, scene.hand, true), 160));            // hand appears (right edge)
-  demoTimers.push(setTimeout(() => {                                                   // swipe left -> whole board slides
-    setHand(0, scene.hand, true);
-    moves.forEach((m, idx) => { nodes[idx].style.left = pos(m.to) + "%"; });
-  }, 700));
-  demoTimers.push(setTimeout(() => {                                                   // merges resolve together
-    moves.forEach((m, idx) => {
-      if (m.vanish) { nodes[idx].style.opacity = "0"; }
-      else if (m.becomes) {
-        nodes[idx].style.zIndex = "2";
-        nodes[idx].querySelector("img").src = CONFIG.itemImg(m.becomes);
-        nodes[idx].querySelector(".dn").textContent = m.becomes;
-        nodes[idx].classList.add("pop");
-      }
-    });
-  }, 1220));
-  demoTimers.push(setTimeout(() => { el.demoHand.style.opacity = "0"; }, 1680));
-  demoTimers.push(setTimeout(() => { demoIdx++; demoTick(); }, 2900));
+  const choice = dChoose();
+  if (!choice) { dReset(); demoTimers.push(setTimeout(demoTick, 650)); return; }
+  dHandSwipe(choice.d);
+  demoTimers.push(setTimeout(() => dApply(choice.p), 500));
 }
-function startDemo() { buildDemoGrid(); demoIdx = 0; demoTick(); }
+function startDemo() { buildDemoGrid(); dReset(); demoTimers.push(setTimeout(demoTick, 800)); }
 
 function showTutorial() { el.tutorial.classList.add("show"); startDemo(); }
 function hideTutorial() {
