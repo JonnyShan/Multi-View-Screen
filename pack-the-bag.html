@@ -170,7 +170,7 @@
   #howOv .htTitle { font-size: 23px; font-weight: 900; letter-spacing: .5px; }
   #howOv .htTitle .e { color: var(--green); }
   #demoWrap { position: relative; border-radius: 14px; overflow: hidden; border: 2px solid rgba(6,193,103,.5); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
-  #demoCv { display: block; width: 184px; height: 276px; background: #c98a4e; }
+  #demoCv { display: block; width: 184px; height: 276px; background: #4c8850; }
   #demoCap {
     position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 8px 8px;
     background: linear-gradient(transparent, rgba(0,0,0,.8)); color: #fff;
@@ -586,16 +586,47 @@
     return y;
   }
 
+  // ---------- Green Uber-Eats-bag playfield (shared by game board + how-to demo) ----------
+  function drawHandles(ctx, W, cell) {
+    const gy = cell * 1.05, xL = W * 0.32, xR = W * 0.68, r = Math.max(5, cell * 0.30);
+    ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round";
+    function arch(lw, col) {
+      ctx.beginPath(); ctx.moveTo(xL, gy);
+      ctx.bezierCurveTo(xL, -cell * 0.15, xR, -cell * 0.15, xR, gy);
+      ctx.lineWidth = lw; ctx.strokeStyle = col; ctx.stroke();
+    }
+    arch(r * 1.06, "#7d5a2f"); arch(r * 0.74, "#c8a074"); arch(r * 0.24, "rgba(255,243,222,.55)"); // edge / rope / sheen
+    function grommet(x) {
+      ctx.beginPath(); ctx.arc(x, gy, r * 0.92, 0, Math.PI * 2); ctx.fillStyle = "#39403a"; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, gy, r * 0.5, 0, Math.PI * 2); ctx.fillStyle = "#23281f"; ctx.fill();
+      ctx.lineWidth = Math.max(1, r * 0.12); ctx.strokeStyle = "rgba(255,255,255,.22)";
+      ctx.beginPath(); ctx.arc(x, gy, r * 0.72, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+    }
+    grommet(xL); grommet(xR);
+    ctx.restore();
+  }
+  function drawBagField(ctx, W, H, cell, cols, rows) {
+    ctx.clearRect(0, 0, W, H);
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#5e9d61"); g.addColorStop(1, "#4c8850");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    const sh = ctx.createLinearGradient(0, 0, 0, H * 0.22);   // soft top sheen
+    sh.addColorStop(0, "rgba(255,255,255,.10)"); sh.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = sh; ctx.fillRect(0, 0, W, H * 0.22);
+    ctx.strokeStyle = "rgba(0,0,0,.06)"; ctx.lineWidth = 1;   // faint grid
+    for (let x = 1; x < cols; x++) { ctx.beginPath(); ctx.moveTo(x*cell, 0); ctx.lineTo(x*cell, H); ctx.stroke(); }
+    for (let y = 1; y < rows; y++) { ctx.beginPath(); ctx.moveTo(0, y*cell); ctx.lineTo(W, y*cell); ctx.stroke(); }
+    const seamY = cell * 1.6;                                  // bag fold seam under handles
+    ctx.strokeStyle = "rgba(0,0,0,.10)"; ctx.lineWidth = Math.max(1, cell * 0.04);
+    ctx.beginPath(); ctx.moveTo(0, seamY); ctx.lineTo(W, seamY); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,.07)";
+    ctx.beginPath(); ctx.moveTo(0, seamY + ctx.lineWidth); ctx.lineTo(W, seamY + ctx.lineWidth); ctx.stroke();
+    drawHandles(ctx, W, cell);
+  }
+
   function render() {
     const W = COLS * cell, H = ROWS * cell;
-    // bag background
-    bctx.clearRect(0, 0, W, H);
-    const g = bctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, "#d59658"); g.addColorStop(1, "#b87a3c");
-    bctx.fillStyle = g; bctx.fillRect(0, 0, W, H);
-    bctx.strokeStyle = "rgba(0,0,0,.07)"; bctx.lineWidth = 1;
-    for (let x = 1; x < COLS; x++) { bctx.beginPath(); bctx.moveTo(x*cell, 0); bctx.lineTo(x*cell, H); bctx.stroke(); }
-    for (let y = 1; y < ROWS; y++) { bctx.beginPath(); bctx.moveTo(0, y*cell); bctx.lineTo(W, y*cell); bctx.stroke(); }
+    drawBagField(bctx, W, H, cell, COLS, ROWS);   // green bag + handles
 
     // packed-row glow (rows stay; just highlighted)
     packedRows.forEach(y => { bctx.fillStyle = "rgba(6,193,103,.20)"; bctx.fillRect(0, y*cell, W, cell); });
@@ -989,11 +1020,7 @@
   }
   function demoRender() {
     const W = demoCv.width, H = demoCv.height;
-    const g = dctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#d59658"); g.addColorStop(1, "#b87a3c");
-    dctx.fillStyle = g; dctx.fillRect(0, 0, W, H);
-    dctx.strokeStyle = "rgba(0,0,0,.07)"; dctx.lineWidth = 1;
-    for (let x = 1; x < DCOLS; x++) { dctx.beginPath(); dctx.moveTo(x*DCELL, 0); dctx.lineTo(x*DCELL, H); dctx.stroke(); }
-    for (let y = 1; y < DROWS; y++) { dctx.beginPath(); dctx.moveTo(0, y*DCELL); dctx.lineTo(W, y*DCELL); dctx.stroke(); }
+    drawBagField(dctx, W, H, DCELL, DCOLS, DROWS);   // green bag + handles
     for (const p of demoPlaced) demoDrawSprite(p.key, p.cells, p.x, p.y);
     if (demoPhase !== "done" && demoIdx < DEMO_SCRIPT.length) {
       const s = DEMO_SCRIPT[demoIdx];
