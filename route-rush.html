@@ -216,7 +216,7 @@ function hexRGBA(hex, a){ const n = parseInt(hex.slice(1),16); return 'rgba(' + 
 const Q = new URLSearchParams(location.search);
 const VER = Q.get('v') === '2' ? 2 : 1;            // version 2 = real city background image
 const qConf = {};
-if (VER === 2){ qConf.title = 'MAP ROUTER 2'; qConf.tagline = 'tap the faster route'; qConf.bg = 'city-bg.jpg?v=3'; }
+if (VER === 2){ qConf.title = 'MAP ROUTER 2'; qConf.tagline = 'tap the faster route'; qConf.bg = 'city-bg.jpg?v=6'; }
 if (Q.get('bg')) qConf.bg = Q.get('bg');
 if (Q.get('title')) qConf.title = Q.get('title');
 const CONFIG = Object.assign({
@@ -224,7 +224,7 @@ const CONFIG = Object.assign({
   tagline: 'pick the smartest route',
   foods: FOODS,
   brandA: '#3da5ff', brandB: '#ff3d9a',
-  bg: 'city-bg.jpg?v=3',          // background image (?v bumps to bust browser/CDN cache on update)
+  bg: 'city-bg.jpg?v=6',          // background image (?v bumps to bust browser/CDN cache on update)
   cta: null                       // { text:'Order now →', url:'https://…' } -> button on game-over (lead-gen)
 }, (window.ROUTE_RUSH_CONFIG || {}), qConf);
 let bgImg = null;                 // loaded background image (version 2)
@@ -249,7 +249,7 @@ let GW = 7, GH = 10;                                // intersections (cols, rows
 let cell = 60, TW = 60, TH = 30, ISOX = 0, ISOY = 0;
 // road grid measured from city-bg.jpg (normalized image coords: first line + spacing)
 // 6 vertical roads, 7 horizontal roads -> routes run along the photo's streets
-const BG_GRID = { x0: 0.1439, dx: 0.1378, nx: 6, y0: 0.1333, dy: 0.1249, ny: 7 };
+const BG_GRID = { x0: 0.130, dx: 0.125, nx: 7, y0: 0.068, dy: 0.0723, ny: 13 };
 let ISL = null;                                    // island rect {x,y,w,h} when a bg photo is used
 // near top-down projection (90% 2D): flat grid; z gives a small upward extrusion (the 10% 3D)
 function iso(gx, gy, z){ return { x: ISOX + gx * TW, y: ISOY + gy * TH - (z || 0) }; }
