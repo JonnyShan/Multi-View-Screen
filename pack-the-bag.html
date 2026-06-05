@@ -556,22 +556,50 @@
     bctx.imageSmoothingQuality = "high";
   }
 
-  // sprites whose art has a handle on top: fraction of source-image HEIGHT that is the handle.
-  // body maps to the full cell footprint; handle overhangs ABOVE it. Locked pieces draw in
-  // placement order, so a piece landing on the bag is drawn later and paints over the handle
-  // => compact, not floating. Only applied at rot 0 (handle pointing up).
-  const HANDLE_FRAC = { ubereats: 0.18 };
+  // ---------- Tile backing colours ----------
+  // Each solid cell is a uniform square. Behind the art we paint that cell's own average opaque
+  // colour, so the food's transparent corners / baked-in background never let the field-green show
+  // through between items (= no gaps). Computed once per piece per rotation after sprites load.
+  function cellColors(canvas, cols, rows) {
+    const W = canvas.width, H = canvas.height;
+    const ix = canvas.getContext("2d").getImageData(0, 0, W, H).data;
+    const out = [];
+    for (let cy = 0; cy < rows; cy++) {
+      const row = [];
+      for (let cx = 0; cx < cols; cx++) {
+        const x0 = Math.floor(cx * W / cols), x1 = Math.floor((cx + 1) * W / cols);
+        const y0 = Math.floor(cy * H / rows), y1 = Math.floor((cy + 1) * H / rows);
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+          const i = (y * W + x) * 4;
+          if (ix[i + 3] > 40) { r += ix[i]; g += ix[i + 1]; b += ix[i + 2]; n++; }
+        }
+        row.push(n ? `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})` : null);
+      }
+      out.push(row);
+    }
+    return out;
+  }
+  function buildTileData() {
+    for (const key in PIECES) {
+      const p = PIECES[key], spr = SPRITES[p.sprite];
+      if (!spr) continue;
+      p._bg = [];
+      let m = p.cells;
+      for (let r = 0; r < 4; r++) { p._bg[r] = cellColors(spr.rots[r], m[0].length, m.length); m = rotateMatrix(m); }
+    }
+  }
 
-  // draw a piece's whole sprite over its cell bounding box (with optional land-squash)
+  // draw a piece as uniform square tiles: art sliced per cell (no bleed into empty cells), each
+  // solid cell backed by the food's own colour (no field-green gaps), no handle overhang.
   function drawSprite(ctx, key, cells, gx, gy, rot, alpha, squashP) {
     const spr = SPRITES[PIECES[key].sprite];
     if (!spr) return;
+    const img = spr.rots[rot];
     const cols = cells[0].length, rows = cells.length;
-    const w = cols * cell, h = rows * cell, x = gx * cell, y = gy * cell;
-    // handle overhang: stretch art upward so the body fills the footprint and the handle pokes above
-    let dy = y, dh = h;
-    const hf = HANDLE_FRAC[PIECES[key].sprite];
-    if (hf && rot === 0) { dh = h / (1 - hf); dy = y - (dh - h); }
+    const sw = img.width / cols, sh = img.height / rows;
+    const x = gx * cell, y = gy * cell, w = cols * cell, h = rows * cell;
+    const bg = PIECES[key]._bg && PIECES[key]._bg[rot];
     ctx.save();
     if (alpha != null) ctx.globalAlpha = alpha;
     if (squashP) {
@@ -581,7 +609,12 @@
       ctx.scale(sx, sy);
       ctx.translate(-(x + w / 2), -(y + h));
     }
-    ctx.drawImage(spr.rots[rot], x, dy, w, dh);
+    for (let yy = 0; yy < rows; yy++) for (let xx = 0; xx < cols; xx++) {
+      if (!cells[yy][xx]) continue;
+      const dx = x + xx * cell, dy = y + yy * cell;
+      if (bg && bg[yy][xx]) { ctx.fillStyle = bg[yy][xx]; ctx.fillRect(dx, dy, cell + 0.5, cell + 0.5); }
+      ctx.drawImage(img, xx * sw, yy * sh, sw, sh, dx, dy, cell + 0.5, cell + 0.5); // +0.5 kills hairline seams
+    }
     ctx.restore();
   }
 
@@ -672,10 +705,17 @@
     nctx.clearRect(0, 0, 60, 60);
     if (!nextKey || !SPRITES[PIECES[nextKey].sprite]) return;
     const def = PIECES[nextKey];
-    const cols = def.cells[0].length, rows = def.cells.length;
+    const cells = def.cells, cols = cells[0].length, rows = cells.length;
     const box = 52, s = Math.min(box / cols, box / rows);
     const w = cols * s, h = rows * s, ox = (60 - w) / 2, oy = (60 - h) / 2;
-    nctx.drawImage(SPRITES[def.sprite].rots[0], ox, oy, w, h);
+    const img = SPRITES[def.sprite].rots[0], sw = img.width / cols, sh = img.height / rows;
+    const bg = def._bg && def._bg[0];
+    for (let yy = 0; yy < rows; yy++) for (let xx = 0; xx < cols; xx++) {
+      if (!cells[yy][xx]) continue;
+      const dx = ox + xx * s, dy = oy + yy * s;
+      if (bg && bg[yy][xx]) { nctx.fillStyle = bg[yy][xx]; nctx.fillRect(dx, dy, s + 0.5, s + 0.5); }
+      nctx.drawImage(img, xx * sw, yy * sh, sw, sh, dx, dy, s + 0.5, s + 0.5);
+    }
   }
 
   // ---------- HUD ----------
@@ -1040,11 +1080,17 @@
   function demoDrawSprite(key, cells, gx, gy, rot) {
     const spr = SPRITES[PIECES[key].sprite]; if (!spr) return;
     rot = rot || 0;
+    const img = spr.rots[rot];
     const cols = cells[0].length, rows = cells.length;
-    const w = cols * DCELL, h = rows * DCELL, x = gx * DCELL, y = gy * DCELL;
-    let dy = y, dh = h; const hf = HANDLE_FRAC[PIECES[key].sprite];
-    if (hf && rot === 0) { dh = h / (1 - hf); dy = y - (dh - h); }
-    dctx.drawImage(spr.rots[rot], x, dy, w, dh);
+    const sw = img.width / cols, sh = img.height / rows;
+    const x = gx * DCELL, y = gy * DCELL;
+    const bg = PIECES[key]._bg && PIECES[key]._bg[rot];
+    for (let yy = 0; yy < rows; yy++) for (let xx = 0; xx < cols; xx++) {
+      if (!cells[yy][xx]) continue;
+      const dx = x + xx * DCELL, dy = y + yy * DCELL;
+      if (bg && bg[yy][xx]) { dctx.fillStyle = bg[yy][xx]; dctx.fillRect(dx, dy, DCELL + 0.5, DCELL + 0.5); }
+      dctx.drawImage(img, xx * sw, yy * sh, sw, sh, dx, dy, DCELL + 0.5, DCELL + 0.5);
+    }
   }
   function demoRender() {
     const W = demoCv.width, H = demoCv.height;
@@ -1081,6 +1127,7 @@
 
   loadSprites().then(() => {
     ready = true;
+    buildTileData();                                            // per-cell backing colours
     drawNext();
     document.getElementById("startOv").classList.add("hidden"); // drop the loading screen
     showHowto();                                                // How-to-Play is the start screen
