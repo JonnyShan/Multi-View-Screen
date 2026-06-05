@@ -159,6 +159,40 @@
   #startTut .tTap { margin-top: 10px; font-size: 12px; font-weight: 800; letter-spacing: 2px; color: var(--green); animation: tapBlink 1.4s ease-in-out infinite; }
   @keyframes tapBlink { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
   #startOv:not(.ready) #startTut { display: none; }
+  #howBtn {
+    margin-top: 11px; background: var(--green); color: #000; border: none;
+    border-radius: 10px; padding: 9px 20px; font-size: 13px; font-weight: 900; letter-spacing: .4px; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(6,193,103,.4);
+  }
+  #howBtn:active { transform: scale(.96); }
+  /* How-to-play intro (auto-playing demo) */
+  #howOv { gap: 13px; z-index: 40; }
+  #howOv .htTitle { font-size: 23px; font-weight: 900; letter-spacing: .5px; }
+  #howOv .htTitle .e { color: var(--green); }
+  #demoWrap { position: relative; border-radius: 14px; overflow: hidden; border: 2px solid rgba(6,193,103,.5); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  #demoCv { display: block; width: 184px; height: 276px; background: #c98a4e; }
+  #demoCap {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 8px 8px;
+    background: linear-gradient(transparent, rgba(0,0,0,.8)); color: #fff;
+    font-size: 13px; font-weight: 800; text-align: center;
+  }
+  .htLegend { display: flex; gap: 16px; align-items: flex-start; justify-content: center; }
+  .htLegend .it { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .htLegend .ic {
+    width: 42px; height: 42px; border-radius: 11px; background: #1c1c1f; border: 1px solid rgba(255,255,255,.14);
+    display: flex; align-items: center; justify-content: center; color: #fff;
+  }
+  .htLegend .ic.drop { border-color: var(--green); color: var(--green); box-shadow: 0 0 12px rgba(6,193,103,.45); }
+  .htLegend .ic svg { width: 23px; height: 23px; }
+  .htLegend .lb { font-size: 11px; font-weight: 700; opacity: .8; letter-spacing: .3px; }
+  #howOv .htHint { margin: 0; font-size: 13px; opacity: .85; line-height: 1.5; max-width: 300px; }
+  #howOv .htHint b { color: var(--green); opacity: 1; }
+  #howOv .htActions { display: flex; gap: 12px; align-items: center; margin-top: 2px; }
+  #howClose {
+    background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.3);
+    border-radius: 12px; padding: 14px 22px; font-size: 15px; font-weight: 800; cursor: pointer;
+  }
+  #howClose:active { transform: scale(.97); }
 </style>
 </head>
 <body>
@@ -208,7 +242,27 @@
     <div id="startTut">
       <div class="tHead">How to play</div>
       <div class="tBody">Stack the perfect <b>Uber Eats</b> delivery bag to earn points! The more items you stack, the more points you earn.</div>
+      <button id="howBtn">▶ How to play</button>
       <div class="tTap">TAP TO PLAY</div>
+    </div>
+  </div>
+
+  <!-- How to play (auto-playing demo) -->
+  <div class="overlay hidden" id="howOv">
+    <div class="htTitle">How to <span class="e">play</span></div>
+    <div id="demoWrap">
+      <canvas id="demoCv" width="216" height="324"></canvas>
+      <div id="demoCap">Drop food into the bag</div>
+    </div>
+    <div class="htLegend">
+      <div class="it"><div class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 6 L11 18 L4 12 Z"/><path d="M13 6 L13 18 L20 12 Z"/></svg></div><div class="lb">Move</div></div>
+      <div class="it"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 5 22 11 16 11"/><polyline points="2 19 2 13 8 13"/><path d="M4.2 9.2A8 8 0 0 1 18 6.5L22 11 M2 13l4 4.5A8 8 0 0 0 19.8 14.8"/></svg></div><div class="lb">Rotate</div></div>
+      <div class="it"><div class="ic drop"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 8 L11 8 L7 15 Z"/><path d="M13 8 L21 8 L17 15 Z"/></svg></div><div class="lb">Drop</div></div>
+    </div>
+    <p class="htHint">Slide &amp; rotate each item, then drop it. Pack <b>tight with no gaps</b> — the fuller the bag, the more points.</p>
+    <div class="htActions">
+      <button id="howClose">Back</button>
+      <button class="cta" id="howPlay" style="margin-top:0">Play ▶</button>
     </div>
   </div>
 
@@ -905,10 +959,85 @@
   renderLB("lbListStart", -1);
   raf = requestAnimationFrame(loop);
 
+  // ---------- How-to-play intro: auto-playing gameplay demo ----------
+  const HOW_KEY = "ptb_seen_howto";
+  const demoCv = document.getElementById("demoCv");
+  const dctx = demoCv.getContext("2d");
+  const DCOLS = 6, DROWS = 9, DCELL = demoCv.width / DCOLS;
+  // scripted tidy pack (lowest pieces first) — fills the bottom 4 rows with no gaps
+  const DEMO_SCRIPT = [
+    { key: "O", x: 0, y: 7 }, { key: "O", x: 2, y: 7 }, { key: "O", x: 4, y: 7 },
+    { key: "I", x: 0, y: 6 }, { key: "O", x: 4, y: 5 }, { key: "I", x: 0, y: 5 },
+  ];
+  const DEMO_CAPS = ["Drop food into the bag", "Pack tight — no gaps", "Fill it up = more points!"];
+  let demoRAF = null, demoPlaced = [], demoIdx = 0, demoPhase = "fall", demoCurX = 0, demoCurY = -3, demoLastT = 0, demoHold = 0;
+
+  function demoSpawn() {
+    if (demoIdx >= DEMO_SCRIPT.length) { demoPhase = "done"; demoHold = 0; return; }
+    const s = DEMO_SCRIPT[demoIdx];
+    demoCurX = (demoIdx % 2 === 0) ? Math.min(DCOLS - 2, s.x + 2) : Math.max(0, s.x - 2); // offset to show sliding
+    demoCurY = -3; demoPhase = "fall";
+  }
+  function demoReset() { demoPlaced = []; demoIdx = 0; demoHold = 0; demoSpawn(); }
+  function demoStep(dt) {
+    if (demoPhase === "done") { demoHold += dt; if (demoHold > 1300) demoReset(); return; }
+    const s = DEMO_SCRIPT[demoIdx];
+    demoCurX += (s.x - demoCurX) * Math.min(1, dt / 90);       // ease toward target column
+    demoCurY += dt / 70;                                       // fall
+    if (demoCurY >= s.y) {
+      demoCurX = s.x; demoCurY = s.y;
+      demoPlaced.push({ key: s.key, cells: PIECES[s.key].cells, x: s.x, y: s.y });
+      demoIdx++; demoSpawn();
+    }
+  }
+  function demoDrawSprite(key, cells, gx, gy) {
+    const spr = SPRITES[PIECES[key].sprite]; if (!spr) return;
+    const cols = cells[0].length, rows = cells.length;
+    const w = cols * DCELL, h = rows * DCELL, x = gx * DCELL, y = gy * DCELL;
+    let dy = y, dh = h; const hf = HANDLE_FRAC[PIECES[key].sprite];
+    if (hf) { dh = h / (1 - hf); dy = y - (dh - h); }
+    dctx.drawImage(spr.rots[0], x, dy, w, dh);
+  }
+  function demoRender() {
+    const W = demoCv.width, H = demoCv.height;
+    const g = dctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#d59658"); g.addColorStop(1, "#b87a3c");
+    dctx.fillStyle = g; dctx.fillRect(0, 0, W, H);
+    dctx.strokeStyle = "rgba(0,0,0,.07)"; dctx.lineWidth = 1;
+    for (let x = 1; x < DCOLS; x++) { dctx.beginPath(); dctx.moveTo(x*DCELL, 0); dctx.lineTo(x*DCELL, H); dctx.stroke(); }
+    for (let y = 1; y < DROWS; y++) { dctx.beginPath(); dctx.moveTo(0, y*DCELL); dctx.lineTo(W, y*DCELL); dctx.stroke(); }
+    for (const p of demoPlaced) demoDrawSprite(p.key, p.cells, p.x, p.y);
+    if (demoPhase !== "done" && demoIdx < DEMO_SCRIPT.length) {
+      const s = DEMO_SCRIPT[demoIdx];
+      demoDrawSprite(s.key, PIECES[s.key].cells, demoCurX, demoCurY);
+    }
+    const cap = (demoPhase === "done") ? DEMO_CAPS[2] : DEMO_CAPS[Math.min(2, Math.floor(demoIdx / 2))];
+    const el = document.getElementById("demoCap"); if (el.textContent !== cap) el.textContent = cap;
+  }
+  function demoLoop(t) {
+    if (!demoRAF) return;
+    const dt = Math.min(50, t - (demoLastT || t)); demoLastT = t;
+    demoStep(dt); demoRender();
+    demoRAF = requestAnimationFrame(demoLoop);
+  }
+  function showHowto() {
+    document.getElementById("howOv").classList.remove("hidden");
+    demoReset(); demoLastT = 0;
+    if (!demoRAF) demoRAF = requestAnimationFrame(demoLoop);
+  }
+  function hideHowto() {
+    document.getElementById("howOv").classList.add("hidden");
+    if (demoRAF) { cancelAnimationFrame(demoRAF); demoRAF = null; }
+    try { localStorage.setItem(HOW_KEY, "1"); } catch (e) {}
+  }
+  document.getElementById("howPlay").addEventListener("click", () => { hideHowto(); start(); });
+  document.getElementById("howClose").addEventListener("click", () => { hideHowto(); });
+  document.getElementById("howBtn").addEventListener("click", (e) => { e.stopPropagation(); showHowto(); });
+
   loadSprites().then(() => {
     ready = true;
     drawNext();
     document.getElementById("startOv").classList.add("ready");
+    try { if (!localStorage.getItem(HOW_KEY)) showHowto(); } catch (e) { showHowto(); }
   }).catch((src) => {
     document.getElementById("startVeil").textContent = "Failed to load art";
     console.error("sprite load failed:", src);
