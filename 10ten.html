@@ -63,7 +63,7 @@
   .header {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
+    justify-content: center;
   }
 
   .logo {
@@ -361,9 +361,8 @@
 </head>
 <body>
   <div class="app">
-    <!-- header: logo + score/best -->
+    <!-- header: score/best -->
     <div class="header">
-      <div class="logo"><span class="u">Uber</span><span class="e">Eats</span></div>
       <div class="scorebox">
         <div class="seg"><div class="label">Swipes</div><div class="value" id="score">0</div></div>
         <div class="seg"><div class="label">Best</div><div class="value" id="best">0</div></div>
@@ -1029,10 +1028,8 @@ function init() {
   }
   updateScores();
 
-  // first-time tutorial
-  let seen = false;
-  try { seen = !!localStorage.getItem(CONFIG.tutorialKey); } catch (e) {}
-  if (!seen) showTutorial();
+  // show the how-to-play tutorial at the start of every session
+  showTutorial();
 }
 
 init();
