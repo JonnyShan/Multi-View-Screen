@@ -990,9 +990,18 @@
   const dctx = demoCv.getContext("2d");
   const DCOLS = 6, DROWS = 9, DCELL = demoCv.width / DCOLS;
   // scripted tidy pack (lowest pieces first) — fills the bottom 4 rows with no gaps
+  // scripted tidy pack (lowest pieces first) using a VARIETY of items — fills the bottom 4 rows
   const DEMO_SCRIPT = [
-    { key: "O", x: 0, y: 7 }, { key: "O", x: 2, y: 7 }, { key: "O", x: 4, y: 7 },
-    { key: "I", x: 0, y: 6 }, { key: "O", x: 4, y: 5 }, { key: "I", x: 0, y: 5 },
+    { key: "O",  x: 0, y: 7 },   // bag (cols 0-1)
+    { key: "O",  x: 4, y: 7 },   // bag (cols 4-5)
+    { key: "S",  x: 2, y: 6 },   // eggs + milk
+    { key: "TR", x: 2, y: 8 },   // toilet roll (fills under eggs)
+    { key: "TR", x: 3, y: 6 },   // toilet roll (fills beside eggs)
+    { key: "SH", x: 4, y: 5 },   // shampoo
+    { key: "SH", x: 5, y: 5 },   // shampoo
+    { key: "TR", x: 0, y: 6 },   // toilet roll
+    { key: "TR", x: 1, y: 6 },   // toilet roll
+    { key: "I",  x: 0, y: 5 },   // subs (cols 0-3)
   ];
   const DEMO_CAPS = ["Drop food into the bag", "Pack tight — no gaps", "Fill it up = more points!"];
   let demoRAF = null, demoPlaced = [], demoIdx = 0, demoPhase = "fall", demoCurX = 0, demoCurY = -3, demoLastT = 0, demoHold = 0;
