@@ -166,9 +166,15 @@
   }
   #howBtn:active { transform: scale(.96); }
   /* How-to-play intro (auto-playing demo) */
-  #howOv { gap: 13px; z-index: 40; }
-  #howOv .htTitle { font-size: 23px; font-weight: 900; letter-spacing: .5px; }
-  #howOv .htTitle .e { color: var(--green); }
+  #howOv { gap: 12px; z-index: 40; padding-top: 22px;
+    background: linear-gradient(#3f8a4f, #2c6b3c); backdrop-filter: none; }
+  #howOv .htIntro {
+    margin: 0; max-width: 320px; font-size: 14px; font-weight: 800; line-height: 1.45;
+    color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.35);
+  }
+  #howOv .htIntro b { color: #fff; }
+  #howOv .htTitle { font-size: 22px; font-weight: 900; letter-spacing: .5px; }
+  #howOv .htTitle .e { color: #c6f7d8; }
   #demoWrap { position: relative; border-radius: 14px; overflow: hidden; border: 2px solid rgba(6,193,103,.5); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
   #demoCv { display: block; width: 184px; height: 276px; background: #4c8850; }
   #demoCap {
@@ -185,8 +191,8 @@
   .htLegend .ic.drop { border-color: var(--green); color: var(--green); box-shadow: 0 0 12px rgba(6,193,103,.45); }
   .htLegend .ic svg { width: 23px; height: 23px; }
   .htLegend .lb { font-size: 11px; font-weight: 700; opacity: .8; letter-spacing: .3px; }
-  #howOv .htHint { margin: 0; font-size: 13px; opacity: .85; line-height: 1.5; max-width: 300px; }
-  #howOv .htHint b { color: var(--green); opacity: 1; }
+  #howOv .htHint { margin: 0; font-size: 13px; opacity: .92; line-height: 1.5; max-width: 300px; color: #fff; }
+  #howOv .htHint b { color: #fff; opacity: 1; text-decoration: underline; text-underline-offset: 2px; }
   #howOv .htActions { display: flex; gap: 12px; align-items: center; margin-top: 2px; }
   #howClose {
     background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.3);
@@ -242,6 +248,7 @@
 
   <!-- How to play (auto-playing demo) -->
   <div class="overlay hidden" id="howOv">
+    <p class="htIntro">Stack the perfect <b>Uber Eats</b> delivery bag to earn points! The more items you stack, the more points you earn!</p>
     <div class="htTitle">How to <span class="e">play</span></div>
     <div id="demoWrap">
       <canvas id="demoCv" width="216" height="324"></canvas>
