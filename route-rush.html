@@ -95,6 +95,14 @@
     pointer-events: auto;
   }
   .overlay.hidden { display: none; }
+  /* PATH FINDER intro screen: full-bleed poster, tap anywhere to play */
+  #start { padding: 0; gap: 0; cursor: pointer; background: #060d16; }
+  #introImg { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; -webkit-user-select: none; user-select: none; pointer-events: none; }
+  #introHint { position: fixed; bottom: max(12px, env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center;
+    font-weight: 800; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,.55);
+    pointer-events: none; animation: introPulse 1.6s ease-in-out infinite; }
+  @keyframes introPulse { 0%,100% { opacity: .45; } 50% { opacity: .9; } }
+  @media (prefers-reduced-motion: reduce){ #introHint { animation: none; } }
   .overlay h1 { font-size: clamp(34px, 9vw, 60px); font-weight: 900; letter-spacing: 1px;
     background: linear-gradient(90deg,#3da5ff,#ff3d9a); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .overlay p { max-width: 440px; line-height: 1.55; opacity: .9; font-size: 15px; }
@@ -138,15 +146,8 @@
   <button class="choice" id="btnB"><span class="big">B</span><span class="lbl">ROUTE</span></button>
 
   <div class="overlay" id="start">
-    <h1>Uber: Path Picker</h1>
-    <div class="how">
-      <div>🗺️ Two routes link the same <b>food shop</b> → <b>house</b>.</div>
-      <div>📏 Tap the <b>smartest</b> route — usually the shorter one, no numbers.</div>
-      <div>🧭 Routes wind more and look closer in length as you go.</div>
-      <div>⚡ Correct +8, fast pick up to +4, streak boosts to <b>×1.5</b>.</div>
-      <div>🏁 <b>12 routes</b>, ~4–5s each. No fail-out — chase the high score.</div>
-    </div>
-    <button class="btn" id="startBtn">▶ Play</button>
+    <img id="introImg" src="intro.jpg?v=1" alt="Path Finder — pick the smartest delivery route. Tap to play." />
+    <div id="introHint">tap to play ▶</div>
   </div>
 
   <div class="overlay hidden" id="over">
@@ -220,7 +221,7 @@ let bgImg = null;                 // loaded background image (version 2)
 COL.A = CONFIG.brandA; COL.Aglow = hexRGBA(CONFIG.brandA, .85);
 COL.B = CONFIG.brandB; COL.Bglow = hexRGBA(CONFIG.brandB, .85);
 // day / dusk / night / dawn tint+scrim, cycled every 4 rounds (mutes city; routes drawn on top)
-const TINTS = ['rgba(9,11,18,.30)', 'rgba(42,20,10,.34)', 'rgba(8,12,30,.42)', 'rgba(26,12,30,.36)'];
+const TINTS = ['rgba(9,11,18,.10)', 'rgba(42,20,10,.12)', 'rgba(8,12,30,.14)', 'rgba(26,12,30,.12)'];  // subtle day/night, keep it vibrant
 // blend a hex toward a target hex by amt (0..1) -> hex
 function mix(hex, target, amt){
   const a = parseInt(hex.slice(1),16), b = parseInt(target.slice(1),16);
@@ -299,7 +300,7 @@ function resize(){
   canvas.style.height = off.style.height = cssH + 'px';
   computeCell();
   const vg = ctx.createRadialGradient(cssW/2, cssH*0.55, Math.min(cssW,cssH)*0.28, cssW/2, cssH*0.55, Math.max(cssW,cssH)*0.72);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.5)'); vignette = vg;
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.24)'); vignette = vg;
   if (city) { layoutRoutePixels(); buildStatic(); }  // keep current round, just re-fit
 }
 window.addEventListener('resize', resize);
@@ -577,7 +578,7 @@ function buildStatic(){
     octx.save(); rr(octx, bx0, by0, bw, bh, brad); octx.clip();
     const s = Math.max(bw / bgImg.width, bh / bgImg.height), iw = bgImg.width*s, ih = bgImg.height*s;
     octx.drawImage(bgImg, bx0 + (bw-iw)/2, by0 + (bh-ih)/2, iw, ih);
-    octx.fillStyle = 'rgba(8,10,18,.22)'; octx.fillRect(bx0, by0, bw, bh);   // gentle dim
+    octx.fillStyle = 'rgba(8,10,18,.05)'; octx.fillRect(bx0, by0, bw, bh);   // very light scrim (keep image vibrant)
     octx.restore();
     return;   // the photo IS the city — skip procedural streets/buildings
   }
@@ -1310,7 +1311,7 @@ function runCountdown(done){
 }
 function requestWakeLock(){ try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { wakeLock = w; }).catch(()=>{}); } catch (e) {} }
 function goFullscreen(){ try { const el = document.documentElement; if (el.requestFullscreen) el.requestFullscreen().catch(()=>{}); } catch (e) {} }
-document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('start').addEventListener('click', startGame);   // tap anywhere on the intro poster
 document.getElementById('againBtn').addEventListener('click', startGame);
 
 // =================== boot ===================
