@@ -957,8 +957,30 @@ function spawnConfetti() {
 /* ============================================================
    TUTORIAL
    ============================================================ */
-const DEMO_SEQ = [[1, 2], [2, 3], [3, 4]];
-const DEMO_ROW = 1;            // which board row the demo plays on
+// Looping scenes that teach the WHOLE board: one swipe moves everything,
+// many different items merge at once, and the chain builds to the winning Bag.
+const DEMO_SCENES = [
+  {
+    cap: "One swipe moves the whole board — matching items level up",
+    hand: 1,
+    grid: [
+      [1, 0, 1, 0],   // burgers  -> coffee
+      [0, 2, 0, 2],   // coffees  -> noodles
+      [3, 3, 0, 0],   // noodles  -> smoothie
+      [0, 0, 0, 0],
+    ],
+  },
+  {
+    cap: "Keep building up to the Uber Eats Bag to win!",
+    hand: 0,
+    grid: [
+      [4, 0, 4, 0],   // smoothies -> groceries
+      [5, 5, 0, 0],   // groceries -> BAG (win)
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+    ],
+  },
+];
 let demoIdx = 0, demoTimers = [], demoBuilt = false;
 function buildDemoGrid() {
   if (demoBuilt) return;
@@ -971,8 +993,8 @@ function buildDemoGrid() {
   }
   demoBuilt = true;
 }
-function dgt(v, r, c, cls) {
-  return `<div class="dgt ${cls}" style="left:${pos(c)}%;top:${pos(r)}%;width:${CELL}%;height:${CELL}%">` +
+function dgt(v, r, c, id) {
+  return `<div class="dgt" data-id="${id}" style="left:${pos(c)}%;top:${pos(r)}%;width:${CELL}%;height:${CELL}%">` +
          `<img src="${CONFIG.itemImg(v)}" alt=""><span class="dn">${v}</span></div>`;
 }
 function setHand(c, r, vis) {
@@ -981,26 +1003,54 @@ function setHand(c, r, vis) {
   el.demoHand.style.opacity = vis ? "1" : "0";
 }
 function stopDemo() { demoTimers.forEach(clearTimeout); demoTimers = []; }
+// 2048-style slide of ONE row to the left with +1 leveling.
+// Returns per-tile motion so each original item can be animated to its spot.
+function simRowLeft(vals, r) {
+  const tiles = [];
+  for (let c = 0; c < vals.length; c++) if (vals[c]) tiles.push({ v: vals[c], from: c });
+  const moves = [];
+  let out = 0, i = 0;
+  while (i < tiles.length) {
+    if (i + 1 < tiles.length && tiles[i].v === tiles[i + 1].v) {
+      moves.push({ v: tiles[i].v, r, from: tiles[i].from, to: out, vanish: false, becomes: tiles[i].v + 1 });
+      moves.push({ v: tiles[i + 1].v, r, from: tiles[i + 1].from, to: out, vanish: true });
+      out++; i += 2;
+    } else {
+      moves.push({ v: tiles[i].v, r, from: tiles[i].from, to: out, vanish: false });
+      out++; i += 1;
+    }
+  }
+  return moves;
+}
 function demoTick() {
   stopDemo();
-  const [from, to] = DEMO_SEQ[demoIdx % DEMO_SEQ.length];
-  const r = DEMO_ROW;
-  // two same items in the row, a gap apart, so the slide reads clearly
-  el.demoTiles.innerHTML = dgt(from, r, 0, "dA") + dgt(from, r, 2, "dB");
-  const A = el.demoTiles.querySelector(".dA");
-  const B = el.demoTiles.querySelector(".dB");
-  el.demoEq.innerHTML = `<b>${from}</b> &nbsp;+&nbsp; <b>${from}</b> &nbsp;=&nbsp; <b>${to}</b>`;
-  setHand(2, r, false);
-  demoTimers.push(setTimeout(() => setHand(2, r, true), 140));                         // hand appears (right)
-  demoTimers.push(setTimeout(() => { setHand(0, r, true); B.style.left = pos(0) + "%"; }, 650)); // swipe left -> B slides into A
-  demoTimers.push(setTimeout(() => {                                                   // merge
-    B.style.opacity = "0";
-    A.querySelector("img").src = CONFIG.itemImg(to);
-    A.querySelector(".dn").textContent = to;
-    A.classList.add("pop");
-  }, 1180));
-  demoTimers.push(setTimeout(() => { el.demoHand.style.opacity = "0"; }, 1550));
-  demoTimers.push(setTimeout(() => { demoIdx++; demoTick(); }, 2500));
+  const scene = DEMO_SCENES[demoIdx % DEMO_SCENES.length];
+  let moves = [];
+  scene.grid.forEach((row, r) => { moves = moves.concat(simRowLeft(row, r)); });
+
+  el.demoTiles.innerHTML = moves.map((m, idx) => dgt(m.v, m.r, m.from, "t" + idx)).join("");
+  const nodes = moves.map((m, idx) => el.demoTiles.querySelector('[data-id="t' + idx + '"]'));
+  el.demoEq.textContent = scene.cap;
+
+  setHand(N - 1, scene.hand, false);
+  demoTimers.push(setTimeout(() => setHand(N - 1, scene.hand, true), 160));            // hand appears (right edge)
+  demoTimers.push(setTimeout(() => {                                                   // swipe left -> whole board slides
+    setHand(0, scene.hand, true);
+    moves.forEach((m, idx) => { nodes[idx].style.left = pos(m.to) + "%"; });
+  }, 700));
+  demoTimers.push(setTimeout(() => {                                                   // merges resolve together
+    moves.forEach((m, idx) => {
+      if (m.vanish) { nodes[idx].style.opacity = "0"; }
+      else if (m.becomes) {
+        nodes[idx].style.zIndex = "2";
+        nodes[idx].querySelector("img").src = CONFIG.itemImg(m.becomes);
+        nodes[idx].querySelector(".dn").textContent = m.becomes;
+        nodes[idx].classList.add("pop");
+      }
+    });
+  }, 1220));
+  demoTimers.push(setTimeout(() => { el.demoHand.style.opacity = "0"; }, 1680));
+  demoTimers.push(setTimeout(() => { demoIdx++; demoTick(); }, 2900));
 }
 function startDemo() { buildDemoGrid(); demoIdx = 0; demoTick(); }
 
