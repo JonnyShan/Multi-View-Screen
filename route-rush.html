@@ -220,7 +220,7 @@ let bgImg = null;                 // loaded background image (version 2)
 COL.A = CONFIG.brandA; COL.Aglow = hexRGBA(CONFIG.brandA, .85);
 COL.B = CONFIG.brandB; COL.Bglow = hexRGBA(CONFIG.brandB, .85);
 // day / dusk / night / dawn tint+scrim, cycled every 4 rounds (mutes city; routes drawn on top)
-const TINTS = ['rgba(9,11,18,.30)', 'rgba(42,20,10,.34)', 'rgba(8,12,30,.42)', 'rgba(26,12,30,.36)'];
+const TINTS = ['rgba(9,11,18,.10)', 'rgba(42,20,10,.12)', 'rgba(8,12,30,.14)', 'rgba(26,12,30,.12)'];  // subtle day/night, keep it vibrant
 // blend a hex toward a target hex by amt (0..1) -> hex
 function mix(hex, target, amt){
   const a = parseInt(hex.slice(1),16), b = parseInt(target.slice(1),16);
@@ -299,7 +299,7 @@ function resize(){
   canvas.style.height = off.style.height = cssH + 'px';
   computeCell();
   const vg = ctx.createRadialGradient(cssW/2, cssH*0.55, Math.min(cssW,cssH)*0.28, cssW/2, cssH*0.55, Math.max(cssW,cssH)*0.72);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.5)'); vignette = vg;
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.24)'); vignette = vg;
   if (city) { layoutRoutePixels(); buildStatic(); }  // keep current round, just re-fit
 }
 window.addEventListener('resize', resize);
@@ -577,7 +577,7 @@ function buildStatic(){
     octx.save(); rr(octx, bx0, by0, bw, bh, brad); octx.clip();
     const s = Math.max(bw / bgImg.width, bh / bgImg.height), iw = bgImg.width*s, ih = bgImg.height*s;
     octx.drawImage(bgImg, bx0 + (bw-iw)/2, by0 + (bh-ih)/2, iw, ih);
-    octx.fillStyle = 'rgba(8,10,18,.22)'; octx.fillRect(bx0, by0, bw, bh);   // gentle dim
+    octx.fillStyle = 'rgba(8,10,18,.05)'; octx.fillRect(bx0, by0, bw, bh);   // very light scrim (keep image vibrant)
     octx.restore();
     return;   // the photo IS the city — skip procedural streets/buildings
   }
