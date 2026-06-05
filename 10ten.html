@@ -347,16 +347,28 @@
     100% { opacity: 0; transform: translate(-50%, -82%) scale(1); }
   }
 
-  /* tutorial steps */
-  .tut-steps { display: flex; flex-direction: column; gap: 13px; margin: 10px 0 18px; text-align: left; }
-  .tut-step { display: flex; align-items: center; gap: 13px; }
-  .tut-ico { width: 46px; flex: none; text-align: center; font-size: 28px; }
-  .tut-txt { font-weight: 600; color: var(--muted); font-size: 14.5px; line-height: 1.25; }
-  .tut-txt b { color: #fff; font-weight: 800; }
-  .tut-merge { display: flex; align-items: center; gap: 3px; flex: none; }
-  .tut-merge img { width: 34px; height: 34px; object-fit: contain; }
-  .tut-merge span { color: var(--green); font-weight: 900; font-size: 16px; }
-  .tut-goal { width: 46px; height: 46px; object-fit: contain; flex: none; filter: drop-shadow(0 0 9px rgba(6, 193, 103, 0.55)); }
+  /* tutorial: animated swipe-merge demo */
+  .demo-grid { position: relative; width: min(62vw, 224px); aspect-ratio: 1 / 1; margin: 10px auto 4px; }
+  .demo-cells { position: absolute; inset: 0; padding: var(--gap); display: grid; gap: var(--gap); }
+  .demo-cells .dc { border-radius: 11px; background: rgba(255,255,255,0.03); border: 1px solid rgba(47,211,95,0.14); }
+  .demo-tiles { position: absolute; inset: 0; }
+  .dgt { position: absolute; display: grid; place-items: center; transition: left 0.46s ease, opacity 0.3s ease; }
+  .dgt img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4)); }
+  .dgt .dn { position: absolute; right: 4%; bottom: 1%; color: var(--green); font-weight: 900;
+    font-size: clamp(11px, 4.5vw, 16px); -webkit-text-stroke: 1.4px rgba(0,0,0,0.75); paint-order: stroke fill; }
+  .dgt.pop { animation: pop 0.32s ease; }
+  .demo-hand { position: absolute; width: 30px; height: 30px; transform: translate(-50%, -50%);
+    fill: #fff; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.65)); pointer-events: none; opacity: 0;
+    z-index: 3; transition: left 0.46s ease, opacity 0.3s ease; }
+  .demo-eq { text-align: center; font-weight: 800; color: var(--muted); font-size: 15px; min-height: 18px; }
+  .demo-eq b { color: var(--green); font-size: 1.15em; }
+  .tut-tag { text-align: center; font-size: 14.5px; font-weight: 700; color: var(--text); margin: 0 0 12px; line-height: 1.35; }
+  .tut-tag b { color: var(--green); }
+  /* tutorial lines */
+  .tut-lines { text-align: left; margin: 12px 0 16px; display: flex; flex-direction: column; gap: 10px; }
+  .tut-lines p { margin: 0; display: flex; gap: 11px; align-items: flex-start; font-weight: 600; color: var(--muted); font-size: 14.5px; line-height: 1.3; }
+  .tut-lines .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: rgba(6,193,103,0.18); color: var(--green); font-weight: 900; font-size: 13px; display: grid; place-items: center; }
+  .tut-lines b { color: #fff; font-weight: 800; }
 </style>
 </head>
 <body>
@@ -393,26 +405,18 @@
         <!-- tutorial overlay -->
         <div class="overlay" id="tutorial">
           <div class="card">
+            <p class="tut-tag"><b>Combo:</b> Crush the perfect Uber Eats Delivery combinations to earn points!</p>
             <h2 class="green">HOW TO PLAY</h2>
-            <div class="tut-steps">
-              <div class="tut-step">
-                <div class="tut-ico">👆</div>
-                <div class="tut-txt"><b>Swipe</b> any direction to slide all items.</div>
-              </div>
-              <div class="tut-step">
-                <div class="tut-merge">
-                  <img src="assets/uber/1.png" alt=""><span>+</span><img src="assets/uber/1.png" alt=""><span>=</span><img src="assets/uber/2.png" alt="">
-                </div>
-                <div class="tut-txt"><b>Two of the same</b> merge into the next item.</div>
-              </div>
-              <div class="tut-step">
-                <img class="tut-goal" src="assets/uber/6.png" alt="">
-                <div class="tut-txt">Build up to the <b>Uber Eats Bag</b> to win.</div>
-              </div>
-              <div class="tut-step">
-                <div class="tut-ico">⚡</div>
-                <div class="tut-txt"><b>Fewer swipes = higher score.</b> Plan ahead!</div>
-              </div>
+            <div class="demo-grid" id="demoGrid">
+              <div class="demo-cells" id="demoCells"></div>
+              <div class="demo-tiles" id="demoTiles"></div>
+              <svg class="demo-hand" id="demoHand" viewBox="0 0 24 24"><path d="M9 11.24V7.5C9 6.12 10.12 5 11.5 5S14 6.12 14 7.5v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.84 4.63l-4.54-2.26c-.17-.07-.35-.11-.54-.11H13v-6C13 6.67 12.33 6 11.5 6S10 6.67 10 7.5v10.74l-3.43-.72c-.08-.01-.15-.03-.24-.03-.31 0-.59.13-.79.33l-.79.8 4.94 4.94c.27.27.65.44 1.06.44h6.79c.75 0 1.33-.55 1.44-1.28l.75-5.27c.01-.07.02-.14.02-.2 0-.62-.38-1.16-.92-1.39z"/></svg>
+            </div>
+            <div class="demo-eq" id="demoEq"></div>
+            <div class="tut-lines">
+              <p><span class="n">1</span><span><b>Swipe</b> any direction — all items slide that way.</span></p>
+              <p><span class="n">2</span><span>Two of the <b>same item merge</b> into the next one.</span></p>
+              <p><span class="n">3</span><span>Reach the <b>Uber Eats Bag</b> to <b>win</b> — in as few swipes as you can!</span></p>
             </div>
             <div class="btn-row"><button class="btn" id="tut-got">GOT IT!</button></div>
           </div>
@@ -594,6 +598,11 @@ const el = {
   tutorial: document.getElementById("tutorial"),
   tutGot: document.getElementById("tut-got"),
   combo: document.getElementById("combo"),
+  demoGrid: document.getElementById("demoGrid"),
+  demoCells: document.getElementById("demoCells"),
+  demoTiles: document.getElementById("demoTiles"),
+  demoHand: document.getElementById("demoHand"),
+  demoEq: document.getElementById("demoEq"),
   hint: document.getElementById("hint")
 };
 
@@ -948,9 +957,57 @@ function spawnConfetti() {
 /* ============================================================
    TUTORIAL
    ============================================================ */
-function showTutorial() { el.tutorial.classList.add("show"); }
+const DEMO_SEQ = [[1, 2], [2, 3], [3, 4]];
+const DEMO_ROW = 1;            // which board row the demo plays on
+let demoIdx = 0, demoTimers = [], demoBuilt = false;
+function buildDemoGrid() {
+  if (demoBuilt) return;
+  el.demoGrid.style.setProperty("--gap", GAP + "%");
+  el.demoCells.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+  for (let i = 0; i < N * N; i++) {
+    const d = document.createElement("div");
+    d.className = "dc";
+    el.demoCells.appendChild(d);
+  }
+  demoBuilt = true;
+}
+function dgt(v, r, c, cls) {
+  return `<div class="dgt ${cls}" style="left:${pos(c)}%;top:${pos(r)}%;width:${CELL}%;height:${CELL}%">` +
+         `<img src="${CONFIG.itemImg(v)}" alt=""><span class="dn">${v}</span></div>`;
+}
+function setHand(c, r, vis) {
+  el.demoHand.style.left = (pos(c) + CELL / 2) + "%";
+  el.demoHand.style.top = (pos(r) + CELL / 2) + "%";
+  el.demoHand.style.opacity = vis ? "1" : "0";
+}
+function stopDemo() { demoTimers.forEach(clearTimeout); demoTimers = []; }
+function demoTick() {
+  stopDemo();
+  const [from, to] = DEMO_SEQ[demoIdx % DEMO_SEQ.length];
+  const r = DEMO_ROW;
+  // two same items in the row, a gap apart, so the slide reads clearly
+  el.demoTiles.innerHTML = dgt(from, r, 0, "dA") + dgt(from, r, 2, "dB");
+  const A = el.demoTiles.querySelector(".dA");
+  const B = el.demoTiles.querySelector(".dB");
+  el.demoEq.innerHTML = `<b>${from}</b> &nbsp;+&nbsp; <b>${from}</b> &nbsp;=&nbsp; <b>${to}</b>`;
+  setHand(2, r, false);
+  demoTimers.push(setTimeout(() => setHand(2, r, true), 140));                         // hand appears (right)
+  demoTimers.push(setTimeout(() => { setHand(0, r, true); B.style.left = pos(0) + "%"; }, 650)); // swipe left -> B slides into A
+  demoTimers.push(setTimeout(() => {                                                   // merge
+    B.style.opacity = "0";
+    A.querySelector("img").src = CONFIG.itemImg(to);
+    A.querySelector(".dn").textContent = to;
+    A.classList.add("pop");
+  }, 1180));
+  demoTimers.push(setTimeout(() => { el.demoHand.style.opacity = "0"; }, 1550));
+  demoTimers.push(setTimeout(() => { demoIdx++; demoTick(); }, 2500));
+}
+function startDemo() { buildDemoGrid(); demoIdx = 0; demoTick(); }
+
+function showTutorial() { el.tutorial.classList.add("show"); startDemo(); }
 function hideTutorial() {
   el.tutorial.classList.remove("show");
+  stopDemo();
   try { localStorage.setItem(CONFIG.tutorialKey, "1"); } catch (e) {}
 }
 
