@@ -1042,10 +1042,10 @@ function dPlan(dir) {
   }
   return { moves, merges, moved };
 }
-// pick a direction: prefer the one that merges the most (keeps the chain climbing).
-// alternate the tie-break order each move so tiles settle into a corner — looks like real play.
+// pick a direction: only straight, simple swipes — RIGHT (left->right) or DOWN (top->bottom).
+// prefer the one that merges the most so the chain keeps climbing; tiles settle bottom-right.
 function dChoose() {
-  const order = (dMoves % 2 === 0) ? ["up", "left", "down", "right"] : ["left", "up", "right", "down"];
+  const order = (dMoves % 2 === 0) ? ["down", "right"] : ["right", "down"];
   let best = null;
   for (const d of order) {
     const p = dPlan(d);
@@ -1056,18 +1056,18 @@ function dChoose() {
 function dHandSwipe(dir) {
   const mid = Math.round((N - 1) / 2);
   let sc, sr, ec, er;
-  if (dir === "left")  { sr = er = mid; sc = N - 1; ec = 0; }
-  else if (dir === "right") { sr = er = mid; sc = 0; ec = N - 1; }
-  else if (dir === "up")    { sc = ec = mid; sr = N - 1; er = 0; }
-  else                      { sc = ec = mid; sr = 0; er = N - 1; }
+  if (dir === "right") { sr = er = mid; sc = 0; ec = N - 1; }   // straight: left -> right
+  else                 { sc = ec = mid; sr = 0; er = N - 1; }   // straight: top -> bottom (down)
+  // snap to the start while invisible (transition off) so it never glides diagonally between moves
   el.demoHand.style.transition = "none";
   setHand(sc, sr, false);
-  requestAnimationFrame(() => {
-    el.demoHand.style.transition = "left 0.42s ease, top 0.42s ease, opacity 0.25s ease";
+  // two frames later (after the snap paints), fade in and glide slowly + straight to the end
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    el.demoHand.style.transition = "left 0.95s ease, top 0.95s ease, opacity 0.3s ease";
     setHand(sc, sr, true);
-    demoTimers.push(setTimeout(() => setHand(ec, er, true), 110));
-    demoTimers.push(setTimeout(() => { el.demoHand.style.opacity = "0"; }, 640));
-  });
+    demoTimers.push(setTimeout(() => setHand(ec, er, true), 170));
+    demoTimers.push(setTimeout(() => { el.demoHand.style.opacity = "0"; }, 1250));
+  }));
 }
 function dApply(p) {
   // slide every tile to its new spot
@@ -1103,7 +1103,7 @@ function dApply(p) {
       return;
     }
     dSpawn();                                   // a new burger drops in every move
-    demoTimers.push(setTimeout(demoTick, 900));
+    demoTimers.push(setTimeout(demoTick, 1150));
   }, 480));
 }
 function dSpawn() {
@@ -1118,7 +1118,7 @@ function demoTick() {
   const choice = dChoose();
   if (!choice) { dReset(); demoTimers.push(setTimeout(demoTick, 650)); return; }
   dHandSwipe(choice.d);
-  demoTimers.push(setTimeout(() => dApply(choice.p), 500));
+  demoTimers.push(setTimeout(() => dApply(choice.p), 850));
 }
 function startDemo() { buildDemoGrid(); dReset(); demoTimers.push(setTimeout(demoTick, 800)); }
 
