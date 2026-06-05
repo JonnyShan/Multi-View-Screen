@@ -997,53 +997,74 @@
     { key: "O",  x: 4, y: 7 },   // bag (cols 4-5)
     { key: "L",  x: 4, y: 4 },   // combo meal (col 4 + foot)
     { key: "SH", x: 5, y: 4 },   // shampoo (fills the combo notch)
-    { key: "I",  x: 0, y: 6 },   // subs (cols 0-3)
+    { key: "I",  x: 0, y: 6, spawnRot: 3 },   // sub — drops in sideways, ROTATES flat to fit
     { key: "I",  x: 0, y: 5 },   // subs (cols 0-3)
     { key: "I",  x: 0, y: 4 },   // subs (cols 0-3)
   ];
-  const DEMO_CAPS = ["Drop food into the bag", "Pack tight — no gaps", "Fill it up = more points!"];
+  function rotN(cells, n) { let m = cells; n = ((n % 4) + 4) % 4; for (let i = 0; i < n; i++) m = rotateMatrix(m); return m; }
   let demoRAF = null, demoPlaced = [], demoIdx = 0, demoPhase = "fall", demoCurX = 0, demoCurY = -3, demoLastT = 0, demoHold = 0;
+  let demoCurRot = 0, demoTargetRot = 0, demoRotDone = true, demoRotAtY = -99, demoRotPause = 0;
 
   function demoSpawn() {
     if (demoIdx >= DEMO_SCRIPT.length) { demoPhase = "done"; demoHold = 0; return; }
     const s = DEMO_SCRIPT[demoIdx];
-    demoCurX = (demoIdx % 2 === 0) ? Math.min(DCOLS - 2, s.x + 2) : Math.max(0, s.x - 2); // offset to show sliding
+    demoTargetRot = s.rot || 0;
+    demoCurRot = (s.spawnRot != null) ? s.spawnRot : demoTargetRot;
+    demoRotDone = (demoCurRot === demoTargetRot);
+    demoRotAtY = s.y - 6;                                       // rotate well above target so it's visible
+    demoRotPause = 0;
+    const w0 = rotN(PIECES[s.key].cells, demoCurRot)[0].length;
+    demoCurX = (demoIdx % 2 === 0) ? Math.min(DCOLS - w0, s.x + 2) : Math.max(0, s.x - 2); // offset to show sliding
     demoCurY = -3; demoPhase = "fall";
   }
   function demoReset() { demoPlaced = []; demoIdx = 0; demoHold = 0; demoSpawn(); }
   function demoStep(dt) {
     if (demoPhase === "done") { demoHold += dt; if (demoHold > 1300) demoReset(); return; }
     const s = DEMO_SCRIPT[demoIdx];
+    if (demoRotPause > 0) { demoRotPause -= dt; return; }       // freeze a beat after rotating
     demoCurX += (s.x - demoCurX) * Math.min(1, dt / 90);       // ease toward target column
     demoCurY += dt / 70;                                       // fall
+    if (!demoRotDone && demoCurY >= demoRotAtY) {              // rotate to the orientation that fits
+      const before = rotN(PIECES[s.key].cells, demoCurRot).length;
+      demoCurRot = demoTargetRot;
+      const after = rotN(PIECES[s.key].cells, demoCurRot).length;
+      demoCurY += (before - after);                            // keep visual bottom continuous through the flip
+      demoRotDone = true; demoRotPause = 260;
+    }
     if (demoCurY >= s.y) {
       demoCurX = s.x; demoCurY = s.y;
-      demoPlaced.push({ key: s.key, cells: PIECES[s.key].cells, x: s.x, y: s.y });
+      demoPlaced.push({ key: s.key, cells: rotN(PIECES[s.key].cells, demoTargetRot), x: s.x, y: s.y, rot: demoTargetRot });
       demoIdx++; demoSpawn();
     }
   }
-  function demoDrawSprite(key, cells, gx, gy) {
+  function demoDrawSprite(key, cells, gx, gy, rot) {
     const spr = SPRITES[PIECES[key].sprite]; if (!spr) return;
+    rot = rot || 0;
     const cols = cells[0].length, rows = cells.length;
     const w = cols * DCELL, h = rows * DCELL, x = gx * DCELL, y = gy * DCELL;
     let dy = y, dh = h; const hf = HANDLE_FRAC[PIECES[key].sprite];
-    if (hf) { dh = h / (1 - hf); dy = y - (dh - h); }
-    dctx.drawImage(spr.rots[0], x, dy, w, dh);
+    if (hf && rot === 0) { dh = h / (1 - hf); dy = y - (dh - h); }
+    dctx.drawImage(spr.rots[rot], x, dy, w, dh);
   }
   function demoRender() {
     const W = demoCv.width, H = demoCv.height;
     drawBagField(dctx, W, H, DCELL, DCOLS, DROWS);   // green bag + handles
-    for (const p of demoPlaced) demoDrawSprite(p.key, p.cells, p.x, p.y);
+    for (const p of demoPlaced) demoDrawSprite(p.key, p.cells, p.x, p.y, p.rot);
     if (demoPhase !== "done" && demoIdx < DEMO_SCRIPT.length) {
       const s = DEMO_SCRIPT[demoIdx];
-      demoDrawSprite(s.key, PIECES[s.key].cells, demoCurX, demoCurY);
+      demoDrawSprite(s.key, rotN(PIECES[s.key].cells, demoCurRot), demoCurX, demoCurY, demoCurRot);
     }
-    const cap = (demoPhase === "done") ? DEMO_CAPS[2] : DEMO_CAPS[Math.min(2, Math.floor(demoIdx / 2))];
+    const cur = (demoIdx < DEMO_SCRIPT.length) ? DEMO_SCRIPT[demoIdx] : null;
+    let cap;
+    if (demoPhase === "done") cap = "Fill it up = more points!";
+    else if (cur && cur.spawnRot != null && cur.spawnRot !== (cur.rot || 0)) cap = "Rotate so it fits ↻";
+    else cap = ["Drop food into the bag", "Pack tight — no gaps", "Fill it up = more points!"][Math.min(2, Math.floor(demoIdx / 2))];
     const el = document.getElementById("demoCap"); if (el.textContent !== cap) el.textContent = cap;
   }
   function demoLoop(t) {
     if (!demoRAF) return;
-    const dt = Math.min(50, t - (demoLastT || t)); demoLastT = t;
+    const raw = Math.min(50, t - (demoLastT || t)); demoLastT = t;
+    const dt = raw * 0.7;                                       // 30% slower demo
     demoStep(dt); demoRender();
     demoRAF = requestAnimationFrame(demoLoop);
   }
