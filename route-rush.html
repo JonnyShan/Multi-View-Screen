@@ -474,18 +474,40 @@ function detourRect(a, b, m){
   if (side==='up'){    const y=miny-k; return [{x:a.x,y:a.y},{x:a.x,y},{x:b.x,y},{x:b.x,y:b.y}]; }
   const y=maxy+k;      return [{x:a.x,y:a.y},{x:a.x,y},{x:b.x,y},{x:b.x,y:b.y}];
 }
+// insert one clean square "nub" (+2 length, 90° turns only) on a straight run >=3 — adds wiggle without U-turns
+function addNub(corners){
+  for (let i = 1; i < corners.length; i++){
+    const a = corners[i-1], b = corners[i];
+    const sx = Math.sign(b.x-a.x), sy = Math.sign(b.y-a.y);
+    if (Math.abs(b.x-a.x) + Math.abs(b.y-a.y) < 3) continue;     // need room for in/out/back
+    const perps = (sy===0) ? [{x:0,y:-1},{x:0,y:1}] : [{x:-1,y:0},{x:1,y:0}];
+    for (const p of perps){
+      const m0 = { x:a.x+sx, y:a.y+sy };
+      const u  = { x:m0.x+p.x, y:m0.y+p.y };
+      const u2 = { x:u.x+sx,  y:u.y+sy };
+      const m1 = { x:m0.x+sx, y:m0.y+sy };
+      if ([m0,u,u2,m1].some(q => q.x<0||q.x>GW-1||q.y<0||q.y>GH-1)) continue;
+      return [...corners.slice(0,i), m0, u, u2, m1, ...corners.slice(i)];
+    }
+  }
+  return null;
+}
 
 function generateRoutes(S, E, desiredM){
-  // SHORT: a clean one-bend L (minimal distance)
-  const shortR = routeFromCorners(lShape(S, E, Math.random() < 0.5));
-  // LONG: a clean rectangular detour, longer by 2m, right-angle turns only
-  const longR  = routeFromCorners(detourRect(S, E, desiredM));
+  const turns = () => ri(3, 5);
+  // SHORT: a wiggly monotone staircase (minimal Manhattan length, many right-angle turns)
+  const shortR = routeFromCorners(zigStair(S, E, turns()));
+  // LONG: a wiggly staircase + clean square nub(s) so it's a bit longer but hard to tell apart
+  let lc = zigStair(S, E, turns()), nubs = 0;
+  for (let i = 0; i < Math.max(1, desiredM); i++){ const r = addNub(lc); if (r){ lc = r; nubs++; } }
+  if (nubs === 0) lc = detourRect(S, E, Math.max(1, desiredM));   // fallback: guarantee long > short
+  const longR = routeFromCorners(lc);
 
   // traffic-jam twist (from round 5): each jam adds effective length, so the
   // shorter-LOOKING route can actually be slower — player must read jams too.
   const JAM_PEN = 3;
   let jamS = 0, jamL = 0;
-  if (round >= 4 && Math.random() < 0.68){          // more frequent jam traps -> ~30% harder to guess
+  if (round >= 3 && Math.random() < 0.80){          // frequent jam traps -> ~50% harder to guess
     if (Math.random() < 0.7) jamS = ri(1, 2); else jamL = ri(1, 2);
   }
   shortR.jam = jamS; longR.jam = jamL;
