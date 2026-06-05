@@ -121,17 +121,17 @@
   /* ---- how-to-play strip ---- */
   #howto { justify-content: flex-start; gap: 14px; overflow-y: auto;
     padding: max(26px, env(safe-area-inset-top)) 22px max(26px, env(safe-area-inset-bottom)); }
-  .howTitle { font-size: 24px; font-weight: 900; letter-spacing: .5px; margin: 6px 0 2px;
-    background: linear-gradient(90deg,#3da5ff,#ff3d9a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .howTitle { font-size: 24px; font-weight: 900; letter-spacing: .5px; margin: 6px 0 2px; color: #38e08b; }
   #htStrip { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 460px; }
   .htPanel { background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.10);
     border-radius: 14px; padding: 10px 10px 9px; }
   .htCanvas { display: block; width: 100%; height: 118px; border-radius: 10px; }
   .htCap { margin-top: 9px; font-size: 13.5px; line-height: 1.42; opacity: .94; text-align: left; }
   .htCap b { display: inline-block; width: 19px; height: 19px; line-height: 19px; text-align: center;
-    border-radius: 50%; background: linear-gradient(90deg,#3da5ff,#ff3d9a); color: #08111f; font-size: 12px; margin-right: 8px; }
+    border-radius: 50%; background: #38e08b; color: #08231a; font-size: 12px; margin-right: 8px; }
   .sgood { color: #38e08b; font-weight: 800; }
-  #howtoPlay { margin-top: 4px; }
+  #howtoPlay { margin-top: 4px; color: #08231a;
+    background: linear-gradient(90deg,#2bbf73,#38e08b); box-shadow: 0 8px 30px rgba(56,224,139,.45); }
 </style>
 </head>
 <body>
@@ -154,7 +154,7 @@
   <div class="overlay" id="howto">
     <h2 class="howTitle">How to Play</h2>
     <div id="htStrip">
-      <div class="htPanel"><canvas class="htCanvas" data-phase="0"></canvas><div class="htCap"><b>1</b> Two routes appear — <span style="color:#7ec2ff">A</span> &amp; <span style="color:#ff85bf">B</span></div></div>
+      <div class="htPanel"><canvas class="htCanvas" data-phase="0"></canvas><div class="htCap"><b>1</b> Two routes appear — <span class="sgood">A</span> &amp; <span class="sgood">B</span></div></div>
       <div class="htPanel"><canvas class="htCanvas" data-phase="1"></canvas><div class="htCap"><b>2</b> Tap the <span class="sgood">shorter</span> route — green is right, red is wrong</div></div>
       <div class="htPanel"><canvas class="htCanvas" data-phase="2"></canvas><div class="htCap"><b>3</b> Score! Pick <span class="sgood">fast</span> &amp; build a 🔥 streak for more points</div></div>
     </div>
