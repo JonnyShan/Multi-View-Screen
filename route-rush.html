@@ -140,7 +140,7 @@
     <div id="right"><button id="muteBtn">🔊</button></div>
   </div>
   <div id="timerwrap"><div id="timerfill"></div></div>
-  <div id="prompt">Pick the Smartest Route<small>smart route planning — spot the shorter route, fast</small></div>
+  <div id="prompt">Pick the Smartest Delivery Route<small>smart route planning — spot the shorter route, fast</small></div>
 
   <button class="choice" id="btnA"><span class="big">A</span><span class="lbl">ROUTE</span></button>
   <button class="choice" id="btnB"><span class="big">B</span><span class="lbl">ROUTE</span></button>
@@ -1315,8 +1315,8 @@ document.getElementById('start').addEventListener('click', startGame);   // tap 
 document.getElementById('againBtn').addEventListener('click', startGame);
 
 // =================== boot ===================
-// brand the start screen
-document.querySelector('#start h1').textContent = CONFIG.title;
+// brand the start screen (intro is now an image — guard the legacy h1)
+{ const _h1 = document.querySelector('#start h1'); if (_h1) _h1.textContent = CONFIG.title; }
 // optional brand CTA on the game-over screen (lead-gen)
 if (CONFIG.cta && CONFIG.cta.text){
   const c = document.createElement('a');
