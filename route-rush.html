@@ -132,7 +132,7 @@
     <div id="right"><button id="muteBtn">🔊</button></div>
   </div>
   <div id="timerwrap"><div id="timerfill"></div></div>
-  <div id="prompt">Pick the Smartest Route<small>smart route planning — watch 🔴 traffic</small></div>
+  <div id="prompt">Pick the Smartest Route<small>smart route planning — spot the shorter route, fast</small></div>
 
   <button class="choice" id="btnA"><span class="big">A</span><span class="lbl">ROUTE</span></button>
   <button class="choice" id="btnB"><span class="big">B</span><span class="lbl">ROUTE</span></button>
@@ -142,7 +142,7 @@
     <div class="how">
       <div>🗺️ Two routes link the same <b>food shop</b> → <b>house</b>.</div>
       <div>📏 Tap the <b>smartest</b> route — usually the shorter one, no numbers.</div>
-      <div>🔴 Later routes add <b>traffic</b> — a shorter route with jams can be slower.</div>
+      <div>🧭 Routes wind more and look closer in length as you go.</div>
       <div>⚡ Correct +8, fast pick up to +4, streak boosts to <b>×1.5</b>.</div>
       <div>🏁 <b>12 routes</b>, ~4–5s each. No fail-out — chase the high score.</div>
     </div>
@@ -183,8 +183,8 @@ const DRAW_MS = 420;                               // route draw-in animation
 const REVEAL_OK = 950, REVEAL_BAD = 1350;          // reveal hold (car drives the route)
 const INSET = 2;                                   // start/end inset from grid edges
 const TOTAL_ROUNDS = 12;                            // fixed run length (no fail-out)
-function roundTime(r){ return 5000 - (r - 1) * 90; }                       // 5.0s -> ~4.0s per decision (4-5s)
-function roundMargin(r){ return Math.max(1, 2 - Math.floor((r - 1) / 6)); } // smaller length gap = harder to eyeball
+function roundTime(r){ return 4200 - (r - 1) * 110; }                       // ~4.2s -> ~3.0s per decision (tighter)
+function roundMargin(r){ return Math.max(1, 2 - Math.floor((r - 1) / 2)); } // gap mostly +2 -> near-ties, very hard to eyeball
 
 // ---- palette ----
 const COL = {
@@ -493,7 +493,7 @@ function addNub(corners){
 }
 
 function generateRoutes(S, E, desiredM){
-  const turns = () => ri(3, 5);
+  const turns = () => ri(4, 6);
   // SHORT: a wiggly monotone staircase (minimal Manhattan length, many right-angle turns)
   const shortR = routeFromCorners(zigStair(S, E, turns()));
   // LONG: a wiggly staircase + clean square nub(s) so it's a bit longer but hard to tell apart
@@ -502,17 +502,8 @@ function generateRoutes(S, E, desiredM){
   if (nubs === 0) lc = detourRect(S, E, Math.max(1, desiredM));   // fallback: guarantee long > short
   const longR = routeFromCorners(lc);
 
-  // traffic-jam twist (from round 5): each jam adds effective length, so the
-  // shorter-LOOKING route can actually be slower — player must read jams too.
-  const JAM_PEN = 3;
-  let jamS = 0, jamL = 0;
-  if (round >= 3 && Math.random() < 0.80){          // frequent jam traps -> ~50% harder to guess
-    if (Math.random() < 0.7) jamS = ri(1, 2); else jamL = ri(1, 2);
-  }
-  shortR.jam = jamS; longR.jam = jamL;
-  shortR.cost = shortR.edges + jamS * JAM_PEN;
-  longR.cost = longR.edges + jamL * JAM_PEN;
-  const shortWins = shortR.cost <= longR.cost;
+  // correct = the genuinely shorter route (no traffic jams / no-go zones)
+  const shortWins = shortR.edges <= longR.edges;
   shortR.correct = shortWins; longR.correct = !shortWins;
 
   // randomly assign which is A and which is B
@@ -1040,21 +1031,6 @@ function spawnParticles(){
       size: 6 + Math.random()*8, color: cols[i % cols.length], life: 700 + Math.random()*500 });
   }
 }
-// red traffic-jam pucks along a jammed route
-function drawJam(r, t){
-  if (!r.jam) return;
-  const pulse = 0.6 + 0.4*Math.sin(t*6);
-  for (let k = 1; k <= r.jam; k++){
-    const p = pointAtFrac(r, k/(r.jam+1)), rad = Math.max(7, TW*0.13);
-    ctx.save(); ctx.shadowColor = 'rgba(255,40,40,.95)'; ctx.shadowBlur = TW*0.45*pulse;   // brake-light glow
-    ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, Math.PI*2);
-    ctx.fillStyle = 'rgba(255,60,60,' + (0.85*pulse).toFixed(2) + ')'; ctx.fill();
-    ctx.restore();
-    ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
-    ctx.fillStyle = '#fff'; ctx.font = '900 ' + (rad*1.1|0) + 'px system-ui, sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', p.x, p.y + 1);
-  }
-}
 // circular countdown near the thumb (bottom-centre, between the A/B buttons)
 function drawTimerRing(){
   if (state !== 'play' && state !== 'draw') return;
@@ -1110,7 +1086,6 @@ function frame(ts){
     if (drawing){
       for (const r of [routeA, routeB]){ const hp = pointAtFrac(r, frac); ctx.beginPath(); ctx.arc(hp.x, hp.y, Math.max(5, TW*0.13), 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill(); }
     } else {
-      if (!reveal) for (const r of [routeA, routeB]) drawJam(r, t);   // traffic-jam markers
       for (const r of [routeA, routeB]) drawBadge(r, reveal && !r.correct);
     }
     drawStartEnd(t);
