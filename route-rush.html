@@ -95,6 +95,14 @@
     pointer-events: auto;
   }
   .overlay.hidden { display: none; }
+  /* PATH FINDER intro screen: full-bleed poster, tap anywhere to play */
+  #start { padding: 0; gap: 0; cursor: pointer; background: #060d16; }
+  #introImg { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; -webkit-user-select: none; user-select: none; pointer-events: none; }
+  #introHint { position: fixed; bottom: max(12px, env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center;
+    font-weight: 800; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,.55);
+    pointer-events: none; animation: introPulse 1.6s ease-in-out infinite; }
+  @keyframes introPulse { 0%,100% { opacity: .45; } 50% { opacity: .9; } }
+  @media (prefers-reduced-motion: reduce){ #introHint { animation: none; } }
   .overlay h1 { font-size: clamp(34px, 9vw, 60px); font-weight: 900; letter-spacing: 1px;
     background: linear-gradient(90deg,#3da5ff,#ff3d9a); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .overlay p { max-width: 440px; line-height: 1.55; opacity: .9; font-size: 15px; }
@@ -138,15 +146,8 @@
   <button class="choice" id="btnB"><span class="big">B</span><span class="lbl">ROUTE</span></button>
 
   <div class="overlay" id="start">
-    <h1>Uber: Path Picker</h1>
-    <div class="how">
-      <div>🗺️ Two routes link the same <b>food shop</b> → <b>house</b>.</div>
-      <div>📏 Tap the <b>smartest</b> route — usually the shorter one, no numbers.</div>
-      <div>🧭 Routes wind more and look closer in length as you go.</div>
-      <div>⚡ Correct +8, fast pick up to +4, streak boosts to <b>×1.5</b>.</div>
-      <div>🏁 <b>12 routes</b>, ~4–5s each. No fail-out — chase the high score.</div>
-    </div>
-    <button class="btn" id="startBtn">▶ Play</button>
+    <img id="introImg" src="intro.jpg?v=1" alt="Path Finder — pick the smartest delivery route. Tap to play." />
+    <div id="introHint">tap to play ▶</div>
   </div>
 
   <div class="overlay hidden" id="over">
@@ -1310,7 +1311,7 @@ function runCountdown(done){
 }
 function requestWakeLock(){ try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { wakeLock = w; }).catch(()=>{}); } catch (e) {} }
 function goFullscreen(){ try { const el = document.documentElement; if (el.requestFullscreen) el.requestFullscreen().catch(()=>{}); } catch (e) {} }
-document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('start').addEventListener('click', startGame);   // tap anywhere on the intro poster
 document.getElementById('againBtn').addEventListener('click', startGame);
 
 // =================== boot ===================
