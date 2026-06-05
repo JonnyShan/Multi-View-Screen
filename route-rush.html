@@ -185,7 +185,7 @@ const REVEAL_OK = 950, REVEAL_BAD = 1350;          // reveal hold (car drives th
 const INSET = 2;                                   // start/end inset from grid edges
 const TOTAL_ROUNDS = 12;                            // fixed run length (no fail-out)
 function roundTime(r){ return 5000 - (r - 1) * 90; }                       // 5.0s -> ~4.0s per decision (4-5s)
-function roundMargin(r){ return Math.max(1, 3 - Math.floor((r - 1) / 4)); } // route length gap
+function roundMargin(r){ return Math.max(1, 2 - Math.floor((r - 1) / 6)); } // smaller length gap = harder to eyeball
 
 // ---- palette ----
 const COL = {
@@ -485,7 +485,7 @@ function generateRoutes(S, E, desiredM){
   // shorter-LOOKING route can actually be slower — player must read jams too.
   const JAM_PEN = 3;
   let jamS = 0, jamL = 0;
-  if (round >= 5 && Math.random() < 0.6){
+  if (round >= 4 && Math.random() < 0.68){          // more frequent jam traps -> ~30% harder to guess
     if (Math.random() < 0.7) jamS = ri(1, 2); else jamL = ri(1, 2);
   }
   shortR.jam = jamS; longR.jam = jamL;
