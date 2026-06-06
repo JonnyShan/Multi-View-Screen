@@ -117,17 +117,17 @@
     opacity: 0; height: 0; transition: opacity .3s; }
   #newbest.show { opacity: 1; height: auto; animation: pulse 1s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
-  /* ---- how-to-play strip ---- */
-  #howto { justify-content: flex-start; gap: 14px; overflow-y: auto;
-    padding: max(26px, env(safe-area-inset-top)) 22px max(26px, env(safe-area-inset-bottom)); }
-  .howTitle { font-size: 24px; font-weight: 900; letter-spacing: .5px; margin: 6px 0 2px; color: #38e08b; }
-  #htStrip { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 460px; }
-  .htPanel { background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.10);
-    border-radius: 14px; padding: 10px 10px 9px; }
-  .htCanvas { display: block; width: 100%; height: 118px; border-radius: 10px; }
-  .htCap { margin-top: 9px; font-size: 13.5px; line-height: 1.42; opacity: .94; text-align: left; }
-  .htCap b { display: inline-block; width: 19px; height: 19px; line-height: 19px; text-align: center;
-    border-radius: 50%; background: #38e08b; color: #08231a; font-size: 12px; margin-right: 8px; }
+  /* ---- how-to-play (real map preview) ---- */
+  #howto { justify-content: flex-start; gap: 12px; overflow-y: auto;
+    padding: max(22px, env(safe-area-inset-top)) 20px max(22px, env(safe-area-inset-bottom)); }
+  .howTitle { font-size: 24px; font-weight: 900; letter-spacing: .5px; margin: 4px 0 0; color: #38e08b; }
+  #htMap { width: 100%; max-width: 360px; height: 46vh; max-height: 470px; display: block;
+    border-radius: 16px; background: #0e1622; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+  #htSteps { list-style: none; margin: 0; padding: 0; width: 100%; max-width: 380px;
+    display: flex; flex-direction: column; gap: 8px; text-align: left; }
+  #htSteps li { font-size: 13.5px; line-height: 1.4; opacity: .95; display: flex; align-items: baseline; }
+  #htSteps b { flex: none; display: inline-block; width: 19px; height: 19px; line-height: 19px; text-align: center;
+    border-radius: 50%; background: #38e08b; color: #08231a; font-size: 12px; font-weight: 900; margin-right: 9px; }
   .sgood { color: #38e08b; font-weight: 800; }
   #howtoPlay { margin-top: 4px; color: #08231a;
     background: linear-gradient(90deg,#2bbf73,#38e08b); box-shadow: 0 8px 30px rgba(56,224,139,.45); }
@@ -152,11 +152,12 @@
 
   <div class="overlay" id="howto">
     <h2 class="howTitle">How to Play</h2>
-    <div id="htStrip">
-      <div class="htPanel"><canvas class="htCanvas" data-phase="0"></canvas><div class="htCap"><b>1</b> Two routes appear — <span class="sgood">A</span> &amp; <span class="sgood">B</span></div></div>
-      <div class="htPanel"><canvas class="htCanvas" data-phase="1"></canvas><div class="htCap"><b>2</b> Tap the <span class="sgood">shorter</span> route — green is right, red is wrong</div></div>
-      <div class="htPanel"><canvas class="htCanvas" data-phase="2"></canvas><div class="htCap"><b>3</b> Score! Pick <span class="sgood">fast</span> &amp; build a 🔥 streak for more points</div></div>
-    </div>
+    <canvas id="htMap"></canvas>
+    <ol id="htSteps">
+      <li><b>1</b><span>Two routes (<span class="sgood">A</span> &amp; <span class="sgood">B</span>) appear from START to the 🏠</span></li>
+      <li><b>2</b><span>Tap the <span class="sgood">shorter</span> one — <span class="sgood">green ✓</span> is right, red ✕ is wrong</span></li>
+      <li><b>3</b><span>Be <span class="sgood">fast</span> &amp; keep a 🔥 streak for more points</span></li>
+    </ol>
     <button class="btn" id="howtoPlay">Play ▶</button>
   </div>
 
@@ -1452,7 +1453,7 @@ function runCountdown(done){
 function requestWakeLock(){ try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { wakeLock = w; }).catch(()=>{}); } catch (e) {} }
 function goFullscreen(){ try { const el = document.documentElement; if (el.requestFullscreen) el.requestFullscreen().catch(()=>{}); } catch (e) {} }
 // =================== how-to-play strip (looping mini-demo of real gameplay) ===================
-let htRAF = 0, htPanels = null;
+let htRAF = 0, htDemo = null;
 function htRR(c,x,y,w,h,r){ r=Math.min(r,w/2,h/2); c.beginPath(); c.moveTo(x+r,y);
   c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
 function htRoute(c,pts,color,glow,flow,alpha){
@@ -1468,51 +1469,76 @@ function htRoute(c,pts,color,glow,flow,alpha){
 }
 function htBadge(c,x,y,col,ch){ c.beginPath(); c.arc(x,y,9,0,7); c.fillStyle=col; c.fill();
   c.fillStyle='#08121e'; c.font='900 12px system-ui,sans-serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(ch,x,y+0.5); }
-function htPill(c,cx,cy,txt){ c.font='800 12px system-ui,sans-serif'; const pw=c.measureText(txt).width+18, ph=20;
-  htRR(c,cx-pw/2,cy-ph/2,pw,ph,10); c.fillStyle='rgba(255,210,74,.16)'; c.fill();
-  c.strokeStyle='rgba(255,210,74,.55)'; c.lineWidth=1; c.stroke();
-  c.fillStyle='#ffd24a'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(txt,cx,cy+0.5); }
-function drawHt(c,w,h,phase,t){
-  c.clearRect(0,0,w,h);
-  htRR(c,0,0,w,h,10); c.fillStyle='#0e1622'; c.fill();
-  const padX=22, padY=16, GXN=5, GYN=3;
-  const gx=x=>padX+x*(w-2*padX)/GXN, gy=y=>padY+y*(h-2*padY)/GYN;
-  c.strokeStyle='rgba(255,255,255,.06)'; c.lineWidth=1; c.beginPath();
-  for(let x=0;x<=GXN;x++){c.moveTo(gx(x),gy(0));c.lineTo(gx(x),gy(GYN));}
-  for(let y=0;y<=GYN;y++){c.moveTo(gx(0),gy(y));c.lineTo(gx(GXN),gy(y));}
-  c.stroke();
-  const A=[[1,3],[1,1],[4,1],[4,0]].map(p=>({x:gx(p[0]),y:gy(p[1])}));   // shorter (correct)
-  const B=[[1,3],[3,3],[3,2],[5,2],[5,0],[4,0]].map(p=>({x:gx(p[0]),y:gy(p[1])}));   // longer detour
-  const S=A[0], H=A[A.length-1], flow=t*42;
-  if(phase===0){
-    htRoute(c,B,COL.B,COL.Bglow,flow,1); htRoute(c,A,COL.A,COL.Aglow,flow,1);
-    const tx=(A[1].x+A[2].x)/2, pr=9+3*Math.sin(t*5);
-    c.strokeStyle=COL.A; c.lineWidth=3; c.globalAlpha=.9; c.beginPath(); c.arc(tx,A[1].y,pr,0,7); c.stroke(); c.globalAlpha=1;
-    c.font='17px system-ui,"Apple Color Emoji",sans-serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText('👆',tx+11,A[1].y+9);
-  } else if(phase===1){
-    htRoute(c,B,COL.bad,null,null,.5); htRoute(c,A,COL.good,'rgba(56,224,139,.9)',null,1);
-    htBadge(c,A[2].x,A[2].y,COL.good,'✓'); htBadge(c,B[2].x,B[2].y,COL.bad,'✕');
-  } else {
-    htRoute(c,B,COL.B,null,null,.16); htRoute(c,A,COL.good,'rgba(56,224,139,.85)',null,1);
-    const cyc=(t%1.5)/1.5; c.globalAlpha=Math.max(0,1-cyc); c.fillStyle=COL.good;
-    c.font='900 23px system-ui,sans-serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText('+12', w*0.5, h*0.52-cyc*30); c.globalAlpha=1;
-    htPill(c, w*0.5, h-15, '🔥 ×1.2 STREAK');
+// pick a clear sample round on the real road graph (decent length gap + good spread)
+function expandNodes(corners){            // every grid node a corner-chain passes through
+  const set = new Set();
+  for (let i=1;i<corners.length;i++){
+    const a=corners[i-1], b=corners[i], sx=Math.sign(b.x-a.x), sy=Math.sign(b.y-a.y);
+    let x=a.x, y=a.y; set.add(x+','+y);
+    while (x!==b.x || y!==b.y){ x+=sx; y+=sy; set.add(x+','+y); }
   }
-  c.font='15px system-ui,"Apple Color Emoji",sans-serif'; c.textAlign='center'; c.textBaseline='middle';
-  c.beginPath(); c.arc(S.x,S.y,5,0,7); c.fillStyle='#fff'; c.fill(); c.lineWidth=2; c.strokeStyle='#0e1622'; c.stroke();
-  c.fillText('🏠', H.x, H.y-1);
+  return set;
 }
-function htSetup(){ const d=Math.min(window.devicePixelRatio||1,2);
-  htPanels=[...document.querySelectorAll('.htCanvas')].map(cv=>{ const w=cv.clientWidth||300, h=cv.clientHeight||118;
-    cv.width=w*d; cv.height=h*d; const c=cv.getContext('2d'); c.setTransform(d,0,0,d,0,0); return {c,w,h,phase:+cv.dataset.phase}; }); }
+function pickHtDemo(){
+  if (!(CONFIG.bg && bgImg)) return null;
+  pickGrid(); if (ISL) buildRoadGraph();   // ensure GW/GH + streets graph
+  if (!ROAD) return null;
+  let best = null;
+  for (let i = 0; i < 60; i++){
+    const g = generateRoutesGraph(2); if (!g) continue;
+    const gap = Math.abs(g.routes[0].edges - g.routes[1].edges);
+    const spread = Math.abs(g.S.x - g.E.x) + Math.abs(g.S.y - g.E.y);
+    const nA = expandNodes(g.routes[0].corners), nB = expandNodes(g.routes[1].corners);
+    let shared = 0; for (const k of nB) if (nA.has(k)) shared++;
+    const overlap = shared / Math.max(1, Math.min(nA.size, nB.size));   // 0 = fully distinct
+    const sc = (gap>=2 && gap<=6 ? 2 : 1) + (spread>=8 ? 1 : 0) + (overlap<0.45 ? 2 : overlap<0.65 ? 1 : 0);
+    if (!best || sc > best.sc){ best = { g, sc }; if (sc >= 5) break; }
+  }
+  return best ? best.g : null;
+}
+// draw the REAL city map with a sample round: shorter route green (✓), longer red (✕), tap hint
+function drawHtMap(t){
+  const cv = document.getElementById('htMap'); if (!cv) return;
+  const d = Math.min(window.devicePixelRatio||1, 2);
+  const w = cv.clientWidth||320, h = cv.clientHeight||360;
+  if (cv.width !== Math.round(w*d)){ cv.width = Math.round(w*d); cv.height = Math.round(h*d); }
+  const c = cv.getContext('2d'); c.setTransform(d,0,0,d,0,0);
+  c.clearRect(0,0,w,h); htRR(c,0,0,w,h,15); c.save(); c.clip();
+  c.fillStyle = '#0e1622'; c.fillRect(0,0,w,h);
+  if (bgImg){
+    const s = Math.min(w/bgImg.width, h/bgImg.height), iw = bgImg.width*s, ih = bgImg.height*s, ox = (w-iw)/2, oy = (h-ih)/2;
+    c.drawImage(bgImg, ox, oy, iw, ih);
+    if (!htDemo) htDemo = pickHtDemo();
+    if (htDemo){
+      const fx = gx => ox + (BG_GRID.x0 + gx*BG_GRID.dx)*iw, fy = gy => oy + (BG_GRID.y0 + gy*BG_GRID.dy)*ih;
+      const pl = r => r.corners.map(p => ({ x:fx(p.x), y:fy(p.y) }));
+      const short = htDemo.routes.find(r=>r.correct) || htDemo.routes[0];
+      const long  = htDemo.routes.find(r=>!r.correct) || htDemo.routes[1];
+      const sc = pl(short), lc = pl(long), flow = t*42;
+      htRoute(c, lc, COL.bad, null, null, .85);
+      htRoute(c, sc, COL.good, 'rgba(56,224,139,.9)', flow, 1);
+      htBadge(c, lc[lc.length>>1].x, lc[lc.length>>1].y, COL.bad, '✕');
+      htBadge(c, sc[sc.length>>1].x, sc[sc.length>>1].y, COL.good, '✓');
+      const S = htDemo.S, E = htDemo.E;
+      c.textAlign='center'; c.textBaseline='middle';
+      c.beginPath(); c.arc(fx(S.x), fy(S.y), 6, 0, 7); c.fillStyle='#fff'; c.fill(); c.lineWidth=2.5; c.strokeStyle='#0e1622'; c.stroke();
+      c.font='18px system-ui,"Apple Color Emoji",sans-serif'; c.fillText('🏠', fx(E.x), fy(E.y)-1);
+      const m = sc[Math.max(1, Math.floor(sc.length*0.55))] || sc[sc.length-1];
+      const pr = 10 + 3*Math.sin(t*5);
+      c.strokeStyle=COL.good; c.lineWidth=3; c.globalAlpha=.9; c.beginPath(); c.arc(m.x, m.y, pr, 0, 7); c.stroke(); c.globalAlpha=1;
+      c.font='19px system-ui,"Apple Color Emoji",sans-serif'; c.fillText('👆', m.x+13, m.y+11);
+    }
+  }
+  c.restore();
+}
 function startHowtoAnim(){
-  htSetup();
-  for(const p of htPanels) drawHt(p.c,p.w,p.h,p.phase,0.3);   // immediate static frame (no rAF dependency)
-  if(reduceMotion) return;
-  const loop=ts=>{ const t=ts/1000; for(const p of htPanels) drawHt(p.c,p.w,p.h,p.phase,t); htRAF=requestAnimationFrame(loop); };
-  htRAF=requestAnimationFrame(loop);
+  htDemo = null; drawHtMap(0.3);
+  if (reduceMotion) return;
+  const loop = ts => { drawHtMap(ts/1000); htRAF = requestAnimationFrame(loop); };
+  htRAF = requestAnimationFrame(loop);
 }
-function stopHowtoAnim(){ if(htRAF) cancelAnimationFrame(htRAF); htRAF=0; }
+function refreshHtDemo(){ if (!document.getElementById('howto').classList.contains('hidden')){ htDemo = null; drawHtMap(0.3); } }
+function stopHowtoAnim(){ if (htRAF) cancelAnimationFrame(htRAF); htRAF = 0; }
 document.getElementById('howtoPlay').addEventListener('click', ()=>{ stopHowtoAnim(); startGame(); });   // how-to is the start screen
 document.getElementById('againBtn').addEventListener('click', startGame);   // replay skips straight to the game
 
@@ -1556,7 +1582,7 @@ document.addEventListener('touchmove', e => e.preventDefault(), { passive: false
 function applyBg(src){
   if (!src){ bgImg = null; if (city) buildStatic(); return; }
   const im = new Image();
-  im.onload = () => { bgImg = im; computeCell(); buildRoadGraph(); if (city) buildStatic(); };   // map the photo's streets
+  im.onload = () => { bgImg = im; pickGrid(); computeCell(); buildRoadGraph(); refreshHtDemo(); if (city) buildStatic(); };   // map the photo's streets + intro preview
   im.onerror = () => { bgImg = null; if (city) buildStatic(); };   // missing file -> procedural fallback
   im.src = src;
 }
