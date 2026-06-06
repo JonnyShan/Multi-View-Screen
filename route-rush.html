@@ -121,14 +121,27 @@
   #howto { justify-content: flex-start; gap: 12px; overflow-y: auto;
     padding: max(22px, env(safe-area-inset-top)) 20px max(22px, env(safe-area-inset-bottom)); }
   .howTitle { font-size: 24px; font-weight: 900; letter-spacing: .5px; margin: 4px 0 0; color: #38e08b; }
-  #htMap { width: 100%; max-width: 360px; height: 46vh; max-height: 470px; display: block;
+  #htMap { width: 100%; max-width: 360px; height: 40vh; max-height: 420px; display: block;
     border-radius: 16px; background: #0e1622; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+  #htChoose { display: flex; gap: 12px; width: 100%; max-width: 360px; margin-top: 2px; }
+  .htBtn { flex: 1; position: relative; border-radius: 14px; padding: 11px 0 8px; text-align: center;
+    font-size: 28px; font-weight: 900; line-height: 1; border: 2px solid rgba(255,255,255,.18); background: rgba(255,255,255,.03); }
+  #htBtnA { color: #7ec2ff; } #htBtnB { color: #ff85bf; }
+  .htBtn small { display: block; font-size: 9px; letter-spacing: 2px; font-weight: 800; opacity: .6; color: #fff; margin-top: 4px; }
+  .htBtn.correct { border-color: #38e08b; box-shadow: 0 0 16px rgba(56,224,139,.4); animation: htPulse 1.3s ease-in-out infinite; }
+  .htBtn.correct::after { content: '✓ TAP'; position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+    background: #38e08b; color: #08231a; font-size: 10px; font-weight: 900; letter-spacing: .5px; padding: 2px 8px; border-radius: 9px; }
+  .htBtn.wrong { opacity: .5; border-color: rgba(255,77,77,.45); }
+  .htBtn.wrong::after { content: '✕'; position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+    background: #ff4d4d; color: #fff; font-size: 11px; font-weight: 900; width: 18px; height: 18px; line-height: 18px; border-radius: 50%; }
+  @keyframes htPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.045); } }
   #htSteps { list-style: none; margin: 0; padding: 0; width: 100%; max-width: 380px;
     display: flex; flex-direction: column; gap: 8px; text-align: left; }
   #htSteps li { font-size: 13.5px; line-height: 1.4; opacity: .95; display: flex; align-items: baseline; }
   #htSteps b { flex: none; display: inline-block; width: 19px; height: 19px; line-height: 19px; text-align: center;
     border-radius: 50%; background: #38e08b; color: #08231a; font-size: 12px; font-weight: 900; margin-right: 9px; }
   .sgood { color: #38e08b; font-weight: 800; }
+  .sA { color: #7ec2ff; font-weight: 800; } .sB { color: #ff85bf; font-weight: 800; }
   #howtoPlay { margin-top: 4px; color: #08231a;
     background: linear-gradient(90deg,#2bbf73,#38e08b); box-shadow: 0 8px 30px rgba(56,224,139,.45); }
 </style>
@@ -153,10 +166,14 @@
   <div class="overlay" id="howto">
     <h2 class="howTitle">How to Play</h2>
     <canvas id="htMap"></canvas>
+    <div id="htChoose">
+      <div class="htBtn" id="htBtnA">A<small>ROUTE</small></div>
+      <div class="htBtn" id="htBtnB">B<small>ROUTE</small></div>
+    </div>
     <ol id="htSteps">
-      <li><b>1</b><span>Two routes (<span class="sgood">A</span> &amp; <span class="sgood">B</span>) appear from START to the 🏠</span></li>
-      <li><b>2</b><span>Tap the <span class="sgood">shorter</span> one — <span class="sgood">green ✓</span> is right, red ✕ is wrong</span></li>
-      <li><b>3</b><span>Be <span class="sgood">fast</span> &amp; keep a 🔥 streak for more points</span></li>
+      <li><b>1</b><span>Route <span class="sA">A</span> (blue) &amp; route <span class="sB">B</span> (pink) run from START to the 🏠</span></li>
+      <li><b>2</b><span>Spot the <span class="sgood">shorter</span> route</span></li>
+      <li><b>3</b><span>Tap its button — <span class="sA">A</span> or <span class="sB">B</span>. <span class="sgood">Green ✓</span> right, red ✕ wrong · fast + 🔥 = more points</span></li>
     </ol>
     <button class="btn" id="howtoPlay">Play ▶</button>
   </div>
@@ -1496,7 +1513,15 @@ function pickHtDemo(){
   }
   return best ? best.g : null;
 }
-// draw the REAL city map with a sample round: shorter route green (✓), longer red (✕), tap hint
+// highlight the mock A/B buttons: correct (shorter) = green ✓, other = dim ✕
+function applyHtButtons(correctLabel){
+  const a = document.getElementById('htBtnA'), b = document.getElementById('htBtnB');
+  if (!a || !b) return;
+  const aOK = correctLabel === 'A';
+  a.className = 'htBtn' + (aOK ? ' correct' : ' wrong');
+  b.className = 'htBtn' + (aOK ? ' wrong' : ' correct');
+}
+// draw the REAL city map with a sample round (A=blue, B=pink) + which button to tap
 function drawHtMap(t){
   const cv = document.getElementById('htMap'); if (!cv) return;
   const d = Math.min(window.devicePixelRatio||1, 2);
@@ -1512,21 +1537,23 @@ function drawHtMap(t){
     if (htDemo){
       const fx = gx => ox + (BG_GRID.x0 + gx*BG_GRID.dx)*iw, fy = gy => oy + (BG_GRID.y0 + gy*BG_GRID.dy)*ih;
       const pl = r => r.corners.map(p => ({ x:fx(p.x), y:fy(p.y) }));
-      const short = htDemo.routes.find(r=>r.correct) || htDemo.routes[0];
-      const long  = htDemo.routes.find(r=>!r.correct) || htDemo.routes[1];
-      const sc = pl(short), lc = pl(long), flow = t*42;
-      htRoute(c, lc, COL.bad, null, null, .85);
-      htRoute(c, sc, COL.good, 'rgba(56,224,139,.9)', flow, 1);
-      htBadge(c, lc[lc.length>>1].x, lc[lc.length>>1].y, COL.bad, '✕');
-      htBadge(c, sc[sc.length>>1].x, sc[sc.length>>1].y, COL.good, '✓');
+      const corr  = htDemo.routes.find(r=>r.correct)  || htDemo.routes[0];   // shorter = right pick
+      const wrong = htDemo.routes.find(r=>!r.correct) || htDemo.routes[1];
+      const pc = pl(corr), pw = pl(wrong), flow = t*42, mb = a => a[a.length>>1];
+      htRoute(c, pw, wrong.color, null, null, .8);            // routes keep real A=blue / B=pink colours
+      htRoute(c, pc, corr.color, corr.glow, flow, 1);
+      htBadge(c, mb(pw).x, mb(pw).y, wrong.color, wrong.label);   // A / B letter badges (match the buttons)
+      htBadge(c, mb(pc).x, mb(pc).y, corr.color, corr.label);
+      c.strokeStyle=COL.good; c.lineWidth=3; c.beginPath(); c.arc(mb(pc).x, mb(pc).y, 13, 0, 7); c.stroke();   // green ring = pick this
       const S = htDemo.S, E = htDemo.E;
       c.textAlign='center'; c.textBaseline='middle';
       c.beginPath(); c.arc(fx(S.x), fy(S.y), 6, 0, 7); c.fillStyle='#fff'; c.fill(); c.lineWidth=2.5; c.strokeStyle='#0e1622'; c.stroke();
       c.font='18px system-ui,"Apple Color Emoji",sans-serif'; c.fillText('🏠', fx(E.x), fy(E.y)-1);
-      const m = sc[Math.max(1, Math.floor(sc.length*0.55))] || sc[sc.length-1];
+      const m = pc[Math.max(1, Math.floor(pc.length*0.62))] || pc[pc.length-1];
       const pr = 10 + 3*Math.sin(t*5);
       c.strokeStyle=COL.good; c.lineWidth=3; c.globalAlpha=.9; c.beginPath(); c.arc(m.x, m.y, pr, 0, 7); c.stroke(); c.globalAlpha=1;
       c.font='19px system-ui,"Apple Color Emoji",sans-serif'; c.fillText('👆', m.x+13, m.y+11);
+      applyHtButtons(corr.label);
     }
   }
   c.restore();
