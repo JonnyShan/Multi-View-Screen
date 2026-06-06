@@ -61,13 +61,6 @@
     text-shadow: 0 8px 40px rgba(0,0,0,.7); }
   #countdown.show { display: flex; animation: cpop .5s ease; }
   @keyframes cpop { 0%{ transform: scale(.5); opacity: 0 } 40%{ transform: scale(1.15); opacity: 1 } 100%{ transform: scale(1); opacity: 1 } }
-  /* rotate-to-portrait notice (phones in landscape) */
-  #rotate { position: fixed; inset: 0; z-index: 80; display: none; flex-direction: column;
-    align-items: center; justify-content: center; gap: 12px; background: #0b0e14; color: #fff;
-    text-align: center; padding: 30px; font-size: 20px; font-weight: 800; }
-  #rotate .icon { font-size: 64px; animation: rot 1.6s ease-in-out infinite; }
-  @keyframes rot { 0%,100%{ transform: rotate(0) } 50%{ transform: rotate(-90deg) } }
-  @media (orientation: landscape) and (max-height: 540px){ #rotate { display: flex; } }
 
   /* ---- choice buttons ---- */
   .choice {
@@ -188,7 +181,6 @@
   </div>
 
   <div id="countdown"></div>
-  <div id="rotate"><div class="icon">📱</div><div>Rotate to portrait to play</div></div>
 
 <script>
 "use strict";
