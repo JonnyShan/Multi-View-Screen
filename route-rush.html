@@ -216,7 +216,7 @@ function hexRGBA(hex, a){ const n = parseInt(hex.slice(1),16); return 'rgba(' + 
 const Q = new URLSearchParams(location.search);
 const VER = Q.get('v') === '2' ? 2 : 1;            // version 2 = real city background image
 const qConf = {};
-if (VER === 2){ qConf.title = 'MAP ROUTER 2'; qConf.tagline = 'tap the faster route'; qConf.bg = 'city-bg.jpg?v=6'; }
+if (VER === 2){ qConf.title = 'MAP ROUTER 2'; qConf.tagline = 'tap the faster route'; qConf.bg = 'city-bg.jpg?v=7'; }
 if (Q.get('bg')) qConf.bg = Q.get('bg');
 if (Q.get('title')) qConf.title = Q.get('title');
 const CONFIG = Object.assign({
@@ -224,7 +224,7 @@ const CONFIG = Object.assign({
   tagline: 'pick the smartest route',
   foods: FOODS,
   brandA: '#3da5ff', brandB: '#ff3d9a',
-  bg: 'city-bg.jpg?v=6',          // background image (?v bumps to bust browser/CDN cache on update)
+  bg: 'city-bg.jpg?v=7',          // background image (?v bumps to bust browser/CDN cache on update)
   cta: null                       // { text:'Order now →', url:'https://…' } -> button on game-over (lead-gen)
 }, (window.ROUTE_RUSH_CONFIG || {}), qConf);
 let bgImg = null;                 // loaded background image (version 2)
@@ -249,7 +249,7 @@ let GW = 7, GH = 10;                                // intersections (cols, rows
 let cell = 60, TW = 60, TH = 30, ISOX = 0, ISOY = 0;
 // road grid measured from city-bg.jpg (normalized image coords: first line + spacing)
 // 6 vertical roads, 7 horizontal roads -> routes run along the photo's streets
-const BG_GRID = { x0: 0.130, dx: 0.125, nx: 7, y0: 0.068, dy: 0.0723, ny: 13 };
+const BG_GRID = { x0: 0.1094, dx: 0.1318, nx: 7, y0: 0.0749, dy: 0.0911, ny: 11 };
 let ISL = null;                                    // island rect {x,y,w,h} when a bg photo is used
 // near top-down projection (90% 2D): flat grid; z gives a small upward extrusion (the 10% 3D)
 function iso(gx, gy, z){ return { x: ISOX + gx * TW, y: ISOY + gy * TH - (z || 0) }; }
@@ -522,6 +522,133 @@ function generateRoutes(S, E, desiredM){
   ra.label = 'A'; ra.color = COL.A; ra.glow = COL.Aglow;
   rb.label = 'B'; rb.color = COL.B; rb.glow = COL.Bglow;
   return [ra, rb];
+}
+
+// =================== road graph (photo mode) ===================
+// Derive which grid edges are real streets by sampling the background photo,
+// then route only along valid edges -> routes never cross houses/parks/stadiums.
+let ROAD = null;   // { valid:Set<edgeKey> }
+function edgeKey(ax,ay,bx,by){ return (ax<bx||(ax===bx&&ay<by)) ? ax+','+ay+'_'+bx+','+by : bx+','+by+'_'+ax+','+ay; }
+function buildRoadGraph(){
+  ROAD = null;
+  if (!(CONFIG.bg && bgImg && ISL)) return;
+  const w = Math.max(2, Math.round(ISL.w)), h = Math.max(2, Math.round(ISL.h));
+  let data;
+  try {
+    const tc = document.createElement('canvas'); tc.width = w; tc.height = h;
+    const tx = tc.getContext('2d'); tx.drawImage(bgImg, 0, 0, w, h);
+    data = tx.getImageData(0, 0, w, h).data;
+  } catch (e) { return; }   // tainted canvas -> leave ROAD null (fallback to procedural routing)
+  const isRoad = (lx, ly) => {
+    lx = lx < 0 ? 0 : lx > w-1 ? w-1 : lx|0; ly = ly < 0 ? 0 : ly > h-1 ? h-1 : ly|0;
+    const i = (ly*w + lx)*4, r = data[i], g = data[i+1], b = data[i+2];
+    const mx = Math.max(r,g,b), mn = Math.min(r,g,b), sat = mx-mn, br = (r+g+b)/3;
+    const green = g > r+10 && g > b+10;                 // grass / parks
+    return !green && sat < 58 && br > 38 && br < 184;   // gray asphalt (not grass, not bright/colored roofs)
+  };
+  // fraction of an edge that lies on road, tolerant to small grid offset (check perpendicular band)
+  const edgeRoadFrac = (ax,ay,bx,by) => {
+    const A = iso(ax,ay), B = iso(bx,by);
+    const dx = B.x-A.x, dy = B.y-A.y, len = Math.hypot(dx,dy) || 1;
+    const px = -dy/len, py = dx/len;                    // unit perpendicular
+    const band = Math.max(3, cell*0.18);
+    const far = Math.max(10, cell*0.42);                // toward block centers either side
+    const N = 16; let hit = 0;
+    for (let k=1;k<N;k++){
+      const t=k/N, cx=A.x+dx*t-ISL.x, cy=A.y+dy*t-ISL.y;
+      let onCenter=false;
+      for (const o of [0,-band,band,-band*0.5,band*0.5]){ if (isRoad(cx+px*o, cy+py*o)){ onCenter=true; break; } }
+      if (!onCenter) continue;
+      // a real street is a NARROW strip: a non-road block edge sits within ~half a cell to one side.
+      // (wide gray areas — parking lots, gray rooftops — fail this and are rejected)
+      const sideClear = !isRoad(cx+px*far, cy+py*far) || !isRoad(cx-px*far, cy-py*far);
+      if (sideClear) hit++;
+    }
+    return hit/(N-1);
+  };
+  const valid = new Set();
+  for (let gy=0; gy<GH; gy++) for (let gx=0; gx<GW; gx++){
+    if (gx+1<GW && edgeRoadFrac(gx,gy,gx+1,gy) >= 0.55) valid.add(edgeKey(gx,gy,gx+1,gy));
+    if (gy+1<GH && edgeRoadFrac(gx,gy,gx,gy+1) >= 0.55) valid.add(edgeKey(gx,gy,gx,gy+1));
+  }
+  ROAD = { valid };
+}
+function edgeValid(ax,ay,bx,by){ return ROAD ? ROAD.valid.has(edgeKey(ax,ay,bx,by)) : true; }
+function nodeConnected(x,y){ return edgeValid(x,y,x+1,y)||edgeValid(x,y,x-1,y)||edgeValid(x,y,x,y+1)||edgeValid(x,y,x,y-1); }
+function bfsTree(s){
+  const key = n => n[0]+','+n[1];
+  const prev = {}, dist = {}; prev[key(s)] = null; dist[key(s)] = 0;
+  const q = [s]; let qi = 0;
+  while (qi < q.length){
+    const c = q[qi++], ck = key(c);
+    for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx = c[0]+dx, ny = c[1]+dy;
+      if (nx<0||nx>=GW||ny<0||ny>=GH) continue;
+      if (!edgeValid(c[0],c[1],nx,ny)) continue;
+      const nk = nx+','+ny; if (nk in prev) continue;
+      prev[nk] = c; dist[nk] = dist[ck]+1; q.push([nx,ny]);
+    }
+  }
+  return { prev, dist };
+}
+function pathFrom(prev, e){
+  const key = n => n[0]+','+n[1]; if (!(key(e) in prev)) return null;
+  const p = []; let c = e; while (c){ p.unshift({ x:c[0], y:c[1] }); c = prev[key(c)]; } return p;
+}
+function simplifyCorners(path){
+  if (path.length <= 2) return path.map(p => ({ x:p.x, y:p.y }));
+  const out = [{ x:path[0].x, y:path[0].y }];
+  for (let i=1;i<path.length-1;i++){
+    const a=path[i-1], b=path[i], c=path[i+1];
+    if (Math.sign(b.x-a.x)!==Math.sign(c.x-b.x) || Math.sign(b.y-a.y)!==Math.sign(c.y-b.y)) out.push({ x:b.x, y:b.y });
+  }
+  out.push({ x:path[path.length-1].x, y:path[path.length-1].y });
+  return out;
+}
+function longerPath(s, e, short, shortLen, desiredM){
+  const ts = bfsTree(s), te = bfsTree(e);
+  const onShort = new Set(short.map(p => p.x+','+p.y));
+  const want = shortLen + Math.max(2, desiredM*2);
+  const cands = [];
+  for (let y=0;y<GH;y++) for (let x=0;x<GW;x++){
+    const k = x+','+y;
+    if (!(k in ts.dist) || !(k in te.dist) || onShort.has(k)) continue;
+    const tot = ts.dist[k] + te.dist[k];
+    if (tot > shortLen) cands.push([x,y,tot]);
+  }
+  if (!cands.length) return null;
+  cands.sort((a,b)=>Math.abs(a[2]-want)-Math.abs(b[2]-want));
+  const w = cands[0];
+  const p1 = pathFrom(ts.prev,[w[0],w[1]]), p2 = pathFrom(te.prev,[w[0],w[1]]);
+  if (!p1 || !p2) return null;
+  return p1.concat([...p2].reverse().slice(1));   // s..W + W..e
+}
+function generateRoutesGraph(desiredM){
+  if (!ROAD) return null;
+  const nodes = [];
+  for (let y=0;y<GH;y++) for (let x=0;x<GW;x++) if (nodeConnected(x,y)) nodes.push([x,y]);
+  if (nodes.length < 5) return null;
+  const minD = Math.max(5, Math.round((GW+GH)*0.4));
+  for (let tries=0; tries<80; tries++){
+    const s = choice(nodes), ts = bfsTree(s);
+    const ends = Object.keys(ts.dist).filter(k => ts.dist[k] >= minD).map(k => k.split(',').map(Number));
+    if (!ends.length) continue;
+    const e = choice(ends);
+    const short = pathFrom(ts.prev, e);
+    if (!short || short.length < 3) continue;
+    const shortLen = ts.dist[e[0]+','+e[1]];
+    const long = longerPath(s, e, short, shortLen, desiredM);
+    if (!long) continue;
+    const shortR = routeFromCorners(simplifyCorners(short));
+    const longR  = routeFromCorners(simplifyCorners(long));
+    if (longR.edges <= shortR.edges) continue;          // need a genuine length gap
+    shortR.correct = true; longR.correct = false;
+    const [ra, rb] = Math.random()<0.5 ? [shortR, longR] : [longR, shortR];
+    ra.label='A'; ra.color=COL.A; ra.glow=COL.Aglow;
+    rb.label='B'; rb.color=COL.B; rb.glow=COL.Bglow;
+    return { S:{ x:s[0], y:s[1] }, E:{ x:e[0], y:e[1] }, routes:[ra, rb] };
+  }
+  return null;
 }
 
 function layoutRoutePixels(){
@@ -1161,9 +1288,12 @@ function update(dt){
 function newRound(){
   round++;
   pickGrid(); computeCell();
-  const { S, E } = pickEnds();
+  if (CONFIG.bg && bgImg && !ROAD) buildRoadGraph();          // streets graph from the photo
+  let S, E;
+  const g = ROAD ? generateRoutesGraph(roundMargin(round)) : null;
+  if (g){ S = g.S; E = g.E; [routeA, routeB] = g.routes; }    // routes follow real roads only
+  else { const ends = pickEnds(); S = ends.S; E = ends.E; [routeA, routeB] = generateRoutes(S, E, roundMargin(round)); }
   city = generateCity(S, E);
-  [routeA, routeB] = generateRoutes(S, E, roundMargin(round));
   layoutRoutePixels();
   buildStatic();
   chosen = null; lastResult = null;
@@ -1426,7 +1556,7 @@ document.addEventListener('touchmove', e => e.preventDefault(), { passive: false
 function applyBg(src){
   if (!src){ bgImg = null; if (city) buildStatic(); return; }
   const im = new Image();
-  im.onload = () => { bgImg = im; computeCell(); if (city) buildStatic(); };   // re-align grid to the photo's roads
+  im.onload = () => { bgImg = im; computeCell(); buildRoadGraph(); if (city) buildStatic(); };   // map the photo's streets
   im.onerror = () => { bgImg = null; if (city) buildStatic(); };   // missing file -> procedural fallback
   im.src = src;
 }
