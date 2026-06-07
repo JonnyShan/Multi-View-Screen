@@ -303,7 +303,7 @@
   const PIECES = {
     I:  { sprite: "sub",       cells: [[1,1,1,1]] },
     O:  { sprite: "ubereats",  cells: [[1,1],[1,1]] },        // green Uber Eats bag
-    L:  { sprite: "banana",    cells: [[1,0],[1,0],[1,1]] },  // combo meal
+    L:  { sprite: "banana",    cells: [[1,1],[1,0],[1,0]] },  // combo meal (corner top)
     S:  { sprite: "eggs",      cells: [[1,0],[1,1],[0,1]] },  // eggs + milk
     T:  { sprite: "groceries", cells: [[1,1,1],[0,1,0]] },    // takeout
     BN: { sprite: "nana",      cells: [[1,0],[1,0],[1,1]] },  // banana
@@ -314,15 +314,15 @@
   };
   const KEYS = ["I", "O", "L", "S", "T", "AV", "TR", "SH"];  // common shuffle bag (BN banana + BB parcel removed for now)
   const SPRITE_SRC = {
-    sub: "assets/sub.png?v=7",
-    ubereats: "assets/ubereats.png?v=8",
-    banana: "assets/banana.png?v=7",
-    eggs: "assets/eggs.png?v=7",
-    groceries: "assets/groceries.png?v=7",
+    sub: "assets/sub.png?v=9",
+    ubereats: "assets/ubereats.png?v=9",
+    banana: "assets/banana.png?v=9",
+    eggs: "assets/eggs.png?v=9",
+    groceries: "assets/groceries.png?v=9",
     nana: "assets/nana.png",
-    produce: "assets/produce.png?v=7",
-    toilet: "assets/toilet.png?v=7",
-    shampoo: "assets/shampoo.png?v=7",
+    produce: "assets/produce.png?v=9",
+    toilet: "assets/toilet.png?v=9",
+    shampoo: "assets/shampoo.png?v=9",
     parcel: "assets/parcel.png"
   };
   const SPRITES = {}; // key -> { rots: [canvas x4] }  (rots[r] = image rotated r*90° CW)
@@ -592,13 +592,24 @@
 
   // draw a piece as uniform square tiles: art sliced per cell (no bleed into empty cells), each
   // solid cell backed by the food's own colour (no field-green gaps), no handle overhang.
+  const HANDLE_FRAC = { ubereats: 0.343 };   // bag handle overhangs above its 2x2 body
   function drawSprite(ctx, key, cells, gx, gy, rot, alpha, squashP) {
     const spr = SPRITES[PIECES[key].sprite];
     if (!spr) return;
-    const img = spr.rots[rot];
     const cols = cells[0].length, rows = cells.length;
-    const sw = img.width / cols, sh = img.height / rows;
     const x = gx * cell, y = gy * cell, w = cols * cell, h = rows * cell;
+    const hf = HANDLE_FRAC[PIECES[key].sprite];
+    if (hf) {   // bag: draw whole sprite; body fills the footprint, handle pokes above (covered when a piece stacks on it)
+      const dh = h / (1 - hf), dy2 = y - (dh - h);
+      ctx.save();
+      if (alpha != null) ctx.globalAlpha = alpha;
+      if (squashP) { const e = Math.sin(squashP * Math.PI), sy = 1 - 0.16*e, sx = 1 + 0.16*e; ctx.translate(x + w/2, y + h); ctx.scale(sx, sy); ctx.translate(-(x + w/2), -(y + h)); }
+      ctx.drawImage(spr.rots[0], x, dy2, w, dh);
+      ctx.restore();
+      return;
+    }
+    const img = spr.rots[rot];
+    const sw = img.width / cols, sh = img.height / rows;
     const bg = PIECES[key]._bg && PIECES[key]._bg[rot];
     ctx.save();
     if (alpha != null) ctx.globalAlpha = alpha;
@@ -706,6 +717,11 @@
     if (!nextKey || !SPRITES[PIECES[nextKey].sprite]) return;
     const def = PIECES[nextKey];
     const cells = def.cells, cols = cells[0].length, rows = cells.length;
+    const hfn = HANDLE_FRAC[def.sprite];
+    if (hfn) {   // bag: whole sprite (handle+body) contain-fit into the box
+      const im = SPRITES[def.sprite].rots[0]; const s2 = Math.min(52 / im.width, 56 / im.height);
+      const dw = im.width * s2, dh = im.height * s2; nctx.drawImage(im, (60 - dw) / 2, (60 - dh) / 2, dw, dh); return;
+    }
     const box = 52, s = Math.min(box / cols, box / rows);
     const w = cols * s, h = rows * s, ox = (60 - w) / 2, oy = (60 - h) / 2;
     const img = SPRITES[def.sprite].rots[0], sw = img.width / cols, sh = img.height / rows;
@@ -1080,10 +1096,12 @@
   function demoDrawSprite(key, cells, gx, gy, rot) {
     const spr = SPRITES[PIECES[key].sprite]; if (!spr) return;
     rot = rot || 0;
-    const img = spr.rots[rot];
     const cols = cells[0].length, rows = cells.length;
+    const x = gx * DCELL, y = gy * DCELL, w = cols * DCELL, h = rows * DCELL;
+    const hf = HANDLE_FRAC[PIECES[key].sprite];
+    if (hf) { const dh = h / (1 - hf); dctx.drawImage(spr.rots[0], x, y - (dh - h), w, dh); return; }
+    const img = spr.rots[rot];
     const sw = img.width / cols, sh = img.height / rows;
-    const x = gx * DCELL, y = gy * DCELL;
     const bg = PIECES[key]._bg && PIECES[key]._bg[rot];
     for (let yy = 0; yy < rows; yy++) for (let xx = 0; xx < cols; xx++) {
       if (!cells[yy][xx]) continue;
