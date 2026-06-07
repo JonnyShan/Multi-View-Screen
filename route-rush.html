@@ -585,7 +585,7 @@ function buildRoadGraph(){
 }
 function edgeValid(ax,ay,bx,by){ return ROAD ? ROAD.valid.has(edgeKey(ax,ay,bx,by)) : true; }
 function nodeConnected(x,y){ return edgeValid(x,y,x+1,y)||edgeValid(x,y,x-1,y)||edgeValid(x,y,x,y+1)||edgeValid(x,y,x,y-1); }
-function bfsTree(s){
+function bfsTree(s, blocked){
   const key = n => n[0]+','+n[1];
   const prev = {}, dist = {}; prev[key(s)] = null; dist[key(s)] = 0;
   const q = [s]; let qi = 0;
@@ -595,6 +595,7 @@ function bfsTree(s){
       const nx = c[0]+dx, ny = c[1]+dy;
       if (nx<0||nx>=GW||ny<0||ny>=GH) continue;
       if (!edgeValid(c[0],c[1],nx,ny)) continue;
+      if (blocked && blocked.has(edgeKey(c[0],c[1],nx,ny))) continue;   // forced detour
       const nk = nx+','+ny; if (nk in prev) continue;
       prev[nk] = c; dist[nk] = dist[ck]+1; q.push([nx,ny]);
     }
@@ -615,23 +616,23 @@ function simplifyCorners(path){
   out.push({ x:path[path.length-1].x, y:path[path.length-1].y });
   return out;
 }
+// a longer route that is a SIMPLE path (no backtracks/U-turns, only 90° turns on real roads):
+// block one edge of the short route, re-run BFS so it detours around the block.
 function longerPath(s, e, short, shortLen, desiredM){
-  const ts = bfsTree(s), te = bfsTree(e);
-  const onShort = new Set(short.map(p => p.x+','+p.y));
+  if (short.length < 2) return null;
+  const ek = e[0]+','+e[1];
   const want = shortLen + Math.max(2, desiredM*2);
-  const cands = [];
-  for (let y=0;y<GH;y++) for (let x=0;x<GW;x++){
-    const k = x+','+y;
-    if (!(k in ts.dist) || !(k in te.dist) || onShort.has(k)) continue;
-    const tot = ts.dist[k] + te.dist[k];
-    if (tot > shortLen) cands.push([x,y,tot]);
+  let best = null;
+  for (let i = 1; i < short.length; i++){
+    const a = short[i-1], b = short[i];
+    const blocked = new Set([edgeKey(a.x,a.y,b.x,b.y)]);
+    const { prev, dist } = bfsTree([s[0],s[1]], blocked);
+    if (!(ek in dist) || dist[ek] <= shortLen) continue;          // must be a genuinely longer detour
+    const path = pathFrom(prev, [e[0],e[1]]); if (!path) continue;
+    const score = Math.abs(dist[ek] - want);
+    if (!best || score < best.score) best = { path, score };
   }
-  if (!cands.length) return null;
-  cands.sort((a,b)=>Math.abs(a[2]-want)-Math.abs(b[2]-want));
-  const w = cands[0];
-  const p1 = pathFrom(ts.prev,[w[0],w[1]]), p2 = pathFrom(te.prev,[w[0],w[1]]);
-  if (!p1 || !p2) return null;
-  return p1.concat([...p2].reverse().slice(1));   // s..W + W..e
+  return best ? best.path : null;
 }
 function generateRoutesGraph(desiredM){
   if (!ROAD) return null;
