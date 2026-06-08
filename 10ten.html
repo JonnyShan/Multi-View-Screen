@@ -21,11 +21,11 @@
     --bg-2: #04130b;
     --panel: #0a1f15;
     --pill: #06150d;
-    --line: rgba(47, 211, 95, 0.18);
-    --line-soft: rgba(47, 211, 95, 0.10);
-    --green: #2fd35f;       /* lit green — numbers, labels */
-    --green-deep: #06c167;  /* Uber Eats green — buttons */
-    --green-hi: #18e070;
+    --line: rgba(75, 206, 151, 0.22);
+    --line-soft: rgba(75, 206, 151, 0.12);
+    --green: #4BCE97;       /* Green 400 — numbers, labels, accents */
+    --green-deep: #2ABB7F;  /* Green 500 — button depth, borders */
+    --green-hi: #7EE2B8;    /* Green 300 — highlights, pop */
     --text: #eafff1;
     --muted: #7fab90;
     --danger: #ff5a5a;
@@ -107,15 +107,15 @@
   .icon-btn {
     display: grid; place-items: center;
     width: 86px; height: 62px;
-    border: 1.5px solid rgba(47, 211, 95, 0.30);
+    border: 1.5px solid rgba(75, 206, 151, 0.30);
     border-radius: 18px;
     color: #fff;
-    background: rgba(6, 193, 103, 0.06);
+    background: rgba(75, 206, 151, 0.06);
     cursor: pointer;
     font-size: 22px;
     transition: transform 0.08s ease, background 0.15s ease, opacity 0.15s ease;
   }
-  .icon-btn:hover { background: rgba(6, 193, 103, 0.12); }
+  .icon-btn:hover { background: rgba(75, 206, 151, 0.12); }
   .icon-btn:active { transform: translateY(1px) scale(0.97); }
   .icon-btn:disabled { opacity: 0.32; cursor: default; }
   .icon-btn svg { width: 28px; height: 28px; fill: currentColor; }
@@ -140,7 +140,7 @@
   .cell {
     border-radius: 20px;
     background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(47, 211, 95, 0.14);
+    border: 1px solid rgba(75, 206, 151, 0.14);
   }
 
   .tiles { position: absolute; inset: 0; }
@@ -177,7 +177,7 @@
   }
 
   .tile.win-tile {
-    background: radial-gradient(60% 60% at 50% 45%, rgba(6, 193, 103, 0.28), transparent 70%);
+    background: radial-gradient(60% 60% at 50% 45%, rgba(75, 206, 151, 0.28), transparent 70%);
     animation: glow 1.4s ease-in-out infinite;
   }
   @keyframes glow {
@@ -243,7 +243,7 @@
     width: 130px; height: 130px;
     margin: 6px auto 16px;
     display: grid; place-items: center;
-    filter: drop-shadow(0 0 26px rgba(6, 193, 103, 0.6));
+    filter: drop-shadow(0 0 26px rgba(75, 206, 151, 0.6));
     animation: floatBox 2.4s ease-in-out infinite;
   }
   .win-box img { width: 100%; height: 100%; object-fit: contain; }
@@ -268,7 +268,7 @@
     font-weight: 800; font-size: 15px;
     color: #04130b;
     background: linear-gradient(160deg, var(--green-hi), var(--green-deep));
-    box-shadow: 0 8px 20px rgba(6, 193, 103, 0.35);
+    box-shadow: 0 8px 20px rgba(75, 206, 151, 0.35);
     transition: transform 0.08s ease;
   }
   .btn.secondary {
@@ -336,7 +336,7 @@
     position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
     font-weight: 900; font-size: clamp(28px, 11vw, 52px); color: var(--green-hi);
     -webkit-text-stroke: 2px rgba(0, 0, 0, 0.7); paint-order: stroke fill;
-    text-shadow: 0 4px 16px rgba(6, 193, 103, 0.6);
+    text-shadow: 0 4px 16px rgba(75, 206, 151, 0.6);
     pointer-events: none; opacity: 0; z-index: 6; white-space: nowrap;
   }
   .combo-flash.go { animation: comboPop 0.8s ease forwards; }
@@ -350,7 +350,7 @@
   /* tutorial: animated swipe-merge demo */
   .demo-grid { position: relative; width: min(62vw, 224px); aspect-ratio: 1 / 1; margin: 10px auto 4px; }
   .demo-cells { position: absolute; inset: 0; padding: var(--gap); display: grid; gap: var(--gap); }
-  .demo-cells .dc { border-radius: 11px; background: rgba(255,255,255,0.03); border: 1px solid rgba(47,211,95,0.14); }
+  .demo-cells .dc { border-radius: 11px; background: rgba(255,255,255,0.03); border: 1px solid rgba(75, 206, 151,0.14); }
   .demo-tiles { position: absolute; inset: 0; }
   .dgt { position: absolute; display: grid; place-items: center; transition: left 0.46s ease, top 0.46s ease, opacity 0.3s ease; }
   .dgt img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4)); }
@@ -367,7 +367,7 @@
   /* tutorial lines */
   .tut-lines { text-align: left; margin: 12px 0 16px; display: flex; flex-direction: column; gap: 10px; }
   .tut-lines p { margin: 0; display: flex; gap: 11px; align-items: flex-start; font-weight: 600; color: var(--muted); font-size: 14.5px; line-height: 1.3; }
-  .tut-lines .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: rgba(6,193,103,0.18); color: var(--green); font-weight: 900; font-size: 13px; display: grid; place-items: center; }
+  .tut-lines .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: rgba(75, 206, 151,0.18); color: var(--green); font-weight: 900; font-size: 13px; display: grid; place-items: center; }
   .tut-lines b { color: #fff; font-weight: 800; }
 </style>
 </head>
@@ -941,7 +941,7 @@ function hideOverlay() {
 }
 
 function spawnConfetti() {
-  const colors = ["#06c167", "#2fd35f", "#ffffff", "#9be7b3", "#0a8f4d", "#18e070"];
+  const colors = ["#4BCE97", "#7EE2B8", "#ffffff", "#BAF3DB", "#2ABB7F", "#A6EFD0"];
   for (let i = 0; i < 40; i++) {
     const c = document.createElement("div");
     c.className = "confetti";
