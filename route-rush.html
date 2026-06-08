@@ -9,11 +9,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Uber: Path Picker" />
 <title>Uber: Path Picker</title>
-<!-- Uber Move is a licensed brand font (used if present); Inter is the free web fallback closest to it -->
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;800;900&display=swap" rel="stylesheet" />
 <style>
+  /* Uber Move — official Uber brand font, self-hosted */
+  @font-face { font-family: 'Uber Move'; src: url('UberMoveMedium.otf') format('opentype'); font-weight: 400 600; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Uber Move'; src: url('UberMoveBold.otf') format('opentype'); font-weight: 700 900; font-style: normal; font-display: swap; }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0e14;
     overscroll-behavior: none; touch-action: none; position: fixed; inset: 0;
@@ -1625,6 +1624,8 @@ resize();
 updateHUD();
 requestAnimationFrame(frame);
 startHowtoAnim();   // how-to-play strip is the start screen — animate it on load
+// redraw once Uber Move finishes loading so the intro/canvas use it (not the fallback)
+try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { try { refreshHtDemo(); } catch (e) {} }); } catch (e) {}
 </script>
 </body>
 </html>
