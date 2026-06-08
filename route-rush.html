@@ -9,6 +9,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Uber: Path Picker" />
 <title>Uber: Path Picker</title>
+<!-- Uber Move is a licensed brand font (used if present); Inter is the free web fallback closest to it -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;800;900&display=swap" rel="stylesheet" />
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0e14;
@@ -96,8 +100,8 @@
   .overlay .how b { color: #ffd24a; }
   .overlay .btn {
     margin-top: 6px; font-size: 19px; font-weight: 800; padding: 15px 44px; border: none;
-    border-radius: 14px; cursor: pointer; color: #08231a;
-    background: linear-gradient(90deg,#54C07D,#75D591); box-shadow: 0 8px 30px rgba(117,213,145,.45);
+    border-radius: 14px; cursor: pointer; color: #fff;
+    background: linear-gradient(90deg,#017A3C,#019147); box-shadow: 0 8px 30px rgba(1,145,71,.5);
   }
   .overlay .btn:active { transform: scale(.96); }
   .overbtns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
@@ -117,7 +121,8 @@
   /* ---- how-to-play (real map preview) ---- */
   #howto { justify-content: flex-start; gap: 12px; overflow-y: auto;
     padding: max(22px, env(safe-area-inset-top)) 20px max(22px, env(safe-area-inset-bottom)); }
-  .howTitle { font-size: 24px; font-weight: 900; letter-spacing: .5px; margin: 4px 0 0; color: #75D591; }
+  .howTitle { font-family: 'Uber Move', 'Uber Move Text', 'Inter', system-ui, sans-serif;
+    font-size: 24px; font-weight: 900; letter-spacing: .5px; margin: 4px 0 0; color: #75D591; }
   #htMap { width: 100%; max-width: 360px; height: 40vh; max-height: 420px; display: block;
     border-radius: 16px; background: #0e1622; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 10px 40px rgba(0,0,0,.45); }
   #htChoose { display: flex; gap: 12px; width: 100%; max-width: 360px; margin-top: 2px; }
@@ -139,8 +144,8 @@
     border-radius: 50%; background: #75D591; color: #08231a; font-size: 12px; font-weight: 900; margin-right: 9px; }
   .sgood { color: #75D591; font-weight: 800; }
   .sA { color: #7ec2ff; font-weight: 800; } .sB { color: #ff85bf; font-weight: 800; }
-  #howtoPlay { margin-top: 4px; color: #08231a;
-    background: linear-gradient(90deg,#54C07D,#75D591); box-shadow: 0 8px 30px rgba(117,213,145,.45); }
+  #howtoPlay { margin-top: 4px; color: #fff;
+    background: linear-gradient(90deg,#017A3C,#019147); box-shadow: 0 8px 30px rgba(1,145,71,.5); }
 </style>
 </head>
 <body>
