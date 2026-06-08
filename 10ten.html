@@ -9,6 +9,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="description" content="Uber Eats Merge - match food items, level up your order, and reach the Uber Delivery Box to win." />
 <title>Uber Eats · Merge</title>
+<!-- Brand font: Uber Move (proprietary — used when installed/self-hosted). Manrope = closest free fallback. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
 <style>
   /* ============================================================
      UBER EATS MERGE — single-file mobile puzzle game
@@ -16,7 +20,21 @@
      reach the Uber Delivery Box (level 10) to win.
      Theme: Uber Eats dark green / black / green.
      ============================================================ */
+  /* Uber Move — resolves to the real font when installed on the device or self-hosted
+     under assets/fonts/. Falls through to Manrope (free, closest match) otherwise. */
+  @font-face {
+    font-family: "Uber Move";
+    src: local("Uber Move"), local("UberMove"), local("Uber Move Bold"), local("Uber Move Medium");
+    font-weight: 100 900; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: "Uber Move Text";
+    src: local("Uber Move Text"), local("UberMoveText"), local("Uber Move Text Medium");
+    font-weight: 100 900; font-style: normal; font-display: swap;
+  }
+
   :root {
+    --font: "Uber Move", "Uber Move Text", "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --bg-1: #0c3b22;
     --bg-2: #04130b;
     --bg-500: #058C4A;      /* Green 500 — main background */
@@ -34,6 +52,7 @@
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  button, input, textarea, select { font-family: inherit; }   /* force Uber Move on form controls too */
 
   html, body { margin: 0; height: 100%; overscroll-behavior: none; }
 
@@ -43,7 +62,7 @@
     align-items: center;
     justify-content: center;
     padding: 18px 16px;
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font);
     color: var(--text);
     background:
       radial-gradient(120% 80% at 50% -10%, rgba(255, 255, 255, 0.07), transparent 52%),
