@@ -104,6 +104,10 @@
   .overlay .btn2 { background: linear-gradient(90deg,#ff3d9a,#ff85bf); color: #fff; box-shadow: 0 8px 30px rgba(255,61,154,.5); }
   .btn2sm { margin-top: 12px; background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.22);
     border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  #over h1.delivered { color: #fff; }
+  #stars { font-size: 46px; letter-spacing: 10px; line-height: 1; margin: 2px 0 6px; padding-left: 10px; }
+  #stars .on { color: #75D591; text-shadow: 0 0 16px rgba(117,213,145,.55); }
+  #stars .off { color: rgba(255,255,255,.26); }
   #overStats { font-size: 20px; line-height: 1.7; }
   #overStats .v { font-weight: 900; font-size: 30px; }
   #newbest { color: #ffd24a; font-weight: 900; font-size: 18px; letter-spacing: 1px;
@@ -172,11 +176,12 @@
   </div>
 
   <div class="overlay hidden" id="over">
-    <h1>GAME OVER</h1>
+    <h1 class="delivered">Order <span class="sgood">delivered!</span></h1>
+    <div id="stars"></div>
     <div id="newbest">🏆 NEW BEST!</div>
     <div id="overStats"></div>
     <div class="overbtns">
-      <button class="btn" id="againBtn">↺ Play again</button>
+      <button class="btn" id="againBtn">Pack another</button>
     </div>
   </div>
 
@@ -1363,6 +1368,9 @@ function gameOver(){
   document.getElementById('newbest').classList.toggle('show', isBest);
   const acc = stats.answers ? Math.round(stats.correct / stats.answers * 100) : 0;
   const avgRt = stats.picks ? (stats.rtSum / stats.picks / 1000).toFixed(2) + 's' : '—';
+  const nStars = acc >= 85 ? 3 : acc >= 60 ? 2 : acc >= 35 ? 1 : 0;   // delivery rating
+  let stars = ''; for (let i = 0; i < 3; i++) stars += '<span class="' + (i < nStars ? 'on' : 'off') + '">★</span>';
+  document.getElementById('stars').innerHTML = stars;
   document.getElementById('overStats').innerHTML =
     'Score <span class="v">' + score + '</span><br>' +
     'Completed <span class="v">' + Math.min(round, TOTAL_ROUNDS) + '/12 routes</span><br>' +
