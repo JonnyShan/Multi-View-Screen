@@ -17,7 +17,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0e14;
     overscroll-behavior: none; touch-action: none; position: fixed; inset: 0;
-    font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", "Nunito", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color: #fff; }
+    font-family: 'Uber Move', 'Uber Move Text', 'Inter', -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color: #fff; }
   #game { position: fixed; inset: 0; display: block; touch-action: none; }
 
   /* ---- HUD (top bar) ---- */
@@ -46,7 +46,7 @@
     background: rgba(255,255,255,.10); border-radius: 99px; overflow: hidden; pointer-events: none;
   }
   #timerfill { height: 100%; width: 100%; border-radius: 99px;
-    background: #75D591; transition: background .15s linear; }
+    background: #019147; transition: background .15s linear; }
 
   /* ---- prompt ---- */
   #prompt {
@@ -92,7 +92,7 @@
     pointer-events: auto;
   }
   .overlay.hidden { display: none; }
-  .overlay h1 { font-size: clamp(34px, 9vw, 60px); font-weight: 900; letter-spacing: 1px; color: #75D591; }
+  .overlay h1 { font-size: clamp(34px, 9vw, 60px); font-weight: 900; letter-spacing: 1px; color: #019147; }
   .overlay p { max-width: 440px; line-height: 1.55; opacity: .9; font-size: 15px; }
   .overlay .how { display: flex; flex-direction: column; gap: 8px; max-width: 460px;
     background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
@@ -110,7 +110,7 @@
     border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
   #over h1.delivered { color: #fff; }
   #stars { font-size: 46px; letter-spacing: 10px; line-height: 1; margin: 2px 0 6px; padding-left: 10px; }
-  #stars .on { color: #75D591; text-shadow: 0 0 16px rgba(117,213,145,.55); }
+  #stars .on { color: #019147; text-shadow: 0 0 16px rgba(1,145,71,.55); }
   #stars .off { color: rgba(255,255,255,.26); }
   #overStats { font-size: 20px; line-height: 1.7; }
   #overStats .v { font-weight: 900; font-size: 30px; }
@@ -122,7 +122,7 @@
   #howto { justify-content: flex-start; gap: 12px; overflow-y: auto;
     padding: max(22px, env(safe-area-inset-top)) 20px max(22px, env(safe-area-inset-bottom)); }
   .howTitle { font-family: 'Uber Move', 'Uber Move Text', 'Inter', system-ui, sans-serif;
-    font-size: 24px; font-weight: 900; letter-spacing: .5px; margin: 4px 0 0; color: #75D591; }
+    font-size: 24px; font-weight: 900; letter-spacing: .5px; margin: 4px 0 0; color: #019147; }
   #htMap { width: 100%; max-width: 360px; height: 40vh; max-height: 420px; display: block;
     border-radius: 16px; background: #0e1622; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 10px 40px rgba(0,0,0,.45); }
   #htChoose { display: flex; gap: 12px; width: 100%; max-width: 360px; margin-top: 2px; }
@@ -130,9 +130,9 @@
     font-size: 28px; font-weight: 900; line-height: 1; border: 2px solid rgba(255,255,255,.18); background: rgba(255,255,255,.03); }
   #htBtnA { color: #7ec2ff; } #htBtnB { color: #ff85bf; }
   .htBtn small { display: block; font-size: 9px; letter-spacing: 2px; font-weight: 800; opacity: .6; color: #fff; margin-top: 4px; }
-  .htBtn.correct { border-color: #75D591; box-shadow: 0 0 16px rgba(117,213,145,.4); animation: htPulse 1.3s ease-in-out infinite; }
+  .htBtn.correct { border-color: #019147; box-shadow: 0 0 16px rgba(1,145,71,.4); animation: htPulse 1.3s ease-in-out infinite; }
   .htBtn.correct::after { content: '✓ TAP'; position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
-    background: #75D591; color: #08231a; font-size: 10px; font-weight: 900; letter-spacing: .5px; padding: 2px 8px; border-radius: 9px; }
+    background: #019147; color: #fff; font-size: 10px; font-weight: 900; letter-spacing: .5px; padding: 2px 8px; border-radius: 9px; }
   .htBtn.wrong { opacity: .5; border-color: rgba(255,77,77,.45); }
   .htBtn.wrong::after { content: '✕'; position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
     background: #ff4d4d; color: #fff; font-size: 11px; font-weight: 900; width: 18px; height: 18px; line-height: 18px; border-radius: 50%; }
@@ -141,8 +141,8 @@
     display: flex; flex-direction: column; gap: 8px; text-align: left; }
   #htSteps li { font-size: 13.5px; line-height: 1.4; opacity: .95; display: flex; align-items: baseline; }
   #htSteps b { flex: none; display: inline-block; width: 19px; height: 19px; line-height: 19px; text-align: center;
-    border-radius: 50%; background: #75D591; color: #08231a; font-size: 12px; font-weight: 900; margin-right: 9px; }
-  .sgood { color: #75D591; font-weight: 800; }
+    border-radius: 50%; background: #019147; color: #fff; font-size: 12px; font-weight: 900; margin-right: 9px; }
+  .sgood { color: #019147; font-weight: 800; }
   .sA { color: #7ec2ff; font-weight: 800; } .sB { color: #ff85bf; font-weight: 800; }
   #howtoPlay { margin-top: 4px; color: #fff;
     background: linear-gradient(90deg,#017A3C,#019147); box-shadow: 0 8px 30px rgba(1,145,71,.5); }
@@ -224,7 +224,7 @@ const COL = {
   endRoof:'#ffd24a',
   A:'#3da5ff', Aglow:'rgba(61,165,255,.85)',
   B:'#ff3d9a', Bglow:'rgba(255,61,154,.85)',
-  good:'#75D591', bad:'#ff4d4d'
+  good:'#019147', bad:'#ff4d4d'
 };
 const FOODS = ['🍕','🍔','🍝','🍜','🍣','🥡'];   // pizza, burgers, pasta, asian
 const WALLS = ['#f4efe4','#e9dcc6','#d9e6f2','#f6e8cb','#fbfbf7','#ecdad6','#dcebd9','#efe1ef'];
@@ -1137,7 +1137,7 @@ function drawBadge(r, dim){
   ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, Math.PI*2);
   ctx.fillStyle = r.color; ctx.fill();
   ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.stroke();
-  ctx.fillStyle = '#fff'; ctx.font = '900 ' + (rad*1.15|0) + 'px system-ui, sans-serif';
+  ctx.fillStyle = '#fff'; ctx.font = '900 ' + (rad*1.15|0) + 'px "Uber Move", Inter, system-ui, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(r.label, p.x, p.y + 1);
   ctx.restore();
@@ -1162,7 +1162,7 @@ function drawStartEnd(t){
   tag(e.x, e.y + bob + drop - TW*1.05, 'DELIVERY', hexRGBA(COL.bad, .92));
 }
 function tag(x, y, text, bg){
-  ctx.font = '800 ' + Math.max(9, TW*0.2|0) + 'px ui-rounded, system-ui, sans-serif';
+  ctx.font = '800 ' + Math.max(9, TW*0.2|0) + 'px "Uber Move", Inter, system-ui, sans-serif';
   const w = ctx.measureText(text).width + 16, h = Math.max(16, TW*0.34);
   ctx.fillStyle = bg; rr(ctx, x - w/2, y - h/2, w, h, h/2); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 0.5);
@@ -1183,7 +1183,7 @@ function drawPin(x, y){
 // ---- feel + traffic helpers ----
 function buzz(p){ try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 function spawnParticles(){
-  const cx = cssW/2, cy = cssH*0.42, cols = ['#75D591','#ffd24a','#3da5ff','#ff3d9a','#ffffff','#ff9f4a'];
+  const cx = cssW/2, cy = cssH*0.42, cols = ['#019147','#ffd24a','#3da5ff','#ff3d9a','#ffffff','#ff9f4a'];
   for (let i = 0; i < 22; i++){
     const a = Math.random()*Math.PI*2, sp = 0.15 + Math.random()*0.42;
     particles.push({ x: cx, y: cy, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 0.25, rot: Math.random()*6, vr: (Math.random()-0.5)*0.02,
@@ -1236,7 +1236,7 @@ function frame(ts){
     for (const r of [routeA, routeB]){
       let opts;
       if (reveal){
-        opts = r.correct ? { color: COL.good, glow: 'rgba(117,213,145,.9)' } : { color: COL.bad, glow: null };
+        opts = r.correct ? { color: COL.good, glow: 'rgba(1,145,71,.9)' } : { color: COL.bad, glow: null };
       } else {
         opts = { glow: r.glow, flow: state === 'play' ? flowOffset : null };
       }
@@ -1257,7 +1257,7 @@ function frame(ts){
     const p = popups[i]; p.life -= dt; p.y -= dt * 0.04;
     if (p.life <= 0){ popups.splice(i,1); continue; }
     ctx.globalAlpha = Math.min(1, p.life / 350);
-    ctx.fillStyle = p.color; ctx.font = '900 ' + p.size + 'px system-ui, sans-serif';
+    ctx.fillStyle = p.color; ctx.font = '900 ' + p.size + 'px "Uber Move", Inter, system-ui, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 4; ctx.strokeText(p.text, p.x, p.y);
     ctx.fillText(p.text, p.x, p.y); ctx.globalAlpha = 1;
@@ -1342,7 +1342,7 @@ function resolve(kind){
     score += add; streak++;
     if (streak > bestStreak){ bestStreak = streak; localStorage.setItem('routerush_beststreak', bestStreak); }
     lastResult = 'ok'; revealT = REVEAL_OK;
-    flash = { color: 'rgba(117,213,145,A)', a: 0.28 };
+    flash = { color: 'rgba(1,145,71,A)', a: 0.28 };
     sOK(); buzz(15); if (!reduceMotion) spawnParticles();
     addPopup('+' + add + (mult > 1.01 ? ' ×' + mult.toFixed(1) : ''), COL.good, 34);
     if (score > best){ best = score; localStorage.setItem('routerush_best', best); }
@@ -1491,7 +1491,7 @@ function htRoute(c,pts,color,glow,flow,alpha){
   c.setLineDash([]); c.restore();
 }
 function htBadge(c,x,y,col,ch){ c.beginPath(); c.arc(x,y,9,0,7); c.fillStyle=col; c.fill();
-  c.fillStyle='#08121e'; c.font='900 12px system-ui,sans-serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(ch,x,y+0.5); }
+  c.fillStyle='#08121e'; c.font='900 12px "Uber Move", Inter, system-ui, sans-serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(ch,x,y+0.5); }
 // pick a clear sample round on the real road graph (decent length gap + good spread)
 function expandNodes(corners){            // every grid node a corner-chain passes through
   const set = new Set();
