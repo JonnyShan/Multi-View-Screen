@@ -626,8 +626,7 @@
       ctx.save();
       if (alpha != null) ctx.globalAlpha = alpha;
       if (squashP) { const e = Math.sin(squashP * Math.PI), sy = 1 - 0.16*e, sx = 1 + 0.16*e; ctx.translate(x + w/2, y + h); ctx.scale(sx, sy); ctx.translate(-(x + w/2), -(y + h)); }
-      ctx.drawImage(spr.rots[0], x, dy2, w, dh);
-      outlineCells(ctx, cells, x, y, cell);
+      ctx.drawImage(spr.rots[0], x, dy2, w, dh);   // bag keeps its own baked outline (no added grid lines)
       ctx.restore();
       return;
     }
@@ -1124,7 +1123,7 @@
     const cols = cells[0].length, rows = cells.length;
     const x = gx * DCELL, y = gy * DCELL, w = cols * DCELL, h = rows * DCELL;
     const hf = HANDLE_FRAC[PIECES[key].sprite];
-    if (hf) { const dh = h / (1 - hf); dctx.drawImage(spr.rots[0], x, y - (dh - h), w, dh); outlineCells(dctx, cells, x, y, DCELL); return; }
+    if (hf) { const dh = h / (1 - hf); dctx.drawImage(spr.rots[0], x, y - (dh - h), w, dh); return; }   // bag: baked outline only
     const img = spr.rots[rot];
     const sw = img.width / cols, sh = img.height / rows;
     const bg = PIECES[key]._bg && PIECES[key]._bg[rot];
