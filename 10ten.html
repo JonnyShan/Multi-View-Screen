@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<meta name="theme-color" content="#04140c" />
+<meta name="theme-color" content="#05A656" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -19,6 +19,7 @@
   :root {
     --bg-1: #0c3b22;
     --bg-2: #04130b;
+    --bg-500: #05A656;      /* Green 500 — main background */
     --panel: #0a1f15;
     --pill: #06150d;
     --line: rgba(6, 193, 103, 0.22);
@@ -45,8 +46,8 @@
     font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--text);
     background:
-      radial-gradient(130% 90% at 50% -15%, #11502e 0%, transparent 55%),
-      linear-gradient(165deg, var(--bg-1) 0%, var(--bg-2) 100%);
+      radial-gradient(120% 80% at 50% -10%, rgba(255, 255, 255, 0.07), transparent 52%),
+      var(--bg-500);
     user-select: none;
     -webkit-user-select: none;
   }
@@ -107,15 +108,15 @@
   .icon-btn {
     display: grid; place-items: center;
     width: 86px; height: 62px;
-    border: 1.5px solid rgba(6, 193, 103, 0.30);
+    border: 1.5px solid rgba(255, 255, 255, 0.22);
     border-radius: 18px;
     color: #fff;
-    background: rgba(6, 193, 103, 0.06);
+    background: rgba(255, 255, 255, 0.10);
     cursor: pointer;
     font-size: 22px;
     transition: transform 0.08s ease, background 0.15s ease, opacity 0.15s ease;
   }
-  .icon-btn:hover { background: rgba(6, 193, 103, 0.12); }
+  .icon-btn:hover { background: rgba(255, 255, 255, 0.16); }
   .icon-btn:active { transform: translateY(1px) scale(0.97); }
   .icon-btn:disabled { opacity: 0.32; cursor: default; }
   .icon-btn svg { width: 28px; height: 28px; fill: currentColor; }
@@ -139,8 +140,8 @@
   }
   .cell {
     border-radius: 20px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(6, 193, 103, 0.14);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
   }
 
   .tiles { position: absolute; inset: 0; }
