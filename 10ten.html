@@ -20,21 +20,23 @@
      reach the Uber Delivery Box (level 10) to win.
      Theme: Uber Eats dark green / black / green.
      ============================================================ */
-  /* Uber Move — resolves to the real font when installed on the device or self-hosted
-     under assets/fonts/. Falls through to Manrope (free, closest match) otherwise. */
+  /* Uber Move — Uber's brand font, self-hosted (Medium + Bold). Manrope is the
+     final fallback only if the files fail to load. */
   @font-face {
     font-family: "Uber Move";
-    src: local("Uber Move"), local("UberMove"), local("Uber Move Bold"), local("Uber Move Medium");
-    font-weight: 100 900; font-style: normal; font-display: swap;
+    src: local("Uber Move Medium"), local("UberMove-Medium"),
+         url("assets/fonts/UberMoveMedium.otf") format("opentype");
+    font-weight: 100 500; font-style: normal; font-display: swap;
   }
   @font-face {
-    font-family: "Uber Move Text";
-    src: local("Uber Move Text"), local("UberMoveText"), local("Uber Move Text Medium");
-    font-weight: 100 900; font-style: normal; font-display: swap;
+    font-family: "Uber Move";
+    src: local("Uber Move Bold"), local("UberMove-Bold"),
+         url("assets/fonts/UberMoveBold.otf") format("opentype");
+    font-weight: 600 900; font-style: normal; font-display: swap;
   }
 
   :root {
-    --font: "Uber Move", "Uber Move Text", "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font: "Uber Move", "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --bg-1: #0c3b22;
     --bg-2: #04130b;
     --bg-500: #058C4A;      /* Green 500 — main background */
