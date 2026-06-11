@@ -380,6 +380,24 @@
   .tut-lines p { margin: 0; display: flex; gap: 11px; align-items: flex-start; font-weight: 600; color: var(--muted); font-size: 14.5px; line-height: 1.3; }
   .tut-lines .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: rgba(6, 193, 103,0.18); color: var(--green); font-weight: 900; font-size: 13px; display: grid; place-items: center; }
   .tut-lines b { color: #fff; font-weight: 800; }
+
+  /* tutorial overlay sits on the same green as the game itself; green accents
+     swap to black/white-translucent for contrast (green-on-green is invisible) */
+  #tutorial {
+    background:
+      radial-gradient(120% 80% at 50% -10%, rgba(255, 255, 255, 0.07), transparent 52%),
+      var(--bg-500);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  #tutorial .tut-tag b { color: #0b1a10; }
+  #tutorial h2.green { color: #fff; }
+  #tutorial .tut-lines p { color: rgba(255, 255, 255, 0.92); }
+  #tutorial .tut-lines .n { background: rgba(255, 255, 255, 0.2); color: #fff; }
+  #tutorial .demo-eq { color: rgba(255, 255, 255, 0.88); }
+  #tutorial .demo-eq b { color: #fff; }
+  #tutorial .demo-cells .dc { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.14); }
+  #tutorial .btn { border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25); }
 </style>
 </head>
 <body>
@@ -467,7 +485,7 @@ const CONFIG = {
   storageKey: "ubereats.merge.v1",
   tutorialKey: "ubereats.merge.tut",
   // image path per level — drop your renders into assets/uber/<level>.png
-  itemImg: (v) => `assets/uber/${v}.png`,
+  itemImg: (v) => `assets/uber/${v}.png?v=2`,
   numbersInImage: false,  // images have NO baked numbers — the game draws them (uniform size)
   // name + emoji fallback (shown until the PNG exists)
   items: {
