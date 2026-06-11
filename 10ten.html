@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="description" content="Uber Eats Merge - match food items, level up your order, and reach the Uber Delivery Box to win." />
+<meta name="description" content="Uber Eats Merge - match food items, level up your order, and reach the Uber Eats Bag to win." />
 <title>Uber Eats · Merge</title>
 <!-- Brand font: Uber Move (proprietary — used when installed/self-hosted). Manrope = closest free fallback. -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -87,17 +87,6 @@
     align-items: flex-start;
     justify-content: center;
   }
-
-  .logo {
-    display: flex;
-    flex-direction: column;
-    line-height: 0.86;
-    font-weight: 800;
-    font-size: 40px;
-    letter-spacing: -0.5px;
-  }
-  .logo .u { color: #fff; }
-  .logo .e { color: var(--green-deep); }
 
   .scorebox {
     display: flex;
@@ -427,8 +416,8 @@
         <!-- tutorial overlay -->
         <div class="overlay" id="tutorial">
           <div class="card">
-            <p class="tut-tag"><b>Combo:</b> Crush the perfect Uber Eats Delivery combinations to earn points!</p>
-            <h2 class="green">HOW TO PLAY</h2>
+            <p class="tut-tag"><b>Combo Creator:</b> Create the perfect Uber Eats delivery combinations to earn points!</p>
+            <h2 class="green">How to play</h2>
             <div class="demo-grid" id="demoGrid">
               <div class="demo-cells" id="demoCells"></div>
               <div class="demo-tiles" id="demoTiles"></div>
@@ -440,7 +429,7 @@
               <p><span class="n">2</span><span>Two of the <b>same item merge</b> into the next one.</span></p>
               <p><span class="n">3</span><span>Reach the <b>Uber Eats Bag</b> to <b>win</b> — in as few swipes as you can!</span></p>
             </div>
-            <div class="btn-row"><button class="btn" id="tut-got">GOT IT!</button></div>
+            <div class="btn-row"><button class="btn" id="tut-got">Got it!</button></div>
           </div>
         </div>
       </div>
@@ -721,7 +710,7 @@ function haptic(pattern) {
 }
 // "COMBO!" flash for chain cascades / multi-merges in one swipe
 function comboFlash(n) {
-  el.combo.textContent = n >= 3 ? `COMBO ×${n}!` : "COMBO!";
+  el.combo.textContent = n >= 3 ? `Combo ×${n}!` : "Combo!";
   el.combo.classList.remove("go");
   void el.combo.offsetWidth;
   el.combo.classList.add("go");
@@ -924,7 +913,7 @@ function miniScores() {
 function showOverlay(kind) {
   if (kind === "win") {
     el.ovCard.innerHTML = `
-      <h2 class="green">YOU DID IT!</h2>
+      <h2 class="green">You did it!</h2>
       <p>You created the Uber Eats Bag!</p>
       <div class="win-box">
         <img src="${CONFIG.itemImg(CONFIG.target)}" alt="${CONFIG.items[CONFIG.target].name}"
@@ -934,19 +923,19 @@ function showOverlay(kind) {
       <p class="swipes-line">Delivered in <b>${state.moves}</b> swipe${state.moves === 1 ? "" : "s"}</p>
       ${miniScores()}
       <div class="btn-row">
-        <button class="btn" data-act="again">PLAY AGAIN</button>
-        <button class="btn secondary" data-act="home">HOME</button>
+        <button class="btn" data-act="again">Play again</button>
+        <button class="btn secondary" data-act="home">Home</button>
       </div>`;
     spawnConfetti();
   } else {
     el.ovCard.innerHTML = `
-      <h2 class="danger">GAME OVER</h2>
+      <h2 class="danger">Game over</h2>
       <p>No more moves left!</p>
       <p class="swipes-line">Used <b>${state.moves}</b> swipe${state.moves === 1 ? "" : "s"} — no delivery</p>
       <div class="mini-scores"><div class="seg"><div class="label">Best</div><div class="value">${state.best}</div></div></div>
       <div class="btn-row">
-        <button class="btn outline" data-act="again">TRY AGAIN</button>
-        <button class="btn secondary" data-act="home">HOME</button>
+        <button class="btn outline" data-act="again">Try again</button>
+        <button class="btn secondary" data-act="home">Home</button>
       </div>`;
   }
   el.ovCard.querySelectorAll("[data-act]").forEach(b => {
