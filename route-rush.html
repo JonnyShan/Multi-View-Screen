@@ -122,8 +122,9 @@
     padding: max(22px, env(safe-area-inset-top)) 20px max(22px, env(safe-area-inset-bottom)); }
   .howBrand { font-family: 'Uber Move', 'Uber Move Text', 'Inter', system-ui, sans-serif;
     font-size: 30px; font-weight: 900; letter-spacing: .3px; margin: 4px 0 0; color: #fff; text-align: center; line-height: 1.05; }
+  .howBrand .sgood { font-weight: 900; }
   .howTitle { font-family: 'Uber Move', 'Uber Move Text', 'Inter', system-ui, sans-serif;
-    font-size: 14px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; margin: 0; color: #fff; opacity: .65; }
+    font-size: 14px; font-weight: 800; letter-spacing: 1px; margin: 0; color: #fff; opacity: .65; }
   #htMap { width: 100%; max-width: 360px; height: 40vh; max-height: 420px; display: block;
     border-radius: 16px; background: #0e1622; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 10px 40px rgba(0,0,0,.45); }
   #htChoose { display: flex; gap: 12px; width: 100%; max-width: 360px; margin-top: 2px; }
@@ -167,8 +168,7 @@
   <button class="choice" id="btnB"><span class="big">B</span><span class="lbl">ROUTE</span></button>
 
   <div class="overlay" id="howto">
-    <div class="howBrand">Smartest Delivery Route</div>
-    <h2 class="howTitle">How to Play</h2>
+    <div class="howBrand">Smartest <span class="sgood">Delivery Route</span></div>
     <canvas id="htMap"></canvas>
     <div id="htChoose">
       <div class="htBtn" id="htBtnA">A<small>ROUTE</small></div>
