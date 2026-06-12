@@ -91,6 +91,8 @@
     pointer-events: auto;
   }
   .overlay.hidden { display: none; }
+  .overlay .rider { position: absolute; left: -6px; bottom: -4px; width: clamp(92px, 25vw, 165px);
+    height: auto; pointer-events: none; z-index: 2; filter: drop-shadow(0 6px 16px rgba(0,0,0,.55)); }
   .overlay h1 { font-size: clamp(34px, 9vw, 60px); font-weight: 900; letter-spacing: 1px; color: #019147; }
   .overlay p { max-width: 440px; line-height: 1.55; opacity: .9; font-size: 15px; }
   .overlay .how { display: flex; flex-direction: column; gap: 8px; max-width: 460px;
@@ -146,8 +148,8 @@
     border-radius: 50%; background: #019147; color: #fff; font-size: 12px; font-weight: 900; margin-right: 9px; }
   .sgood { color: #019147; font-weight: 800; }
   .sA { color: #7ec2ff; font-weight: 800; } .sB { color: #ff85bf; font-weight: 800; }
-  #howtoPlay { margin-top: 4px; color: #fff;
-    background: linear-gradient(90deg,#017A3C,#019147); box-shadow: 0 8px 30px rgba(1,145,71,.5); }
+  #howtoPlay { margin-top: 4px; color: #000;
+    background: #58BE70; box-shadow: 0 8px 30px rgba(88,190,112,.45); }
 </style>
 </head>
 <body>
@@ -157,7 +159,7 @@
     <div id="lives"></div>
     <div id="scorebox">
       <div id="score">0</div>
-      <div id="subline">Route <b id="round">1</b>/12 · Best <span id="best">0</span> · Streak <span id="streak">0</span></div>
+      <div id="subline">Route <b id="round">1</b> · Best <span id="best">0</span> · Streak <span id="streak">0</span></div>
     </div>
     <div id="right"><button id="muteBtn">🔊</button></div>
   </div>
@@ -180,6 +182,7 @@
       <li><b>3</b><span>Tap its button — <span class="sA">A</span> or <span class="sB">B</span>. <span class="sgood">Green ✓</span> right, red ✕ wrong · smartest + 🔥 = more points</span></li>
     </ol>
     <button class="btn" id="howtoPlay">Play ▶</button>
+    <img class="rider" src="rider.png" alt="" aria-hidden="true">
   </div>
 
   <div class="overlay hidden" id="over">
@@ -191,6 +194,7 @@
       <button class="btn" id="againBtn">Play again</button>
       <button class="btn ghost" id="townBtn">Back To Town</button>
     </div>
+    <img class="rider" src="rider.png" alt="" aria-hidden="true">
   </div>
 
   <div id="countdown"></div>
@@ -216,9 +220,9 @@ const PAD = 14; let HUD_TOP = 138;                 // px reserved for HUD at top
 const DRAW_MS = 420;                               // route draw-in animation
 const REVEAL_OK = 950, REVEAL_BAD = 1350;          // reveal hold (car drives the route)
 const INSET = 2;                                   // start/end inset from grid edges
-const TOTAL_ROUNDS = 12;                            // fixed run length (no fail-out)
-function roundTime(r){ return 4200 - (r - 1) * 110; }                       // ~4.2s -> ~3.0s per decision (tighter)
-function roundMargin(r){ return Math.max(1, 2 - Math.floor((r - 1) / 2)); } // gap mostly +2 -> near-ties, very hard to eyeball
+function diffTier(r){ return Math.floor((r - 1) / 4); }                     // difficulty step: +1 every 4 rounds
+function roundTime(r){ return Math.max(1500, Math.round(4500 * Math.pow(0.8, diffTier(r)))); } // -20% decision time each step
+function roundMargin(r){ return Math.max(1, 2 - diffTier(r)); }             // routes get closer in length each step
 
 // ---- palette ----
 const COL = {
@@ -1307,7 +1311,7 @@ function update(dt){
     if (timeLeft <= 0) resolve('timeout');
   } else if (state === 'reveal'){
     revealT -= dt;
-    if (revealT <= 0){ if (round >= TOTAL_ROUNDS) gameOver(); else newRound(); }
+    if (revealT <= 0){ if (lives <= 0) gameOver(); else newRound(); }
   }
 }
 
@@ -1344,7 +1348,7 @@ function resolve(kind){
     const timeBonus = Math.round(4 * speedFrac);          // up to +4 for a quick pick
     const mult = Math.min(1.5, 1 + 0.1 * streak);         // streak multiplier, caps at x1.5
     const gain = Math.round((8 + timeBonus) * mult);      // +8 correct + time bonus, x streak
-    const add = Math.max(0, Math.min(gain, 150 - score)); // hard 150 total cap
+    const add = gain;                                     // endless: no score cap
     score += add; streak++;
     if (streak > bestStreak){ bestStreak = streak; localStorage.setItem('routerush_beststreak', bestStreak); }
     lastResult = 'ok'; revealT = REVEAL_OK;
@@ -1353,7 +1357,8 @@ function resolve(kind){
     addPopup('+' + add + (mult > 1.01 ? ' ×' + mult.toFixed(1) : ''), COL.good, 34);
     if (score > best){ best = score; localStorage.setItem('routerush_best', best); }
   } else {
-    streak = 0;                                           // no fail-out: wrong/slow only resets the streak
+    streak = 0;                                           // wrong/slow resets the streak...
+    lives = Math.max(0, lives - 1);                       // ...and costs a heart (3 strikes = game over)
     lastResult = (kind === 'timeout') ? 'timeout' : 'bad';
     revealT = REVEAL_BAD;
     flash = { color: 'rgba(255,77,77,A)', a: 0.32 }; shake = reduceMotion ? 0 : 14;
@@ -1384,7 +1389,7 @@ function gameOver(){
   document.getElementById('stars').innerHTML = stars;
   document.getElementById('overStats').innerHTML =
     'Score <span class="v">' + score + '</span><br>' +
-    'Completed <span class="v">' + Math.min(round, TOTAL_ROUNDS) + '/12 routes</span><br>' +
+    'Delivered <span class="v">' + stats.correct + '</span> orders<br>' +
     '<span style="opacity:.75;font-size:15px;line-height:1.9;display:inline-block;margin-top:6px">' +
       'Best ' + best + ' &middot; Best streak ' + bestStreak + '<br>' +
       'Accuracy ' + acc + '% &middot; Avg ' + avgRt +
@@ -1397,9 +1402,11 @@ function addPopup(text, color, size){
   popups.push({ x: cssW/2, y: cssH*0.42, text, color, size, life: 800 });
 }
 function updateHUD(){
-  document.getElementById('lives').innerHTML = '';     // no lives (no fail-out)
+  let hearts = '';
+  for (let i = 0; i < 3; i++) hearts += '<span' + (i < lives ? '' : ' class="dead"') + '>❤️</span>';
+  document.getElementById('lives').innerHTML = hearts;
   document.getElementById('score').textContent = score;
-  document.getElementById('round').textContent = Math.min(Math.max(1, round), TOTAL_ROUNDS);
+  document.getElementById('round').textContent = Math.max(1, round);
   document.getElementById('best').textContent = best;
   document.getElementById('streak').textContent = streak;
 }
