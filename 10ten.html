@@ -383,8 +383,6 @@
     z-index: 3; transition: left 0.46s ease, opacity 0.3s ease; }
   .demo-eq { text-align: center; font-weight: 800; color: var(--muted); font-size: 15px; min-height: 18px; }
   .demo-eq b { color: var(--green); font-size: 1.15em; }
-  .tut-tag { text-align: center; font-size: 14.5px; font-weight: 700; color: var(--text); margin: 10px 0 12px; line-height: 1.35; }
-  .tut-tag b { color: var(--green); }
   /* tutorial lines */
   .tut-lines { text-align: left; margin: 12px 0 16px; display: flex; flex-direction: column; gap: 10px; }
   .tut-lines p { margin: 0; display: flex; gap: 11px; align-items: flex-start; font-weight: 600; color: var(--muted); font-size: 14.5px; line-height: 1.3; }
@@ -400,14 +398,13 @@
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
-  #tutorial .tut-tag b { color: #0b1a10; }
   #tutorial h2.green { color: #fff; }
   #tutorial .tut-lines p { color: rgba(255, 255, 255, 0.92); }
   #tutorial .tut-lines .n { background: rgba(255, 255, 255, 0.2); color: #fff; }
   #tutorial .demo-eq { color: rgba(255, 255, 255, 0.88); }
   #tutorial .demo-eq b { color: #fff; }
   #tutorial .demo-cells .dc { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.14); }
-  #tutorial .btn { border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25); width: 50%; }
+  #tutorial .btn { border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25); width: 50%; color: #fff; }
   #tutorial .btn-row { align-items: center; }
 </style>
 </head>
@@ -445,20 +442,19 @@
         <!-- tutorial overlay -->
         <div class="overlay" id="tutorial">
           <div class="card">
-            <h2 class="green">How To Play</h2>
+            <h2 class="green">Combo Creator</h2>
             <div class="demo-grid" id="demoGrid">
               <div class="demo-cells" id="demoCells"></div>
               <div class="demo-tiles" id="demoTiles"></div>
               <svg class="demo-hand" id="demoHand" viewBox="0 0 24 24"><path d="M9 11.24V7.5C9 6.12 10.12 5 11.5 5S14 6.12 14 7.5v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.84 4.63l-4.54-2.26c-.17-.07-.35-.11-.54-.11H13v-6C13 6.67 12.33 6 11.5 6S10 6.67 10 7.5v10.74l-3.43-.72c-.08-.01-.15-.03-.24-.03-.31 0-.59.13-.79.33l-.79.8 4.94 4.94c.27.27.65.44 1.06.44h6.79c.75 0 1.33-.55 1.44-1.28l.75-5.27c.01-.07.02-.14.02-.2 0-.62-.38-1.16-.92-1.39z"/></svg>
             </div>
             <div class="demo-eq" id="demoEq"></div>
-            <p class="tut-tag"><b>Combo Creator:</b> Create the perfect Uber Eats delivery combinations to earn points!</p>
             <div class="tut-lines">
               <p><span class="n">1</span><span><b>Swipe</b> any direction — all items slide that way.</span></p>
               <p><span class="n">2</span><span>Two of the <b>same item merge</b> into the next one.</span></p>
               <p><span class="n">3</span><span>Reach the <b>Uber Eats Bag</b> to <b>win</b> — in as few swipes as you can!</span></p>
             </div>
-            <div class="btn-row"><button class="btn" id="tut-got">Play</button></div>
+            <div class="btn-row"><button class="btn" id="tut-got">Play ▶</button></div>
           </div>
         </div>
       </div>
