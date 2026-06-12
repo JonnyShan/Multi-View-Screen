@@ -950,7 +950,7 @@ function showOverlay(kind) {
       ${miniScores()}
       <div class="btn-row">
         <button class="btn" data-act="again">Play again</button>
-        <button class="btn secondary" data-act="home">Home</button>
+        <button class="btn secondary" data-act="home">Back To Town</button>
       </div>`;
     spawnConfetti();
   } else {
@@ -961,7 +961,7 @@ function showOverlay(kind) {
       <div class="mini-scores"><div class="seg"><div class="label">Best</div><div class="value">${state.best}</div></div></div>
       <div class="btn-row">
         <button class="btn outline" data-act="again">Try again</button>
-        <button class="btn secondary" data-act="home">Home</button>
+        <button class="btn secondary" data-act="home">Back To Town</button>
       </div>`;
   }
   el.ovCard.querySelectorAll("[data-act]").forEach(b => {
