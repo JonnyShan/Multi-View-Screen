@@ -383,7 +383,7 @@
     z-index: 3; transition: left 0.46s ease, opacity 0.3s ease; }
   .demo-eq { text-align: center; font-weight: 800; color: var(--muted); font-size: 15px; min-height: 18px; }
   .demo-eq b { color: var(--green); font-size: 1.15em; }
-  .tut-tag { text-align: center; font-size: 14.5px; font-weight: 700; color: var(--text); margin: 0 0 12px; line-height: 1.35; }
+  .tut-tag { text-align: center; font-size: 14.5px; font-weight: 700; color: var(--text); margin: 10px 0 12px; line-height: 1.35; }
   .tut-tag b { color: var(--green); }
   /* tutorial lines */
   .tut-lines { text-align: left; margin: 12px 0 16px; display: flex; flex-direction: column; gap: 10px; }
@@ -444,7 +444,6 @@
         <!-- tutorial overlay -->
         <div class="overlay" id="tutorial">
           <div class="card">
-            <p class="tut-tag"><b>Combo Creator:</b> Create the perfect Uber Eats delivery combinations to earn points!</p>
             <h2 class="green">How to play</h2>
             <div class="demo-grid" id="demoGrid">
               <div class="demo-cells" id="demoCells"></div>
@@ -452,6 +451,7 @@
               <svg class="demo-hand" id="demoHand" viewBox="0 0 24 24"><path d="M9 11.24V7.5C9 6.12 10.12 5 11.5 5S14 6.12 14 7.5v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.84 4.63l-4.54-2.26c-.17-.07-.35-.11-.54-.11H13v-6C13 6.67 12.33 6 11.5 6S10 6.67 10 7.5v10.74l-3.43-.72c-.08-.01-.15-.03-.24-.03-.31 0-.59.13-.79.33l-.79.8 4.94 4.94c.27.27.65.44 1.06.44h6.79c.75 0 1.33-.55 1.44-1.28l.75-5.27c.01-.07.02-.14.02-.2 0-.62-.38-1.16-.92-1.39z"/></svg>
             </div>
             <div class="demo-eq" id="demoEq"></div>
+            <p class="tut-tag"><b>Combo Creator:</b> Create the perfect Uber Eats delivery combinations to earn points!</p>
             <div class="tut-lines">
               <p><span class="n">1</span><span><b>Swipe</b> any direction — all items slide that way.</span></p>
               <p><span class="n">2</span><span>Two of the <b>same item merge</b> into the next one.</span></p>
