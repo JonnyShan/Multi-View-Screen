@@ -68,7 +68,7 @@
   /* ---- choice buttons ---- */
   .choice {
     position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 10;
-    width: calc(50% - 58px);                 /* big thumb targets; ~116px centre gap for the timer ring */
+    width: calc(50% - 22px);                 /* wide thumb targets; ~16px centre gap (timer ring removed) */
     height: clamp(58px, 8.5vh, 84px); border-radius: 18px;
     border: 3px solid; background: rgba(12,16,24,.66); backdrop-filter: blur(6px);
     color: #fff; cursor: pointer; pointer-events: auto;
@@ -103,6 +103,7 @@
     background: linear-gradient(90deg,#017A3C,#019147); box-shadow: 0 8px 30px rgba(1,145,71,.5);
   }
   .overlay .btn:active { transform: scale(.96); }
+  .overlay .btn.ghost { background: transparent; border: 2px solid rgba(255,255,255,.35); box-shadow: none; }
   .overbtns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
   .overlay .btn2 { background: linear-gradient(90deg,#ff3d9a,#ff85bf); color: #fff; box-shadow: 0 8px 30px rgba(255,61,154,.5); }
   .btn2sm { margin-top: 12px; background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.22);
@@ -122,7 +123,6 @@
     padding: max(22px, env(safe-area-inset-top)) 20px max(22px, env(safe-area-inset-bottom)); }
   .howBrand { font-family: 'Uber Move', 'Uber Move Text', 'Inter', system-ui, sans-serif;
     font-size: 30px; font-weight: 900; letter-spacing: .3px; margin: 4px 0 0; color: #fff; text-align: center; line-height: 1.05; }
-  .howBrand .sgood { font-weight: 900; }
   .howTitle { font-family: 'Uber Move', 'Uber Move Text', 'Inter', system-ui, sans-serif;
     font-size: 14px; font-weight: 800; letter-spacing: 1px; margin: 0; color: #fff; opacity: .65; }
   #htMap { width: 100%; max-width: 360px; height: 40vh; max-height: 420px; display: block;
@@ -168,7 +168,7 @@
   <button class="choice" id="btnB"><span class="big">B</span><span class="lbl">ROUTE</span></button>
 
   <div class="overlay" id="howto">
-    <div class="howBrand">Smartest <span class="sgood">Delivery Route</span></div>
+    <div class="howBrand">Smartest Delivery Route</div>
     <canvas id="htMap"></canvas>
     <div id="htChoose">
       <div class="htBtn" id="htBtnA">A<small>ROUTE</small></div>
@@ -183,12 +183,13 @@
   </div>
 
   <div class="overlay hidden" id="over">
-    <h1 class="delivered">Order <span class="sgood">Delivered</span></h1>
+    <h1 class="delivered">Order Delivered</h1>
     <div id="stars"></div>
     <div id="newbest">🏆 NEW BEST!</div>
     <div id="overStats"></div>
     <div class="overbtns">
       <button class="btn" id="againBtn">Play again</button>
+      <button class="btn ghost" id="townBtn">Back To Town</button>
     </div>
   </div>
 
@@ -1254,7 +1255,6 @@ function frame(ts){
       for (const r of [routeA, routeB]) drawBadge(r, reveal && !r.correct);
     }
     drawStartEnd(t);
-    drawTimerRing();
     ctx.restore();
   }
 
