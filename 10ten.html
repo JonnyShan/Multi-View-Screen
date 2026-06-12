@@ -253,6 +253,17 @@
   .overlay.show { opacity: 1; visibility: visible; }
 
   .card { text-align: center; padding: 26px 22px; width: 100%; max-width: 420px; margin: 0 auto; position: relative; z-index: 2; }
+
+  /* Uber Eats rider, pinned bottom-left of start + end screens */
+  .rider {
+    position: absolute;
+    left: 8px; bottom: 8px;
+    width: clamp(92px, 24vw, 150px);
+    height: auto;
+    z-index: 1;
+    pointer-events: none;
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.35));
+  }
   .card h2 { margin: 6px 0 6px; font-size: 30px; font-weight: 900; color: #fff; }
   .card h2.green { color: var(--green); }
   .card h2.danger { color: var(--danger); }
@@ -438,7 +449,7 @@
         <div class="combo-flash" id="combo"></div>
 
         <!-- win / game-over overlay (content built in JS) -->
-        <div class="overlay" id="overlay"><div class="card" id="ov-card"></div></div>
+        <div class="overlay" id="overlay"><div class="card" id="ov-card"></div><img class="rider" src="assets/uber/rider.png" alt="" /></div>
 
         <!-- tutorial overlay -->
         <div class="overlay" id="tutorial">
@@ -457,6 +468,7 @@
             </div>
             <div class="btn-row"><button class="btn" id="tut-got">Play ▶</button></div>
           </div>
+          <img class="rider" src="assets/uber/rider.png" alt="" />
         </div>
       </div>
     </div>
