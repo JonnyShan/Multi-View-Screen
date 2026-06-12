@@ -487,7 +487,7 @@ const CONFIG = {
   boardSize: 4,           // grid is N x N
   target: 6,              // level that wins (Uber Delivery Box)
   startTiles: 2,
-  spawn: [ { value: 1, weight: 85 }, { value: 2, weight: 15 } ], // mostly Sandwich, sometimes Coffee
+  spawn: [ { value: 1, weight: 85 }, { value: 2, weight: 15 } ], // mostly Flowers, sometimes Coffee
   maxScore: 150,          // best possible score (also clamps a stored best)
   // efficiency tiers: win within `maxSwipes` -> that score. Fewer swipes = higher. Edit freely.
   scoreTiers: [
@@ -506,15 +506,15 @@ const CONFIG = {
   storageKey: "ubereats.merge.v1",
   tutorialKey: "ubereats.merge.tut",
   // image path per level — drop your renders into assets/uber/<level>.png
-  itemImg: (v) => `assets/uber/${v}.png?v=5`,
+  itemImg: (v) => `assets/uber/${v}.png?v=6`,
   numbersInImage: false,  // images have NO baked numbers — the game draws them (uniform size)
   // name + emoji fallback (shown until the PNG exists)
   items: {
-    1: { name: "Sandwich",      emoji: "🥪" },
+    1: { name: "Flowers",       emoji: "💐" },
     2: { name: "Coffee",        emoji: "☕" },
     3: { name: "Noodles",       emoji: "🍜" },
     4: { name: "Smoothie",      emoji: "🥤" },
-    5: { name: "Groceries",     emoji: "🛒" },
+    5: { name: "Green Bag",     emoji: "🛍️" },
     6: { name: "Uber Eats Bag", emoji: "🛍️" }
   }
 };
