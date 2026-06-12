@@ -1000,7 +1000,6 @@ function spawnConfetti() {
 // A real auto-playing game on the tutorial grid: starts with two burgers,
 // each swipe slides + merges the whole board, then a fresh burger spawns
 // in an empty cell — exactly like real play. Loops on win or when stuck.
-const DEMO_CAP = "Match two of the same to level up — a new item drops in every move";
 let demoTimers = [], demoBuilt = false;
 let dBoard, dTiles, dNextId, dMoves;
 function buildDemoGrid() {
@@ -1042,7 +1041,7 @@ function dReset() {
   el.demoTiles.innerHTML = "";
   dBoard = Array.from({ length: N }, () => Array(N).fill(0));
   dTiles = {}; dNextId = 1; dMoves = 0;
-  el.demoEq.textContent = DEMO_CAP;
+  el.demoEq.textContent = "";
   el.demoHand.style.opacity = "0";
   dPlace(1, 1, 0, true);   // start with two burgers, a gap apart so the slide reads clearly
   dPlace(1, 1, 2, true);
