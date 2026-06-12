@@ -477,7 +477,7 @@ const CONFIG = {
   boardSize: 4,           // grid is N x N
   target: 6,              // level that wins (Uber Delivery Box)
   startTiles: 2,
-  spawn: [ { value: 1, weight: 85 }, { value: 2, weight: 15 } ], // mostly Fries, sometimes Burger
+  spawn: [ { value: 1, weight: 85 }, { value: 2, weight: 15 } ], // mostly Flowers, sometimes Coffee
   maxScore: 150,          // best possible score (also clamps a stored best)
   // efficiency tiers: win within `maxSwipes` -> that score. Fewer swipes = higher. Edit freely.
   scoreTiers: [
@@ -496,11 +496,11 @@ const CONFIG = {
   storageKey: "ubereats.merge.v1",
   tutorialKey: "ubereats.merge.tut",
   // image path per level — drop your renders into assets/uber/<level>.png
-  itemImg: (v) => `assets/uber/${v}.png?v=2`,
+  itemImg: (v) => `assets/uber/${v}.png?v=3`,
   numbersInImage: false,  // images have NO baked numbers — the game draws them (uniform size)
   // name + emoji fallback (shown until the PNG exists)
   items: {
-    1: { name: "Burger",        emoji: "🍔" },
+    1: { name: "Flowers",       emoji: "💐" },
     2: { name: "Coffee",        emoji: "☕" },
     3: { name: "Noodles",       emoji: "🍜" },
     4: { name: "Smoothie",      emoji: "🥤" },
@@ -1000,7 +1000,7 @@ function spawnConfetti() {
 // A real auto-playing game on the tutorial grid: starts with two burgers,
 // each swipe slides + merges the whole board, then a fresh burger spawns
 // in an empty cell — exactly like real play. Loops on win or when stuck.
-const DEMO_CAP = "Match two of the same to level up — a new burger drops in every move";
+const DEMO_CAP = "Match two of the same to level up — a new item drops in every move";
 let demoTimers = [], demoBuilt = false;
 let dBoard, dTiles, dNextId, dMoves;
 function buildDemoGrid() {
