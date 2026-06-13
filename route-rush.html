@@ -14,14 +14,17 @@
   @font-face { font-family: 'Uber Move'; src: url('UberMoveMedium.otf') format('opentype'); font-weight: 400 600; font-style: normal; font-display: swap; }
   @font-face { font-family: 'Uber Move'; src: url('UberMoveBold.otf') format('opentype'); font-weight: 700 900; font-style: normal; font-display: swap; }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #377E22;
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000;
     overscroll-behavior: none; touch-action: none; position: fixed; inset: 0;
     font-family: 'Uber Move', 'Uber Move Text', 'Inter', -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color: #fff; }
-  #game { position: fixed; inset: 0; display: block; touch-action: none; }
+  /* one centered game column; black letterbox lives on body */
+  .app { position: fixed; inset: 0; width: 100%; max-width: 480px; margin: 0 auto;
+    background: #377E22; overflow: hidden; box-shadow: 0 0 40px rgba(0,0,0,.45); }
+  #game { position: absolute; inset: 0; display: block; touch-action: none; }
 
   /* ---- HUD (top bar) ---- */
   #hud {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    position: absolute; top: 0; left: 0; right: 0; z-index: 10;
     display: flex; align-items: center; justify-content: space-between;
     padding: calc(10px + env(safe-area-inset-top)) 14px 6px; gap: 10px; pointer-events: none;
     text-shadow: 0 2px 8px rgba(0,0,0,.7);
@@ -41,7 +44,7 @@
 
   /* ---- timer bar ---- */
   #timerwrap {
-    position: fixed; top: calc(84px + env(safe-area-inset-top)); left: 14px; right: 14px; height: 7px; z-index: 10;
+    position: absolute; top: calc(84px + env(safe-area-inset-top)); left: 14px; right: 14px; height: 7px; z-index: 10;
     background: rgba(255,255,255,.10); border-radius: 99px; overflow: hidden; pointer-events: none;
   }
   #timerfill { height: 100%; width: 100%; border-radius: 99px;
@@ -49,7 +52,7 @@
 
   /* ---- prompt ---- */
   #prompt {
-    position: fixed; top: calc(98px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 10;
+    position: absolute; top: calc(98px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 10;
     font-size: clamp(16px, 4.8vw, 24px); font-weight: 900; letter-spacing: 1.5px;
     text-shadow: 0 2px 8px rgba(0,0,0,.8); pointer-events: none; opacity: 0; transition: opacity .2s;
     white-space: nowrap; text-align: center;
@@ -59,7 +62,7 @@
   /* hide the playfield HUD while a full-screen overlay (start / game over) is up */
   body:not(.playing) #hud, body:not(.playing) #timerwrap, body:not(.playing) #prompt { display: none !important; }
   /* GET READY countdown */
-  #countdown { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center;
+  #countdown { position: absolute; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center;
     pointer-events: none; font-weight: 900; font-size: clamp(90px, 30vw, 220px); color: #fff;
     text-shadow: 0 8px 40px rgba(0,0,0,.7); }
   #countdown.show { display: flex; animation: cpop .5s ease; }
@@ -67,7 +70,7 @@
 
   /* ---- choice buttons ---- */
   .choice {
-    position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 10;
+    position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 10;
     width: calc(50% - 22px);                 /* wide thumb targets; ~16px centre gap (timer ring removed) */
     height: clamp(41px, 6vh, 59px); border-radius: 13px;
     border: 3px solid; background: rgba(12,16,24,.82);   /* solid-ish; no backdrop blur (mobile perf) */
@@ -85,7 +88,7 @@
 
   /* ---- overlays ---- */
   .overlay {
-    position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column;
+    position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 16px; text-align: center; padding: 28px;
     background: radial-gradient(110% 90% at 50% 18%, #3f8a27, #2e6a1c);
     pointer-events: auto;
@@ -153,6 +156,7 @@
 </style>
 </head>
 <body>
+  <div class="app">
   <canvas id="game"></canvas>
 
   <div id="hud">
@@ -198,6 +202,7 @@
   </div>
 
   <div id="countdown"></div>
+  </div><!-- .app -->
 
 <script>
 "use strict";
@@ -220,9 +225,9 @@ const PAD = 14; let HUD_TOP = 138;                 // px reserved for HUD at top
 const DRAW_MS = 420;                               // route draw-in animation
 const REVEAL_OK = 950, REVEAL_BAD = 1350;          // reveal hold (car drives the route)
 const INSET = 2;                                   // start/end inset from grid edges
-function diffTier(r){ return Math.floor((r - 1) / 4); }                     // difficulty step: +1 every 4 rounds
-function roundTime(r){ return Math.max(1500, Math.round(4500 * Math.pow(0.8, diffTier(r)))); } // -20% decision time each step
-function roundMargin(r){ return Math.max(1, 2 - diffTier(r)); }             // routes get closer in length each step
+function diffTier(r){ return Math.floor((r - 1) / 3); }                     // difficulty step: +1 every 3 rounds
+function roundTime(r){ return Math.max(600, Math.round(4500 * Math.pow(0.7, diffTier(r)))); } // -30% decision time each step
+function roundMargin(r){ return Math.max(1, 3 - diffTier(r)); }             // routes get closer in length each step
 
 // ---- palette ----
 const COL = {
@@ -333,7 +338,7 @@ function computeCell(){
   ISOY = HUD_TOP + Math.min(8, (availH - gridH) / 2);   // top-align (no big dead space above)
 }
 function resize(){
-  cssW = window.innerWidth; cssH = window.innerHeight;
+  cssW = Math.min(window.innerWidth, 480); cssH = window.innerHeight;
   dpr = Math.min(window.devicePixelRatio || 1, 2);
   for (const c of [canvas, off]) { c.width = cssW * dpr; c.height = cssH * dpr; }
   canvas.style.width = off.style.width = cssW + 'px';
@@ -1344,17 +1349,16 @@ function resolve(kind){
   if (kind !== 'timeout'){ stats.picks++; stats.rtSum += (timeMax - timeLeft); }
   if (good) stats.correct++;
   if (good){
-    const speedFrac = Math.max(0, timeLeft / timeMax);   // 1 = instant, 0 = last moment
-    const timeBonus = Math.round(4 * speedFrac);          // up to +4 for a quick pick
-    const mult = Math.min(1.5, 1 + 0.1 * streak);         // streak multiplier, caps at x1.5
-    const gain = Math.round((8 + timeBonus) * mult);      // +8 correct + time bonus, x streak
-    const add = gain;                                     // endless: no score cap
-    score += add; streak++;
+    // score tracks rounds survived: round 20 = 150 (max). ~7.5 pts/round, hard-capped.
+    const prev = score;
+    score = Math.min(150, Math.round(round * 7.5));
+    const add = score - prev;
+    streak++;
     if (streak > bestStreak){ bestStreak = streak; localStorage.setItem('routerush_beststreak', bestStreak); }
     lastResult = 'ok'; revealT = REVEAL_OK;
     flash = { color: 'rgba(1,145,71,A)', a: 0.28 };
     sOK(); buzz(15); if (!reduceMotion) spawnParticles();
-    addPopup('+' + add + (mult > 1.01 ? ' ×' + mult.toFixed(1) : ''), COL.good, 34);
+    addPopup(add > 0 ? '+' + add : 'MAX', COL.good, 34);
     if (score > best){ best = score; localStorage.setItem('routerush_best', best); }
   } else {
     streak = 0;                                           // wrong/slow resets the streak...
