@@ -60,25 +60,29 @@
 
   body {
     min-height: 100dvh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 18px 16px;
+    overflow: hidden;
     font-family: var(--font);
     color: var(--text);
-    background:
-      radial-gradient(120% 80% at 50% -10%, rgba(255, 255, 255, 0.07), transparent 52%),
-      var(--bg-500);
+    background: #000;                 /* letterbox: black sides on desktop */
     user-select: none;
     -webkit-user-select: none;
   }
 
+  /* mobile-width column, centered on black; never expands to desktop width */
   .app {
+    position: fixed;
+    inset: 0;
     width: 100%;
-    max-width: 460px;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 18px 16px;
     display: flex;
     flex-direction: column;
     gap: 16px;
+    overflow: hidden;
+    background:
+      radial-gradient(120% 80% at 50% -10%, rgba(255, 255, 255, 0.07), transparent 52%),
+      var(--bg-500);
   }
 
   /* ---------- header ---------- */
@@ -251,6 +255,12 @@
     z-index: 50; overflow: hidden;
   }
   .overlay.show { opacity: 1; visibility: visible; }
+  /* keep full-screen overlays inside the mobile column (black letterbox on desktop) */
+  #tutorial, #overlay {
+    left: 50%; right: auto;
+    width: 100%; max-width: 480px;
+    transform: translateX(-50%);
+  }
 
   .card { text-align: center; padding: 26px 22px; width: 100%; max-width: 420px; margin: 0 auto; position: relative; z-index: 2; }
 
