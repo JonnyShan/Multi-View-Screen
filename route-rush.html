@@ -113,12 +113,18 @@
   .overlay .btn2 { background: linear-gradient(90deg,#ff3d9a,#ff85bf); color: #fff; box-shadow: 0 8px 30px rgba(255,61,154,.5); }
   .btn2sm { margin-top: 12px; background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.22);
     border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
-  #over h1.delivered { color: #000; }
+  #over h1.delivered { color: #000; font-size: clamp(27px, 7.2vw, 48px); }
   #stars { font-size: 46px; letter-spacing: 10px; line-height: 1; margin: 2px 0 6px; padding-left: 10px; }
   #stars .on { color: #000; text-shadow: none; }
   #stars .off { color: rgba(0,0,0,.22); }
-  #overStats { font-size: 20px; line-height: 1.7; color: #000; }
-  #overStats .v { font-weight: 900; font-size: 30px; }
+  #overStats { color: #000; width: 100%; max-width: 340px; }
+  .statbox { display: flex; background: #E3ECE0; border-radius: 16px; padding: 12px 4px; width: 100%;
+    box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+  .statbox .stat { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px; }
+  .statbox .stat + .stat { border-left: 1px solid rgba(0,0,0,.12); }
+  .statbox .sl { font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: #5c685c; }
+  .statbox .sv { font-size: 30px; font-weight: 900; line-height: 1; color: #0c120c; }
+  .substat { margin-top: 10px; font-size: 14px; opacity: .8; }
   #newbest { color: #ffd24a; font-weight: 900; font-size: 18px; letter-spacing: 1px;
     opacity: 0; height: 0; transition: opacity .3s; }
   #newbest.show { opacity: 1; height: auto; animation: pulse 1s ease-in-out infinite; }
@@ -191,7 +197,7 @@
   </div>
 
   <div class="overlay hidden" id="over">
-    <h1 class="delivered">Order Delivered</h1>
+    <h1 class="delivered">Order's Delivered</h1>
     <div id="stars"></div>
     <div id="newbest">🏆 NEW BEST!</div>
     <div id="overStats"></div>
@@ -1393,12 +1399,12 @@ function gameOver(){
   let stars = ''; for (let i = 0; i < 3; i++) stars += '<span class="' + (i < nStars ? 'on' : 'off') + '">★</span>';
   document.getElementById('stars').innerHTML = stars;
   document.getElementById('overStats').innerHTML =
-    'Score <span class="v">' + score + '</span><br>' +
-    'Delivered <span class="v">' + stats.correct + '</span> orders<br>' +
-    '<span style="opacity:.75;font-size:15px;line-height:1.9;display:inline-block;margin-top:6px">' +
-      'Best ' + best + ' &middot; Best streak ' + bestStreak + '<br>' +
-      'Accuracy ' + acc + '% &middot; Avg ' + avgRt +
-    '</span>';
+    '<div class="statbox">' +
+      '<div class="stat"><span class="sl">SCORE</span><span class="sv">' + score + '</span></div>' +
+      '<div class="stat"><span class="sl">ORDERS</span><span class="sv">' + stats.correct + '</span></div>' +
+      '<div class="stat"><span class="sl">ACCURACY</span><span class="sv">' + acc + '%</span></div>' +
+    '</div>' +
+    '<div class="substat">Best ' + best + ' &middot; Best streak ' + bestStreak + ' &middot; Avg ' + avgRt + '</div>';
   document.getElementById('over').classList.remove('hidden');
 }
 
