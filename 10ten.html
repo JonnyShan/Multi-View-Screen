@@ -94,13 +94,15 @@
 
   .scorebox {
     display: flex;
-    background: var(--pill);
-    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.85);   /* light grey pill (match Stack The Bag) */
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 16px;
     overflow: hidden;
   }
   .scorebox .seg { padding: 10px 22px 11px; text-align: center; min-width: 76px; }
-  .scorebox .seg + .seg { border-left: 1px solid var(--line); }
+  .scorebox .seg + .seg { border-left: 1px solid rgba(0, 0, 0, 0.1); }
+  .scorebox .seg .label { color: rgba(0, 0, 0, 0.45); }   /* grey labels on the light pill */
+  .scorebox .seg .value { color: #0b1a10; }                /* dark numbers (were white) */
   .seg .label {
     font-size: 11px; font-weight: 800; letter-spacing: 1.5px;
     color: var(--green); text-transform: uppercase;
