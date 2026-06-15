@@ -548,7 +548,6 @@ const CONFIG = {
     { maxSwipes: Infinity, score: 20 }
   ],
   animMs: 130,
-  autoRestartMs: 4000,    // after finishing, auto-start a fresh game this many ms later
   swipeThreshold: 22,
   maxUndo: 50,
   storageKey: "ubereats.merge.v1",
@@ -990,8 +989,6 @@ function move(dir) {
 /* ============================================================
    OVERLAY (win / game over) + confetti
    ============================================================ */
-let autoRestartTimer = null;
-
 function miniScores() {
   return `<div class="mini-scores">
     <div class="seg"><div class="label">Score</div><div class="value">${state.score}</div></div>
@@ -1034,13 +1031,8 @@ function showOverlay(kind) {
     });
   });
   el.overlay.classList.add("show");
-  // auto-start a fresh game shortly after finishing — the finished board is gone for good
-  clearTimeout(autoRestartTimer);
-  autoRestartTimer = setTimeout(() => { autoRestartTimer = null; newGame(); }, CONFIG.autoRestartMs);
 }
 function hideOverlay() {
-  clearTimeout(autoRestartTimer);
-  autoRestartTimer = null;
   el.overlay.classList.remove("show");
   el.overlay.querySelectorAll(".confetti").forEach(c => c.remove());
 }
