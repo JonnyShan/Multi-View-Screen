@@ -287,24 +287,22 @@
     O:  { sprite: "ubereats",  cells: [[1,1],[1,1]] },        // green Uber Eats bag
     L:  { sprite: "banana",    cells: [[1,1],[1,0],[1,0]] },  // combo meal (corner top)
     S:  { sprite: "eggs",      cells: [[1,0],[1,1],[0,1]] },  // eggs + milk
-    T:  { sprite: "groceries", cells: [[1,1,1],[0,1,0]] },    // takeout
-    BN: { sprite: "nana",      cells: [[1,0],[1,0],[1,1]] },  // banana
-    AV: { sprite: "produce",   cells: [[1,1,1],[0,1,0]] },    // fresh produce (T)
-    TR: { sprite: "toilet",    cells: [[1]] },                // toilet roll (1 cell)
-    SH: { sprite: "shampoo",   cells: [[1],[1]] },            // shampoo (1 wide x 2 tall)
+    T:  { sprite: "groceries", cells: [[1,1,1],[0,1,0]] },    // sushi (T)
+    BN: { sprite: "nana",      cells: [[1,0],[1,0],[1,1]] },  // banana (dormant, not in bag)
+    TR: { sprite: "toilet",    cells: [[1]] },                // takeout box (1 cell)
+    SH: { sprite: "shampoo",   cells: [[1],[1]] },            // smoothie (1 wide x 2 tall)
     BB: { sprite: "parcel",    cells: [[1,1,1],[1,1,1]] }     // Uber Parcel (3 wide x 2 tall, 6 cells, once per game)
   };
-  const KEYS = ["I", "O", "L", "S", "T", "AV", "TR", "SH"];  // common shuffle bag (BN banana + BB parcel removed for now)
+  const KEYS = ["I", "O", "L", "S", "T", "TR", "SH"];  // shuffle bag (7 pieces; AV/BN/BB not in bag)
   const SPRITE_SRC = {
-    sub: "assets/sub.png?v=10",
-    ubereats: "assets/ubereats.png?v=13",
-    banana: "assets/banana.png?v=9",
-    eggs: "assets/eggs.png?v=9",
-    groceries: "assets/groceries.png?v=9",
+    sub: "assets/sub.png?v=11",
+    ubereats: "assets/ubereats.png?v=14",
+    banana: "assets/banana.png?v=10",
+    eggs: "assets/eggs.png?v=10",
+    groceries: "assets/groceries.png?v=10",
     nana: "assets/nana.png",
-    produce: "assets/produce.png?v=9",
-    toilet: "assets/toilet.png?v=9",
-    shampoo: "assets/shampoo.png?v=9",
+    toilet: "assets/toilet.png?v=10",
+    shampoo: "assets/shampoo.png?v=10",
     parcel: "assets/parcel.png"
   };
   const SPRITES = {}; // key -> { rots: [canvas x4] }  (rots[r] = image rotated r*90° CW)
