@@ -295,14 +295,14 @@
   };
   const KEYS = ["I", "O", "L", "S", "T", "TR", "SH"];  // shuffle bag (7 pieces; AV/BN/BB not in bag)
   const SPRITE_SRC = {
-    sub: "assets/sub.png?v=11",
-    ubereats: "assets/ubereats.png?v=14",
-    banana: "assets/banana.png?v=10",
-    eggs: "assets/eggs.png?v=10",
-    groceries: "assets/groceries.png?v=10",
+    sub: "assets/sub.png?v=12",
+    ubereats: "assets/ubereats.png?v=15",
+    banana: "assets/banana.png?v=11",
+    eggs: "assets/eggs.png?v=11",
+    groceries: "assets/groceries.png?v=11",
     nana: "assets/nana.png",
-    toilet: "assets/toilet.png?v=10",
-    shampoo: "assets/shampoo.png?v=10",
+    toilet: "assets/toilet.png?v=11",
+    shampoo: "assets/shampoo.png?v=11",
     parcel: "assets/parcel.png"
   };
   const SPRITES = {}; // key -> { rots: [canvas x4] }  (rots[r] = image rotated r*90° CW)
@@ -571,7 +571,7 @@
 
   // draw a piece as uniform square tiles: art sliced per cell (no bleed into empty cells), each
   // solid cell backed by the food's own colour (no field-green gaps), no handle overhang.
-  const HANDLE_FRAC = { ubereats: 0.136 };   // bag handle overhangs above its 2x2 body
+  const HANDLE_FRAC = { ubereats: 0.02 };   // bag is a self-contained 2x2 (groceries inside); tiny value keeps the whole-draw path (no internal grid lines) without floating it above its cells
   const OUTLINE = u => Math.max(2, u * 0.075);   // outer outline width (internal divisions = 1/3 of this)
   function outlineCells(ctx, cells, ox, oy, unit) {   // thin internal cell divisions, full-weight outer silhouette
     const rows = cells.length, cols = cells[0].length;
