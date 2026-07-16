@@ -781,7 +781,7 @@
   }
   // ---------- Background music (looping mp3) ----------
   const MUSIC_VOL = 0.6;
-  let bgm = null, musicOn = false, musicOff = false;
+  let bgm = null, musicOn = false, musicOff = true;   // music off by default; player opts in via the 🎵 button
   function startMusic() {
     if (musicOn || musicOff) return;
     try {
@@ -981,7 +981,7 @@
 
   // ---------- Init ----------
   try { muted = localStorage.getItem("ptb_muted") === "1"; muteBtn.textContent = muted ? "🔇" : "🔊"; } catch (e) {}
-  try { musicOff = localStorage.getItem("ptb_music_off") === "1"; } catch (e) {}
+  try { const _mo = localStorage.getItem("ptb_music_off"); musicOff = (_mo === null) ? true : (_mo === "1"); } catch (e) { musicOff = true; }
   renderMusicBtn();
   grid = newGrid();
   fit();
