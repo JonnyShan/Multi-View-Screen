@@ -63,9 +63,17 @@
   .zone.left  .name { color: #5a23c8; }
   .zone.right .name { color: #d81f6a; }
 
+  /* answer text (the choice this box represents) */
+  .zone .ans {
+    font-weight: 600; font-size: clamp(12px, 1.3vw, 17px);
+    color: #333; text-align: center; line-height: 1.2;
+    max-width: 90%; margin: 2px 0 4px;
+  }
+  .zone .ans:empty { display: none; }
+
   /* click count */
   .zone .count {
-    font-weight: 900; font-size: clamp(28px, 4vw, 56px);
+    font-weight: 900; font-size: clamp(24px, 3.4vw, 48px);
     line-height: 1; color: #111;
   }
 
@@ -194,13 +202,15 @@
 
     <div class="zone left"  id="zoneL">
       <div class="panel">
-        <div class="name">Tropzilla</div>
+        <div class="name" id="nameL">Tropzilla</div>
+        <div class="ans" id="ansL"></div>
         <div class="count" id="countL">0</div>
       </div>
     </div>
     <div class="zone right" id="zoneR">
       <div class="panel">
-        <div class="name">Legend</div>
+        <div class="name" id="nameR">Legend</div>
+        <div class="ans" id="ansR"></div>
         <div class="count" id="countR">0</div>
       </div>
     </div>
@@ -214,6 +224,7 @@
   </div>
 
   <div id="winner">
+    <img id="winImg" style="display:none;max-width:min(420px,70vw);max-height:50vh;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.6);" />
     <h1 id="winnerText">Winner!</h1>
     <div class="totals" id="winTotals"></div>
     <button class="btn" id="winRestart">↺ Play again</button>
@@ -227,26 +238,21 @@
 </div>
 
 <script>
-// ---- Video sources (local, faststart + compressed, served by GitHub Pages CDN) ----
-const SRC = {
-  v1:  "videos/v1.mp4",
-  v11: "videos/v11.mp4",
-  v12: "videos/v12.mp4",
-  v2:  "videos/v2.mp4",
-  v21: "videos/v21.mp4",
-  v22: "videos/v22.mp4",
-  v3:  "videos/v3.mp4"
-};
-
-// Stages: each = background video + the clip each box plays.
-// Clicking a box plays its clip, then the NEXT stage's background loads.
-// Add more stages here for videos 3-5.
-const STAGES = [
-  { main: SRC.v1, left: SRC.v11, right: SRC.v12 },
-  { main: SRC.v2, left: SRC.v21, right: SRC.v22 },
-  { main: SRC.v3 } // Video 3: no options yet — boxes stay hidden after it plays
-];
-let stage = 0;
+// ---- Story tree (loaded from story.json — edit that file to change the storyline) ----
+let story = null;      // parsed story.json
+let nodeId = null;     // current node id
+let pendingNext = null;// node to load after the current clip ends
+let path = [];         // main path of node ids, for the progress dots
+function node() { return story.nodes[nodeId]; }
+function buildPath() {
+  path = []; let id = story.start, guard = 0;
+  while (id && guard++ < 50) {
+    path.push(id);
+    const n = story.nodes[id];
+    if (!n || n.final || !n.answers) break;
+    id = (n.answers.L && n.answers.L.next) || (n.answers.R && n.answers.R.next) || null;
+  }
+}
 
 const vMain = document.getElementById('vMain');
 const vClip = document.getElementById('vClip');
@@ -297,11 +303,17 @@ function preload(url) {
   v.load();
   preloaded.set(url, v);
 }
-function preloadStage(i) {
-  const s = STAGES[i];
-  if (!s) return;
-  preload(s.main); preload(s.left); preload(s.right);
+// warm a node's clips + the following node's background
+function preloadNode(id) {
+  const n = story.nodes[id];
+  if (!n) return;
+  preload(n.video);
+  if (n.answers) {
+    if (n.answers.L) { preload(n.answers.L.clip); preloadVideoOf(n.answers.L.next); }
+    if (n.answers.R) { preload(n.answers.R.clip); preloadVideoOf(n.answers.R.next); }
+  }
 }
+function preloadVideoOf(id) { const n = id && story.nodes[id]; if (n) preload(n.video); }
 
 const muteBtn = document.getElementById('muteBtn');
 function applyMute() {
@@ -334,28 +346,35 @@ function showBoxes(on) {
   zoneR.classList.toggle('gone', !on);
 }
 
-// load a background video and show it (plays once, no loop)
-function setBg(url) {
+// does a node offer a choice (boxes) or is it terminal?
+function nodeHasChoice(n) { return !!(n && n.answers && n.answers.L && n.answers.R && !n.final); }
+
+// load a node: its background video + wire its two choices into the boxes
+function loadNode(id) {
+  nodeId = id;
+  const n = node();
   captureHold();        // freeze current frame so the swap isn't black
   renderDots();
-  vMain.src = url;
+  if (n.answers) {
+    els.L.name.textContent = story.sides.L.name;
+    els.R.name.textContent = story.sides.R.name;
+    els.L.ans.textContent = n.answers.L ? '“' + n.answers.L.text + '”' : '';
+    els.R.ans.textContent = n.answers.R ? '“' + n.answers.R.text + '”' : '';
+  }
+  showBoxes(nodeHasChoice(n)); // boxes hidden on terminal/final nodes
+  setChoosing(false);          // visible but not clickable until the video ends
+  vMain.src = n.video;
   vMain.loop = false;
   vMain.muted = muted;
-  const hasOpts = !!(STAGES[stage].left && STAGES[stage].right);
-  showBoxes(hasOpts);   // boxes stay up every stage except the final video
-  setChoosing(false);   // visible but not clickable until the video ends
   showMain();
-  // warm the choices for this stage + the next stage's background
-  preload(STAGES[stage].left);
-  preload(STAGES[stage].right);
-  preloadStage(stage + 1);
+  preloadNode(id);
 }
 
-// background video finished → choose, or (on the final video) show the winner
+// background video finished → choose, or (on a terminal node) show the winner
 vMain.addEventListener('ended', () => {
   if (clipPlaying) return;
   captureHold(); // hold the final frame instead of going black
-  if (STAGES[stage].left && STAGES[stage].right) setChoosing(true);
+  if (nodeHasChoice(node())) setChoosing(true);
   else showWinner();
 });
 
@@ -375,8 +394,8 @@ function playClip(url, name) {
 }
 vClip.addEventListener('ended', () => {
   clipPlaying = false;
-  if (stage < STAGES.length - 1) stage++;   // advance to next video
-  setBg(STAGES[stage].main);
+  if (pendingNext && story.nodes[pendingNext]) loadNode(pendingNext); // follow the chosen branch
+  else showWinner();                                                  // no next → end
 });
 
 function flashBadge(text) {
@@ -392,8 +411,8 @@ const lockUntil = { L: 0, R: 0 };
 const zoneL = document.getElementById('zoneL');
 const zoneR = document.getElementById('zoneR');
 const els = {
-  L: { zone: zoneL, count: document.getElementById('countL') },
-  R: { zone: zoneR, count: document.getElementById('countR') }
+  L: { zone: zoneL, count: document.getElementById('countL'), name: document.getElementById('nameL'), ans: document.getElementById('ansL') },
+  R: { zone: zoneR, count: document.getElementById('countR'), name: document.getElementById('nameR'), ans: document.getElementById('ansR') }
 };
 
 function handleZone(side) {
@@ -402,14 +421,15 @@ function handleZone(side) {
   if (clipPlaying) return;             // one click per video — no clicking mid-clip
   if (now < lockUntil[side]) return;   // still cooling down
 
-  const url = side === 'L' ? STAGES[stage].left : STAGES[stage].right;
-  const name = 'Video ' + (stage + 1) + '.' + (side === 'L' ? 1 : 2);
+  const ans = node().answers[side];
+  if (!ans) return;
+  pendingNext = ans.next;              // where this choice leads
   counts[side]++;
   els[side].count.textContent = counts[side];
   popCount(side);
   ding();
   saveCounts();
-  playClip(url, name);
+  playClip(ans.clip, 'Video ' + (ans.clipLabel || ''));
   startCooldown(side);
 }
 
@@ -432,26 +452,36 @@ function saveCounts() {
 // ---- Progress dots ----
 const dots = document.getElementById('dots');
 function renderDots() {
+  if (!story) return;
   dots.innerHTML = '';
+  const idx = Math.max(0, path.indexOf(nodeId));
   const label = document.createElement('span');
   label.className = 'label';
-  label.textContent = 'Round ' + (stage + 1) + ' / ' + STAGES.length;
+  label.textContent = 'Round ' + (idx + 1) + ' / ' + path.length;
   dots.appendChild(label);
-  STAGES.forEach((s, i) => {
+  path.forEach((id, i) => {
     const d = document.createElement('span');
-    d.className = 'dot' + (i === stage ? ' on' : '') + (i < stage ? ' done' : '');
+    d.className = 'dot' + (i === idx ? ' on' : '') + (i < idx ? ' done' : '');
     dots.appendChild(d);
   });
 }
 
 // ---- Winner screen ----
 const winner = document.getElementById('winner');
+const winImg = document.getElementById('winImg');
 function showWinner() {
   const L = counts.L, R = counts.R;
+  const nameL = story.sides.L.name, nameR = story.sides.R.name;
+  const winSide = L > R ? 'L' : R > L ? 'R' : null;
   document.getElementById('winnerText').textContent =
-    L > R ? '🏆 Tropzilla wins!' : R > L ? '🏆 Legend wins!' : "🤝 It's a tie!";
+    winSide === 'L' ? '🏆 ' + nameL + ' wins!' :
+    winSide === 'R' ? '🏆 ' + nameR + ' wins!' : "🤝 It's a tie!";
   document.getElementById('winTotals').innerHTML =
-    '<b class="l">Tropzilla ' + L + '</b> &nbsp;—&nbsp; <b class="r">Legend ' + R + '</b>';
+    '<b class="l">' + nameL + ' ' + L + '</b> &nbsp;—&nbsp; <b class="r">' + nameR + ' ' + R + '</b>';
+  // optional result image from the final node
+  const res = winSide && node() && node().results ? node().results[winSide] : null;
+  if (res && res.image) { winImg.src = res.image; winImg.style.display = 'block'; }
+  else { winImg.style.display = 'none'; }
   winner.style.display = 'flex';
 }
 
@@ -467,8 +497,7 @@ zoneR.addEventListener('click', () => handleZone('R'));
 
 // ---- Restart ----
 function resetGame() {
-  stage = 0;
-  clipPlaying = false;
+  clipPlaying = false; pendingNext = null;
   counts.L = 0; counts.R = 0;
   els.L.count.textContent = '0';
   els.R.count.textContent = '0';
@@ -477,12 +506,12 @@ function resetGame() {
   zoneL.classList.remove('cooldown');
   zoneR.classList.remove('cooldown');
   winner.style.display = 'none';
-  setBg(STAGES[0].main);
+  loadNode(story.start);
 }
 document.getElementById('restartBtn').addEventListener('click', resetGame);
 document.getElementById('winRestart').addEventListener('click', resetGame);
 
-// ---- Background upload ----
+// ---- Background upload (test a video file locally) ----
 document.getElementById('upload').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -491,20 +520,28 @@ document.getElementById('upload').addEventListener('change', e => {
   showMain();
 });
 document.getElementById('useDefault').addEventListener('click', () => {
-  setBg(STAGES[stage].main);
+  if (story) loadNode(nodeId || story.start);
 });
 
 // ---- Start ----
-document.getElementById('startBtn').addEventListener('click', () => {
+document.getElementById('startBtn').addEventListener('click', async () => {
+  await ready;                          // ensure story.json loaded
   document.getElementById('start').remove();
-  stage = 0;
-  preloadStage(0); preloadStage(1); // warm first videos up front
-  setBg(STAGES[0].main); // Start click = user gesture, allows autoplay with sound
+  preloadNode(story.start);
+  loadNode(story.start);                // Start click = gesture → autoplay with sound
 });
 
-// ---- Init ----
-loadCounts();
-renderDots();
+// ---- Init: load the story tree, then wire everything ----
+const ready = (async () => {
+  story = await (await fetch('story.json')).json();
+  buildPath();
+  nodeId = story.start;
+  loadCounts();
+  renderDots();
+})().catch(err => {
+  document.getElementById('start').innerHTML =
+    '<h1>⚠️ Could not load story.json</h1><p>Run via a local server (not file://). ' + err + '</p>';
+});
 </script>
 </body>
 </html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Story Overview — The Great Debate</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #f4f5f9; color: #1a1a2e; padding: 24px; }
+  header { margin-bottom: 20px; }
+  header h1 { font-size: 24px; }
+  header .sub { color: #666; margin-top: 4px; font-size: 14px; }
+  .legend { display: flex; gap: 18px; margin-top: 10px; font-size: 13px; font-weight: 600; }
+  .legend .chip { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .toolbar { margin-top: 12px; display: flex; gap: 10px; }
+  .toolbar a, .toolbar button { font-size: 13px; font-weight: 600; text-decoration: none; padding: 8px 14px; border-radius: 8px; border: 1px solid #ccd; background: #fff; color: #1a1a2e; cursor: pointer; }
+
+  /* horizontal flow of stages */
+  .flow { display: flex; align-items: flex-start; gap: 8px; overflow-x: auto; padding-bottom: 20px; }
+  .stage { display: flex; align-items: center; gap: 8px; }
+  .arrow { font-size: 30px; color: #b3b7c8; flex: 0 0 auto; }
+
+  .card { background: #fff; border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,.08); overflow: hidden; width: 260px; flex: 0 0 auto; }
+  .card video { width: 100%; display: block; background: #000; aspect-ratio: 16/9; object-fit: cover; }
+  .card .body { padding: 10px 12px; }
+  .label { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .5px; color: #fff; background: #1a1a2e; padding: 2px 8px; border-radius: 999px; margin-bottom: 6px; }
+  .card .title { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: .5px; }
+  .card .q { font-weight: 700; font-size: 14px; margin-top: 2px; }
+
+  /* branch pair (the two answers) */
+  .branches { display: flex; flex-direction: column; gap: 10px; flex: 0 0 auto; }
+  .branch { width: 250px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,.08); background: #fff; border-left: 5px solid #999; }
+  .branch.L { border-left-color: var(--l); }
+  .branch.R { border-left-color: var(--r); }
+  .branch video { width: 100%; display: block; background: #000; aspect-ratio: 16/9; object-fit: cover; }
+  .branch .body { padding: 8px 11px; }
+  .branch .side { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; }
+  .branch.L .side { color: var(--l); }
+  .branch.R .side { color: var(--r); }
+  .branch .clip { font-size: 10px; font-weight: 800; color: #fff; background: #444; padding: 1px 7px; border-radius: 999px; float: right; }
+  .branch .text { font-weight: 700; font-size: 13px; margin: 3px 0; }
+  .branch .note { font-size: 11px; color: #777; line-height: 1.35; }
+  .branch .to { font-size: 10px; color: #aaa; margin-top: 5px; }
+
+  .results { display: flex; flex-direction: column; gap: 10px; }
+  .result { width: 250px; background: #fff; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.08); padding: 10px 12px; border-left: 5px solid #999; }
+  .result.L { border-left-color: var(--l); }
+  .result.R { border-left-color: var(--r); }
+  .result .side { font-size: 11px; font-weight: 800; text-transform: uppercase; }
+  .result.L .side { color: var(--l); } .result.R .side { color: var(--r); }
+  .result .text { font-weight: 700; font-size: 13px; margin-top: 3px; }
+  .result img { width: 100%; border-radius: 8px; margin-top: 8px; }
+  .hint { color: #999; font-size: 11px; margin-top: 6px; font-style: italic; }
+  #err { color: #b00; font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="storyTitle">Story Overview</h1>
+  <div class="sub">Each video plays, the player picks a side, and that choice triggers the next video. To change anything, tell Claude e.g. “regen video 2.2” or “swap the Q2 answers”.</div>
+  <div class="legend" id="legend"></div>
+  <div class="toolbar">
+    <a href="index.html">▶ Play the game</a>
+    <button onclick="document.querySelectorAll('video').forEach(v=>{v.muted=false;v.play()})">🔊 Play all</button>
+    <button onclick="document.querySelectorAll('video').forEach(v=>v.pause())">⏸ Pause all</button>
+  </div>
+</header>
+
+<div id="err"></div>
+<div class="flow" id="flow"></div>
+
+<script>
+function vid(src) { return src ? '<video muted playsinline preload="metadata" controls src="' + src + '#t=0.1"></video>' : ''; }
+
+fetch('story.json').then(r => r.json()).then(story => {
+  document.getElementById('storyTitle').textContent = story.title || 'Story Overview';
+  const L = story.sides.L, R = story.sides.R;
+  document.documentElement.style.setProperty('--l', L.color);
+  document.documentElement.style.setProperty('--r', R.color);
+  document.getElementById('legend').innerHTML =
+    '<span class="chip"><span class="dot" style="background:' + L.color + '"></span>' + L.name + ' (bottom-left)</span>' +
+    '<span class="chip"><span class="dot" style="background:' + R.color + '"></span>' + R.name + ' (bottom-right)</span>';
+
+  // walk the main path
+  const order = []; let id = story.start, guard = 0;
+  while (id && guard++ < 50) {
+    order.push(id); const n = story.nodes[id];
+    if (!n || n.final || !n.answers) break;
+    id = (n.answers.L && n.answers.L.next) || (n.answers.R && n.answers.R.next) || null;
+  }
+
+  const flow = document.getElementById('flow');
+  order.forEach((nid, i) => {
+    const n = story.nodes[nid];
+    const stage = document.createElement('div');
+    stage.className = 'stage';
+
+    let html = '<div class="card"><div>' + vid(n.video) + '</div><div class="body">' +
+      '<span class="label">' + (n.label || nid) + '</span>' +
+      '<div class="title">' + (n.title || '') + '</div>' +
+      (n.question ? '<div class="q">' + n.question + '</div>' : '') +
+      '</div></div>';
+
+    if (n.answers) {
+      html += '<span class="arrow">➜</span><div class="branches">';
+      ['L', 'R'].forEach(side => {
+        const a = n.answers[side]; if (!a) return;
+        html += '<div class="branch ' + side + '">' + vid(a.clip) + '<div class="body">' +
+          (a.clipLabel ? '<span class="clip">' + a.clipLabel + '</span>' : '') +
+          '<div class="side">' + story.sides[side].name + '</div>' +
+          '<div class="text">“' + a.text + '”</div>' +
+          (a.note ? '<div class="note">' + a.note + '</div>' : '') +
+          (a.next ? '<div class="to">→ then plays ' + (story.nodes[a.next] ? (story.nodes[a.next].label || a.next) : a.next) + '</div>' : '') +
+          '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    if (n.final && n.results) {
+      html += '<span class="arrow">➜</span><div class="results">';
+      ['L', 'R'].forEach(side => {
+        const res = n.results[side]; if (!res) return;
+        html += '<div class="result ' + side + '"><div class="side">If ' + story.sides[side].name + ' wins</div>' +
+          '<div class="text">' + (res.text || '') + '</div>' +
+          (res.image ? '<img src="' + res.image + '">' : '<div class="hint">no result image yet — send one to wire it</div>') +
+          '</div>';
+      });
+      html += '</div>';
+    }
+
+    stage.innerHTML = html;
+    flow.appendChild(stage);
+    if (i < order.length - 1) {
+      const a = document.createElement('span'); a.className = 'arrow'; a.textContent = '⟶';
+      flow.appendChild(a);
+    }
+  });
+}).catch(e => { document.getElementById('err').textContent = '⚠️ Could not load story.json (run via a local server, not file://). ' + e; });
+</script>
+</body>
+</html>

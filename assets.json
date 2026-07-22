@@ -1,0 +1,20 @@
+{
+  "_comment": "Consistency lock for Higgsfield generation. Reuse these IDs so every generated video keeps the same characters, background and voices. Filled in when we start generating (no credits spent yet).",
+  "characters": {
+    "tropzilla": { "higgsfield_character_id": "", "reference_images": [], "notes": "Purple godzilla in a suit, left podium." },
+    "legend":    { "higgsfield_character_id": "", "reference_images": [], "notes": "Purple octopus in a pink suit, right podium." }
+  },
+  "background": {
+    "reference_image": "",
+    "notes": "Neon sunset beach debate stage: two podiums, palm trees, crowd with glowsticks, 'THE GREAT DEBATE' logo top-left, 15s timer top-right, CROWD METER bottom."
+  },
+  "voices": {
+    "tropzilla": { "voice_id": "", "source": "current-video-audio" },
+    "legend":    { "voice_id": "", "source": "current-video-audio" },
+    "narrator":  { "voice_id": "", "source": "current-video-audio" }
+  },
+  "start_frames": {
+    "_comment": "Per-clip continuity anchor: image the generated video must start from (usually the previous video's last frame). Storyboard: 'use the first image as the exact starting point'.",
+    "v11": "", "v12": "", "v21": "", "v22": "", "v3": ""
+  }
+}

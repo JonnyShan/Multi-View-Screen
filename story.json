@@ -1,0 +1,41 @@
+{
+  "title": "The Great Debate — Tropzilla vs Legend",
+  "start": "v1",
+  "sides": {
+    "L": { "name": "Tropzilla", "color": "#7b3ff2" },
+    "R": { "name": "Legend",    "color": "#ff2f86" }
+  },
+  "nodes": {
+    "v1": {
+      "label": "Video 1",
+      "title": "The Great Debate",
+      "video": "videos/v1.mp4",
+      "question": "What would you change if you got into power?",
+      "answers": {
+        "L": { "text": "I'd bring back the Moa", "clip": "videos/v11.mp4", "clipLabel": "1.1", "note": "Moa runs on stage, squawks, runs off.", "next": "v2" },
+        "R": { "text": "I'd give everyone their own kiwi!", "clip": "videos/v12.mp4", "clipLabel": "1.2", "note": "Legend grabs kiwis from under his podium, throws them to the crowd: 'You get a kiwi, you get a kiwi!'", "next": "v2" }
+      }
+    },
+    "v2": {
+      "label": "Video 2",
+      "title": "The Great Debate",
+      "video": "videos/v2.mp4",
+      "question": "What's your favourite food?",
+      "answers": {
+        "L": { "text": "I love... squid, hahaha", "clip": "videos/v21.mp4", "clipLabel": "2.1", "note": "Film assistant puts a bib on Tropzilla, delivers squid, he eats, takes bib off. Scene ends as it started.", "next": "v3" },
+        "R": { "text": "My favourite is Fish & Chips, bro", "clip": "videos/v22.mp4", "clipLabel": "2.2", "note": "Legend grabs kiwis and throws them to the crowd: 'You get a kiwi, you get a kiwi!'", "next": "v3" }
+      }
+    },
+    "v3": {
+      "label": "Video 3",
+      "title": "Who you voted for",
+      "video": "videos/v3.mp4",
+      "final": true,
+      "note": "Result screen based on who the player voted for most. Winner celebrates in a NZ accent; voiceover: 'You voted for LEGEND / TROPZILLA — but try both candidates, vote responsibly.'",
+      "results": {
+        "L": { "text": "You gave the trophy to TROPZILLA", "image": "" },
+        "R": { "text": "LEGEND — you voted for LEGEND", "image": "" }
+      }
+    }
+  }
+}
