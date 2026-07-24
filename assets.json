@@ -1,12 +1,22 @@
 {
   "_comment": "Consistency lock for Higgsfield generation. Reuse these IDs so every generated video keeps the same characters, background and voices. Filled in when we start generating (no credits spent yet).",
   "characters": {
-    "tropzilla": { "higgsfield_character_id": "", "reference_images": [], "notes": "Purple godzilla in a suit, left podium." },
-    "legend":    { "higgsfield_character_id": "", "reference_images": [], "notes": "Purple octopus in a pink suit, right podium." }
+    "tropzilla": {
+      "higgsfield_character_id": "a4605fca-21a4-42f4-af61-b7ca838cbf67",
+      "reference_images": ["refs/tropzilla.png"],
+      "prompt_token": "<<<a4605fca-21a4-42f4-af61-b7ca838cbf67>>>",
+      "notes": "Purple godzilla in a dark suit, yellow spinal plates, left podium. Embed prompt_token in generate_image/video prompts to reuse."
+    },
+    "legend": {
+      "higgsfield_character_id": "4a732928-f5c4-4b2a-b7e7-03db92999cab",
+      "reference_images": ["refs/legend.png"],
+      "prompt_token": "<<<4a732928-f5c4-4b2a-b7e7-03db92999cab>>>",
+      "notes": "Purple octopus in a pink/red suit, tentacles, right podium. Embed prompt_token in generate_image/video prompts to reuse."
+    }
   },
   "background": {
-    "reference_image": "",
-    "notes": "Neon sunset beach debate stage: two podiums, palm trees, crowd with glowsticks, 'THE GREAT DEBATE' logo top-left, 15s timer top-right, CROWD METER bottom."
+    "reference_image": "refs/f_3.png",
+    "notes": "Neon sunset beach debate stage: two podiums, palm trees, crowd with glowsticks, 'THE GREAT DEBATE' logo top-left, 15s timer top-right, CROWD METER bottom. For continuity prefer image-to-video from the previous clip's last frame (see start_frames)."
   },
   "voices": {
     "tropzilla": { "voice_id": "", "source": "current-video-audio" },
