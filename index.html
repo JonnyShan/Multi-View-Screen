@@ -230,11 +230,6 @@
     <button class="btn" id="winRestart">Play again</button>
   </div>
 
-  <div id="start">
-    <h1>Interactive Video Game</h1>
-    <p>A video plays, then pick a side. <b>Tropzilla</b> (bottom-left) or <b>Legend</b> (bottom-right). Each pick branches to the next video. Totals are kept.</p>
-    <button class="btn" id="startBtn">Start</button>
-  </div>
 </div>
 
 <script>
@@ -316,11 +311,23 @@ function preloadNode(id) {
 function preloadVideoOf(id) { const n = id && story.nodes[id]; if (n) preload(n.video); }
 
 const muteBtn = document.getElementById('muteBtn');
+// Browsers block un-muted autoplay until the first user gesture. So the very
+// first video plays muted, and audio unlocks the instant the player touches
+// anything (e.g. tapping a candidate box).
+let audioUnlocked = false;
 function applyMute() {
-  vMain.muted = muted;
-  vClip.muted = muted;
+  const eff = muted || !audioUnlocked;
+  vMain.muted = eff;
+  vClip.muted = eff;
   muteBtn.textContent = muted ? 'Muted' : 'Sound';
 }
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  applyMute();
+}
+window.addEventListener('pointerdown', unlockAudio, { passive: true });
+window.addEventListener('keydown', unlockAudio);
 muteBtn.addEventListener('click', () => { muted = !muted; applyMute(); });
 
 function showMain() {
@@ -365,7 +372,7 @@ function loadNode(id) {
   setChoosing(false);          // visible but not clickable until the video ends
   vMain.src = n.video;
   vMain.loop = false;
-  vMain.muted = muted;
+  vMain.muted = muted || !audioUnlocked;
   showMain();
   preloadNode(id);
 }
@@ -384,13 +391,12 @@ function playClip(url, name) {
   captureHold();        // freeze current frame so the swap isn't black
   vClip.src = url;
   vClip.loop = false;
-  vClip.muted = muted;
+  vClip.muted = muted || !audioUnlocked;
   vClip.classList.remove('hidden');
   vMain.classList.add('hidden');
   vMain.pause();
   vClip.currentTime = 0;
   vClip.play().catch(()=>{});
-  flashBadge(name);
 }
 vClip.addEventListener('ended', () => {
   clipPlaying = false;
@@ -525,24 +531,20 @@ document.getElementById('useDefault').addEventListener('click', () => {
   if (story) loadNode(nodeId || story.start);
 });
 
-// ---- Start ----
-document.getElementById('startBtn').addEventListener('click', async () => {
-  await ready;                          // ensure story.json loaded
-  document.getElementById('start').remove();
-  preloadNode(story.start);
-  loadNode(story.start);                // Start click = gesture → autoplay with sound
-});
-
-// ---- Init: load the story tree, then wire everything ----
+// ---- Init: load the story tree, then auto-start seamlessly (no Start screen) ----
 const ready = (async () => {
   story = await (await fetch('story.json')).json();
   buildPath();
   nodeId = story.start;
   loadCounts();
   renderDots();
+  preloadNode(story.start);
+  loadNode(story.start);                // autoplay straight in (muted until first tap)
 })().catch(err => {
-  document.getElementById('start').innerHTML =
-    '<h1>Could not load story.json</h1><p>Run via a local server (not file://). ' + err + '</p>';
+  const m = document.createElement('div');
+  m.style.cssText = 'position:fixed;inset:0;z-index:99;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;text-align:center;padding:24px;';
+  m.innerHTML = '<div><h1>Could not load story.json</h1><p>Run via a local server (not file://). ' + err + '</p></div>';
+  document.body.appendChild(m);
 });
 </script>
 </body>
