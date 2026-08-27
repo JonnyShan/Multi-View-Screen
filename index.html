@@ -188,17 +188,17 @@
   <div id="fg">
     <div id="hud">
       <div style="display:flex;align-items:center;gap:14px;pointer-events:auto;">
-        <button id="restartBtn" style="background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:10px;padding:8px 14px;font-weight:700;font-size:15px;cursor:pointer;">↺ Restart</button>
+        <button id="restartBtn" style="background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:10px;padding:8px 14px;font-weight:700;font-size:15px;cursor:pointer;">Restart</button>
         <div class="title">Interactive Video Game</div>
       </div>
       <div id="dots"></div>
       <div style="display:flex;align-items:center;gap:16px;pointer-events:auto;">
-        <button id="muteBtn" style="background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:10px;padding:8px 14px;font-weight:700;font-size:15px;cursor:pointer;">🔊 Sound</button>
+        <button id="muteBtn" style="background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:10px;padding:8px 14px;font-weight:700;font-size:15px;cursor:pointer;">Sound</button>
       </div>
     </div>
 
     <div id="clipBadge"></div>
-    <div id="prompt">👉 PICK ONE 👈</div>
+    <div id="prompt">PICK ONE</div>
 
     <div class="zone left"  id="zoneL">
       <div class="panel">
@@ -227,11 +227,11 @@
     <img id="winImg" style="display:none;max-width:min(420px,70vw);max-height:50vh;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.6);" />
     <h1 id="winnerText">Winner!</h1>
     <div class="totals" id="winTotals"></div>
-    <button class="btn" id="winRestart">↺ Play again</button>
+    <button class="btn" id="winRestart">Play again</button>
   </div>
 
   <div id="start">
-    <h1>🎮 Interactive Video Game</h1>
+    <h1>Interactive Video Game</h1>
     <p>A video plays, then pick a side. <b>Tropzilla</b> (bottom-left) or <b>Legend</b> (bottom-right). Each pick branches to the next video. Totals are kept.</p>
     <button class="btn" id="startBtn">Start</button>
   </div>
@@ -319,7 +319,7 @@ const muteBtn = document.getElementById('muteBtn');
 function applyMute() {
   vMain.muted = muted;
   vClip.muted = muted;
-  muteBtn.textContent = muted ? '🔇 Muted' : '🔊 Sound';
+  muteBtn.textContent = muted ? 'Muted' : 'Sound';
 }
 muteBtn.addEventListener('click', () => { muted = !muted; applyMute(); });
 
@@ -441,7 +441,9 @@ function popCount(side) {
 // ---- Persist totals across refresh ----
 const STORE = 'ivg_counts';
 function loadCounts() {
-  try { const o = JSON.parse(localStorage.getItem(STORE)); if (o) { counts.L = o.L | 0; counts.R = o.R | 0; } } catch (e) {}
+  // Always start fresh on reload — wipe any previous score.
+  counts.L = 0; counts.R = 0;
+  try { localStorage.removeItem(STORE); } catch (e) {}
   els.L.count.textContent = counts.L;
   els.R.count.textContent = counts.R;
 }
@@ -474,8 +476,8 @@ function showWinner() {
   const nameL = story.sides.L.name, nameR = story.sides.R.name;
   const winSide = L > R ? 'L' : R > L ? 'R' : null;
   document.getElementById('winnerText').textContent =
-    winSide === 'L' ? '🏆 ' + nameL + ' wins!' :
-    winSide === 'R' ? '🏆 ' + nameR + ' wins!' : "🤝 It's a tie!";
+    winSide === 'L' ? nameL + ' wins!' :
+    winSide === 'R' ? nameR + ' wins!' : "It's a tie!";
   document.getElementById('winTotals').innerHTML =
     '<b class="l">' + nameL + ' ' + L + '</b> &nbsp;—&nbsp; <b class="r">' + nameR + ' ' + R + '</b>';
   // optional result image from the final node
@@ -540,7 +542,7 @@ const ready = (async () => {
   renderDots();
 })().catch(err => {
   document.getElementById('start').innerHTML =
-    '<h1>⚠️ Could not load story.json</h1><p>Run via a local server (not file://). ' + err + '</p>';
+    '<h1>Could not load story.json</h1><p>Run via a local server (not file://). ' + err + '</p>';
 });
 </script>
 </body>
