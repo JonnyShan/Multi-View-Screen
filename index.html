@@ -131,6 +131,30 @@
   #start p { opacity: .8; max-width: 460px; line-height: 1.5; }
   #start .btn { font-size: 18px; padding: 14px 34px; }
 
+  /* Minimal tap-to-start: shows the first frame with a play button, so the
+     opening video has sound from frame one (browsers need one gesture). */
+  #tap {
+    position: absolute; inset: 0; z-index: 50;
+    display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    background: rgba(0,0,0,.32); cursor: pointer; pointer-events: auto;
+  }
+  #tap .playbtn {
+    width: 92px; height: 92px; border-radius: 50%;
+    background: rgba(255,255,255,.94); box-shadow: 0 8px 30px rgba(0,0,0,.55);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .15s;
+  }
+  #tap:hover .playbtn { transform: scale(1.06); }
+  #tap .playbtn::after {
+    content: ''; margin-left: 7px;
+    border-style: solid; border-width: 17px 0 17px 28px;
+    border-color: transparent transparent transparent #111;
+  }
+  #tap .caption {
+    color: #fff; font-weight: 700; font-size: 18px; letter-spacing: .5px;
+    text-shadow: 0 2px 8px rgba(0,0,0,.85);
+  }
+
   /* "Playing clip" badge */
   #clipBadge {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
@@ -230,6 +254,11 @@
     <button class="btn" id="winRestart">Play again</button>
   </div>
 
+  <div id="tap">
+    <div class="playbtn"></div>
+    <div class="caption">Tap to play</div>
+  </div>
+
 </div>
 
 <script>
@@ -285,6 +314,7 @@ function ding() {
 
 let clipPlaying = false;
 let muted = false;
+let started = false;  // first frame holds until the player taps (so audio plays)
 let choosing = false; // boxes only active when true (after a video ends)
 
 // ---- Preloading: warm the browser cache for upcoming videos ----
@@ -334,7 +364,7 @@ function showMain() {
   vClip.pause();
   vClip.classList.add('hidden');
   vMain.classList.remove('hidden');
-  if (vMain.paused) vMain.play().catch(()=>{});
+  if (started && vMain.paused) vMain.play().catch(()=>{}); // hold frame 1 until tap
 }
 
 // toggle clickability (boxes stay visible either way)
@@ -531,7 +561,17 @@ document.getElementById('useDefault').addEventListener('click', () => {
   if (story) loadNode(nodeId || story.start);
 });
 
-// ---- Init: load the story tree, then auto-start seamlessly (no Start screen) ----
+// ---- Tap to start: one tap on the first frame begins with sound ----
+const tapEl = document.getElementById('tap');
+tapEl.addEventListener('click', () => {
+  tapEl.style.display = 'none';
+  started = true;
+  unlockAudio();                        // this tap satisfies the audio gesture
+  vMain.currentTime = 0;
+  vMain.play().catch(()=>{});
+});
+
+// ---- Init: load the story tree, then hold on frame 1 behind the tap layer ----
 const ready = (async () => {
   story = await (await fetch('story.json')).json();
   buildPath();
@@ -539,7 +579,8 @@ const ready = (async () => {
   loadCounts();
   renderDots();
   preloadNode(story.start);
-  loadNode(story.start);                // autoplay straight in (muted until first tap)
+  loadNode(story.start);                // sets the scene + shows frame 1 (paused)
+  tapEl.style.display = 'flex';         // invite the tap
 })().catch(err => {
   const m = document.createElement('div');
   m.style.cssText = 'position:fixed;inset:0;z-index:99;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;text-align:center;padding:24px;';
