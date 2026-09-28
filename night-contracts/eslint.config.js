@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 import globals from 'globals';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'ios', 'android', 'test-results', 'playwright-report', 'coverage'] },
+  { ignores: ['dist', 'dist-artifact', 'node_modules', 'ios', 'android', 'test-results', 'playwright-report', 'coverage'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

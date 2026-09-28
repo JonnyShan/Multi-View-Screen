@@ -877,8 +877,98 @@ body {
 }
 
 @media (orientation: portrait) and (pointer: coarse) {
-  .rotate {
+  body:not(.upright) .rotate {
     display: flex;
+  }
+}
+
+.rotate .rotate-sub {
+  margin: 10px 0 18px;
+  font-family: 'Barlow', sans-serif;
+  letter-spacing: 0;
+  color: var(--dim);
+}
+
+/* upright phones: compact HUD, objective under the stack */
+@media (orientation: portrait) and (max-width: 640px) {
+  .stack {
+    gap: 2px;
+    top: calc(8px + var(--safe-t));
+    right: calc(10px + var(--safe-r));
+  }
+  .clock {
+    font-size: 22px;
+  }
+  .cash {
+    font-size: 20px;
+  }
+  .healthbar {
+    width: 118px;
+    height: 7px;
+  }
+  .speed b {
+    font-size: 22px;
+  }
+  .weapon {
+    min-width: 118px;
+    padding: 2px 6px;
+  }
+  .weapon svg {
+    width: 38px;
+    height: 14px;
+  }
+  .weapon .ammo {
+    font-size: 18px;
+  }
+  .stars svg {
+    width: 13px;
+    height: 13px;
+  }
+  .phone {
+    width: min(200px, 52vw);
+    left: calc(10px + var(--safe-l));
+    top: calc(8px + var(--safe-t));
+    padding: 6px 8px;
+  }
+  .phone .dossier,
+  .phone .alias {
+    display: none;
+  }
+  .phone .target {
+    font-size: 18px;
+  }
+  .objective {
+    top: calc(170px + var(--safe-t));
+    max-width: 92vw;
+    width: 92vw;
+  }
+  .objective .line {
+    font-size: 11px;
+  }
+  .minimap {
+    width: 104px;
+    height: 104px;
+    left: calc(10px + var(--safe-l));
+    bottom: calc(10px + var(--safe-b));
+  }
+  .toast .t {
+    font-size: 46px;
+  }
+  .hint {
+    bottom: calc(170px + var(--safe-b));
+  }
+  .logo {
+    width: 88vw;
+  }
+  .btn {
+    min-width: 120px;
+    padding: 12px 18px;
+  }
+  /* the pause button sits between the call card and the stack, clear of the thumbs */
+  .tbtn.pause {
+    left: calc(50% - 22px) !important;
+    bottom: auto !important;
+    top: calc(8px + var(--safe-t)) !important;
   }
 }
 

@@ -117,9 +117,16 @@ export class InputMap {
     return o;
   }
 
+  private gamepadBlocked = false;
+
   private gamepad(): Gamepad | null {
-    if (typeof navigator === 'undefined' || !navigator.getGamepads) return null;
-    for (const p of navigator.getGamepads()) if (p && p.connected) return p;
+    if (this.gamepadBlocked || typeof navigator === 'undefined' || !navigator.getGamepads) return null;
+    try {
+      for (const p of navigator.getGamepads()) if (p && p.connected) return p;
+    } catch {
+      // embedded frames may forbid the Gamepad API; stop asking
+      this.gamepadBlocked = true;
+    }
     return null;
   }
 

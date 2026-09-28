@@ -30,7 +30,8 @@ export function listGameAssets(assetsDir: string): string[] {
   return out.sort();
 }
 
-export function gameAssets(assetsDir: string): Plugin {
+export function gameAssets(assetsDir: string, opts: { ship?: boolean } = {}): Plugin {
+  const ship = opts.ship ?? true;
   let outDir = 'dist';
   return {
     name: 'night-contracts-game-assets',
@@ -42,7 +43,8 @@ export function gameAssets(assetsDir: string): Plugin {
     },
     load(id) {
       if (id !== RESOLVED_ID) return null;
-      return `export const gameAssetFiles = ${JSON.stringify(listGameAssets(assetsDir))};`;
+      // a single-page build ships no side files, so it lists none
+      return `export const gameAssetFiles = ${JSON.stringify(ship ? listGameAssets(assetsDir) : [])};`;
     },
     configureServer(server) {
       // new or removed art files refresh the asset list without a restart
@@ -66,6 +68,7 @@ export function gameAssets(assetsDir: string): Plugin {
       });
     },
     closeBundle() {
+      if (!ship) return;
       for (const rel of listGameAssets(assetsDir)) {
         const dest = path.join(outDir, 'game-assets', rel);
         fs.mkdirSync(path.dirname(dest), { recursive: true });

@@ -418,7 +418,12 @@ export async function renderSound(name: SoundName, sampleRate = 22050): Promise<
   const ctx = new OfflineAudioContext(spec.stereo ? 2 : 1, Math.ceil(spec.seconds * sampleRate), sampleRate);
   spec.build(ctx);
   const buf = await ctx.startRendering();
-  return URL.createObjectURL(toWav(buf));
+  // a base64 data: URI: Howler decodes it directly, so no request is made
+  // (blob: URLs would need a fetch that sandboxed pages may refuse)
+  const bytes = new Uint8Array(await toWav(buf).arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return `data:audio/wav;base64,${btoa(bin)}`;
 }
 
 export const SOUND_NAMES = Object.keys(SPECS) as SoundName[];

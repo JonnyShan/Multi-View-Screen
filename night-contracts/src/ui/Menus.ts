@@ -60,7 +60,7 @@ export class Menus {
       </div>
       <div class="menu">${btn('BACK', true, 'back')}</div></div>`;
     this.rotate.className = 'rotate';
-    this.rotate.textContent = 'TURN YOUR PHONE SIDEWAYS';
+    this.rotate.innerHTML = `<div><div>BEST PLAYED SIDEWAYS</div><div class="rotate-sub">Turn your phone, or play upright.</div>${btn('PLAY UPRIGHT', true, 'upright')}</div>`;
     this.root.append(this.title, this.pause, this.settingsEl, this.help, this.rotate);
     this.renderSettings();
     this.root.addEventListener('click', (e) => this.click(e));
@@ -100,6 +100,9 @@ export class Menus {
         break;
       case 'reset':
         this.cb.resetProgress();
+        break;
+      case 'upright':
+        document.body.classList.add('upright');
         break;
       default:
         break;

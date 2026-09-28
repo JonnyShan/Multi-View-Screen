@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "cap:sync": "pnpm build && cap sync"
+    "cap:sync": "pnpm build && cap sync",
+    "build:artifact": "vite build --mode artifact && node tools/make-artifact.mjs"
   },
   "packageManager": "pnpm@10.33.0",
   "dependencies": {

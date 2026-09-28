@@ -375,7 +375,7 @@ async function boot(): Promise<void> {
 /** Offline support for the installed PWA (not needed inside the native apps). */
 function registerServiceWorker(): void {
   const native = (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
-  if (import.meta.env.DEV || native || !('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return;
+  if (import.meta.env.DEV || import.meta.env.MODE === 'artifact' || native || !('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return;
   void import('virtual:pwa-register')
     .then(({ registerSW }) => registerSW({ immediate: true }))
     .catch(() => undefined);

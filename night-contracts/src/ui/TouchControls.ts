@@ -13,14 +13,19 @@ interface Btn {
   /** Default position: distance from right and bottom edges in px. */
   r: number;
   b: number;
+  /** Default position when the phone is upright. */
+  ur: number;
+  ub: number;
 }
 
 const BUTTONS: Btn[] = [
-  { id: 'fire', label: 'FIRE', cls: 'fire', r: 26, b: 26 },
-  { id: 'slash', label: 'SLASH', cls: 'slash', r: 128, b: 18 },
-  { id: 'jump', label: 'JUMP', cls: 'jump', r: 214, b: 30 },
-  { id: 'drift', label: 'DRIFT', cls: 'drift', r: 120, b: 104 },
+  { id: 'fire', label: 'FIRE', cls: 'fire', r: 26, b: 26, ur: 18, ub: 24 },
+  { id: 'slash', label: 'SLASH', cls: 'slash', r: 128, b: 18, ur: 116, ub: 18 },
+  { id: 'jump', label: 'JUMP', cls: 'jump', r: 214, b: 30, ur: 26, ub: 124 },
+  { id: 'drift', label: 'DRIFT', cls: 'drift', r: 120, b: 104, ur: 110, ub: 100 },
 ];
+
+const upright = (): boolean => typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
 
 export class TouchControls {
   readonly root = document.createElement('div');
@@ -70,6 +75,7 @@ export class TouchControls {
     });
     this.root.append(pause);
     this.applyLayout();
+    window.addEventListener('resize', () => this.applyLayout());
 
     this.zone.addEventListener('pointerdown', (e) => this.stickStart(e));
     this.zone.addEventListener('pointermove', (e) => this.stickMove(e));
@@ -122,7 +128,7 @@ export class TouchControls {
   private applyLayout(): void {
     for (const b of BUTTONS) {
       const d = this.btns.get(b.id)!;
-      const pos = this.layout[b.id] ?? { x: b.r, y: b.b };
+      const pos = this.layout[b.id] ?? (upright() ? { x: b.ur, y: b.ub } : { x: b.r, y: b.b });
       d.style.right = `calc(${pos.x}px + env(safe-area-inset-right, 0px))`;
       d.style.bottom = `calc(${pos.y}px + env(safe-area-inset-bottom, 0px))`;
     }
@@ -137,7 +143,7 @@ export class TouchControls {
       this.input.usingTouch = true;
       if (this.editing) {
         const def = BUTTONS.find((bb) => bb.id === id)!;
-        const cur = this.layout[id] ?? { x: def.r, y: def.b };
+        const cur = this.layout[id] ?? (upright() ? { x: def.ur, y: def.ub } : { x: def.r, y: def.b });
         dragFrom = { x: e.clientX, y: e.clientY, r: cur.x, b: cur.y };
         return;
       }

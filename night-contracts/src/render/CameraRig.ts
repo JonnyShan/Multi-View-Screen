@@ -112,6 +112,9 @@ export class CameraRig {
 
     this.dist += (dist - this.dist) * dampFactor(4, dt);
     this.height += (height - this.height) * dampFactor(4, dt);
+    // tall screens (an upright phone) widen the vertical angle so the road ahead stays in view
+    const aspect = this.camera.aspect;
+    if (aspect < 1.2) fov = Math.min(100, fov * Math.pow(Math.min(1.5, 1.2 / aspect), 0.8));
     this.camera.fov += (fov - this.camera.fov) * dampFactor(3, dt);
 
     // focus in three space
