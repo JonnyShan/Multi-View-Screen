@@ -136,14 +136,14 @@ export class Menus {
     const range = (id: string, v: number): string => `<input type="range" min="0" max="1" step="0.05" value="${v}" data-set="${id}">`;
     const check = (id: string, v: boolean): string => `<input type="checkbox" data-set="${id}"${v ? ' checked' : ''}>`;
     this.settingsEl.innerHTML = `<div class="panel"><h2>SETTINGS</h2>
-      <div class="row"><span>Graphics</span>${sel('quality', [['auto', 'Auto'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], s.quality)}</div>
+      <div class="row"><span>Graphics</span>${sel('quality', [['auto', 'Auto'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['ultra', 'Ultra']], s.quality)}</div>
       <div class="row"><span>Weather</span>${sel('weather', [['auto', 'Random'], ['clear', 'Always clear'], ['rain', 'Always rain']], s.weather)}</div>
       <div class="row"><span>Pause the clock</span>${check('pauseClock', s.pauseClock)}</div>
       <div class="row"><span>Master volume</span>${range('master', s.master)}</div>
       <div class="row"><span>Music</span>${range('music', s.music)}</div>
       <div class="row"><span>Effects</span>${range('sfx', s.sfx)}</div>
       <div class="row"><span>Haptics</span>${check('haptics', s.haptics)}</div>
-      ${this.touch ? '' : `<div class="row"><span>Ambient occlusion (high only)</span>${check('ao', s.ao)}</div>`}
+      ${this.touch ? '' : `<div class="row"><span>Ambient occlusion on High</span>${check('ao', s.ao)}</div>`}
       <div class="row"><span>Debug overlay</span>${check('showDebug', s.showDebug)}</div>
       ${this.touch ? `<div class="row"><span>Touch buttons</span>${btn('MOVE BUTTONS', false, 'edit')}</div>` : ''}
       <div class="row"><span>Progress</span>${btn('RESET SAVE', false, 'reset')}</div>

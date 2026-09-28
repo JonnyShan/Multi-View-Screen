@@ -1,6 +1,6 @@
 /** localStorage persistence with a versioned schema. Never throws. */
 
-export type QualityPref = 'auto' | 'low' | 'medium' | 'high';
+export type QualityPref = 'auto' | 'low' | 'medium' | 'high' | 'ultra';
 export type WeatherPref = 'auto' | 'clear' | 'rain';
 
 export interface ButtonLayout {
@@ -17,7 +17,7 @@ export interface Settings {
   haptics: boolean;
   showDebug: boolean;
   invertLook: boolean;
-  /** Screen space ambient occlusion, desktop high quality only. */
+  /** Screen space ambient occlusion on High (always on for Ultra). */
   ao: boolean;
   layout: ButtonLayout;
 }

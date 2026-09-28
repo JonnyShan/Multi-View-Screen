@@ -60,8 +60,9 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] Settings menu (quality, weather, clock, volumes, haptics, debug, button layout), save/load (e2e test)
 
 ## M7 Ship to phones
-- [x] Quality presets auto-picked by device (Low/Medium/High), adaptive pixel ratio when frames run long
+- [x] Quality presets auto-picked by device (Low/Medium/High/Ultra: recent phone GPUs get High, strong desktop GPUs Ultra), adaptive pixel ratio that drops when frames run long and climbs back once they hold
 - [x] Mobile budgets: emulated iPhone (Medium) about 96 to 135 draw calls and 80k to 145k triangles after CPU instance culling and lighter palms and fences
+- [x] Rain is an occasional shower (starts dry, about one short shower every 20 minutes) with a lighter drop count
 - [x] PWA: manifest, generated icons (192, 512, maskable, apple touch), service worker registered in production web builds
 - [x] Capacitor iOS and Android projects: landscape only, fullscreen, screen kept on, generated app icons and splash screens (`node tools/icons.mjs`)
 - [ ] Debug APK / iOS build on a real device: not possible in the cloud session (no device, no Xcode, and `dl.google.com` for the Android SDK is blocked by the environment's network policy). Steps in docs/DEVICE_TESTING.md

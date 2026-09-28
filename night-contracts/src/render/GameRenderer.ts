@@ -56,7 +56,12 @@ export class GameRenderer {
   private frameAcc = 0;
   private frameN = 0;
   private fastT = 0;
+  /** Seconds to ignore at start while shaders compile and textures upload. */
+  private warmup = 4;
+  private sinceUp = 99;
   private pixelRatio: number;
+  /** Highest pixel ratio that has held the frame rate. */
+  private ceiling: number;
   /** Debug: fixed camera (position, target) in sim space; null uses the rig. */
   debugCamera: { x: number; y: number; z: number; tx: number; ty: number; tz: number } | null = null;
 
@@ -70,6 +75,7 @@ export class GameRenderer {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
     this.renderer.setPixelRatio(q.pixelRatio);
     this.pixelRatio = q.pixelRatio;
+    this.ceiling = q.pixelRatio;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = q.shadows;
@@ -189,27 +195,36 @@ export class GameRenderer {
 
   /**
    * Keep frame time near the target by scaling resolution: phones hold 60 fps
-   * when they can, and never sink far below 30 when they cannot.
+   * when they can, and never sink far below 30 when they cannot. A hitch drops
+   * the resolution for a while; once frames run at the display rate again it
+   * climbs back, but never past a step that has already failed to hold.
    */
   private adapt(realDt: number): void {
     if (!this.adaptive || realDt <= 0 || realDt > 0.25) return;
+    if (this.warmup > 0) {
+      this.warmup -= realDt;
+      return;
+    }
     this.frameAcc += realDt;
     this.frameN++;
+    this.sinceUp += realDt;
     if (this.frameAcc < 1.5) return;
     const avg = this.frameAcc / this.frameN;
     this.frameAcc = 0;
     this.frameN = 0;
     const min = Math.max(0.6, this.q.pixelRatio * 0.5);
     if (avg > 1 / 45 && this.pixelRatio > min) {
+      if (this.sinceUp < 12) this.ceiling = Math.max(min, this.pixelRatio - 0.1);
       this.pixelRatio = Math.max(min, this.pixelRatio - 0.15);
       this.applyPixelRatio();
       this.fastT = 0;
-    } else if (avg < 1 / 70) {
+    } else if (avg < 1 / 55) {
       this.fastT += 1.5;
-      if (this.fastT >= 6 && this.pixelRatio < this.q.pixelRatio) {
-        this.pixelRatio = Math.min(this.q.pixelRatio, this.pixelRatio + 0.1);
+      if (this.fastT >= 6 && this.pixelRatio < this.ceiling) {
+        this.pixelRatio = Math.min(this.ceiling, this.pixelRatio + 0.1);
         this.applyPixelRatio();
         this.fastT = 0;
+        this.sinceUp = 0;
       }
     } else this.fastT = 0;
   }
@@ -249,7 +264,8 @@ export class GameRenderer {
     this.cars.update(sim, alpha, dt, l.night, cam.position);
     this.peds.update(sim, alpha);
     this.fx.update(sim, dt, this.renderer.domElement.height / Math.tan((cam.fov * Math.PI) / 360) / 2);
-    this.rain.update(cam, dt, sim.raining ? 1 : 0, sim.wet);
+    // a lighter shower than the full drop count
+    this.rain.update(cam, dt, sim.raining ? 0.75 : 0, sim.wet);
 
     this.flash = Math.max(0, this.flash - dt * 3.5);
     this.hurt = Math.max(0, this.hurt - dt * 1.2);
@@ -269,8 +285,7 @@ export class GameRenderer {
     this.neon.update(dt, l.night, this.time);
     this.cullTimer -= dt;
     if (this.cullTimer <= 0) {
-      const range = Math.min(this.q.drawDistance, 2600) * (this.q.level === 'low' ? 0.55 : this.q.level === 'medium' ? 0.7 : 1);
-      for (const c of this.cullers) c.update(cam, range);
+      for (const c of this.cullers) c.update(cam, this.q.cullRange);
       this.cullTimer = 0.12;
     }
     this.post.update(l.grade, l.night, this.flash * 0.25, this.hurt);

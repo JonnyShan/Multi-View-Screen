@@ -95,7 +95,7 @@ async function boot(): Promise<void> {
 
   // heavy init while the title shows
   const probe = document.createElement('canvas').getContext('webgl2');
-  const qParam = new URLSearchParams(location.search).get('q') as 'low' | 'medium' | 'high' | null;
+  const qParam = new URLSearchParams(location.search).get('q') as 'low' | 'medium' | 'high' | 'ultra' | null;
   const quality = qualityFor(qParam ?? settings.quality, probe, settings.ao);
   await Promise.all([initPhysics(), document.fonts?.ready ?? Promise.resolve()]);
   try {

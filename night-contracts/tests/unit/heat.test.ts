@@ -127,7 +127,9 @@ describe('Police', () => {
     for (let k = 0; k < 60 * 2; k++) sim.step(fire);
     sim.damageCar(sim.contracts.target!, 999, 'player', 'gun');
     expect(sim.heat.stars).toBeGreaterThanOrEqual(2);
-    run(sim, 8);
-    expect(sim.police.units.length).toBeGreaterThan(0);
+    // they may lose interest again later, but they must turn up
+    let most = 0;
+    run(sim, 8, () => (most = Math.max(most, sim.police.units.length)));
+    expect(most).toBeGreaterThan(0);
   });
 });

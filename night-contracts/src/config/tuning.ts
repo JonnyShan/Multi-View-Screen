@@ -351,13 +351,13 @@ export const tuning = {
   },
 
   weather: {
-    /** Chance per game hour that rain starts when dry. */
-    rainChancePerHour: 0.12,
-    rainHours: [3, 8] as [number, number],
+    /** Chance per game hour (one real minute) that rain starts when dry: a short shower every 20 minutes or so. */
+    rainChancePerHour: 0.05,
+    rainHours: [2, 4] as [number, number],
     wetRampSeconds: 20,
     dryRampSeconds: 60,
     lightningInterval: [6, 18] as [number, number],
-    startRaining: true,
+    startRaining: false,
   },
 
   fx: {

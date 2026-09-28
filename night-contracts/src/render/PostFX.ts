@@ -1,10 +1,11 @@
 /**
  * Post-processing: bloom for lamps, headlights and neon, ACES tone mapping,
  * then a colour grade that blends per-time-of-day LUTs, plus a light vignette.
- * Phones get a quarter-resolution bloom and the LUT only.
+ * Lower presets get a quarter-resolution bloom, and FXAA where there is no MSAA.
  */
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { FXAAPass } from 'three/addons/postprocessing/FXAAPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -158,6 +159,7 @@ export class PostFX {
     u.lut2.value = makeLut(GRADES[2]);
     u.lut3.value = makeLut(GRADES[3]);
     this.composer.addPass(this.grade);
+    if (q.fxaa) this.composer.addPass(new FXAAPass());
   }
 
   setSize(w: number, h: number): void {
