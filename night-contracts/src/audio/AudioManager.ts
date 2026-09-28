@@ -1,15 +1,16 @@
 /**
  * Howler-based audio. Uses files from assets/audio when present (sfx/<name>.ogg,
- * music/<name>.ogg), otherwise sounds synthesised at startup.
+ * music/<name>.ogg), otherwise sounds synthesised at startup. The handler's
+ * phone lines come from assets/audio/voice (VoicePlayer).
  */
 import { Howl, Howler } from 'howler';
-import { gameAssetFiles } from 'virtual:game-assets';
+import { assetUrl, hasAsset } from '../core/assetUrl';
 import type { SimEvent } from '../sim/events';
 import type { Sim } from '../sim/Sim';
 import { renderSound, SOUND_NAMES, type SoundName } from './synth';
+import { VOICE_LINES, VoicePlayer, type VoiceId } from './voice';
 
 const LOOPS: SoundName[] = ['engine', 'screech', 'rain', 'siren', 'music'];
-const BASE = `${import.meta.env.BASE_URL}game-assets/`;
 
 export class AudioManager {
   private readonly howls = new Map<SoundName, Howl>();
@@ -20,6 +21,8 @@ export class AudioManager {
   private sfx = 0.9;
   private music = 0.5;
   private started = false;
+  private readonly voice = new VoicePlayer();
+  private paidLines = 0;
 
   async init(): Promise<void> {
     if (this.started) return;
@@ -28,9 +31,10 @@ export class AudioManager {
       await Promise.all(
         SOUND_NAMES.map(async (name) => {
           const file = name === 'music' ? `audio/music/${name}.ogg` : `audio/sfx/${name}.ogg`;
-          const src = gameAssetFiles.includes(file) ? BASE + file : await renderSound(name);
+          const own = hasAsset(file);
+          const src = own ? assetUrl(file) : await renderSound(name);
           const loop = LOOPS.includes(name);
-          this.howls.set(name, new Howl({ src: [src], format: [src.endsWith('.ogg') ? 'ogg' : 'wav'], loop, volume: 0, preload: true }));
+          this.howls.set(name, new Howl({ src: [src], format: [own ? 'ogg' : 'wav'], loop, volume: 0, preload: true }));
         }),
       );
       for (const name of LOOPS) {
@@ -40,6 +44,7 @@ export class AudioManager {
       }
       this.ready = true;
       this.applyVolumes();
+      await this.voice.init();
     } catch (err) {
       console.warn('Audio unavailable', err);
     }
@@ -129,6 +134,17 @@ export class AudioManager {
         break;
       case 'targetDown':
         this.play('cash', 0.8);
+        this.voice.say(this.paidLines++ % 2 ? 'done-2' : 'done-1', this.sfx, 1.2);
+        break;
+      case 'contractBrief': {
+        const list = sim.t.contracts.list;
+        const id = `brief-${list[e.index % list.length].id}`;
+        if (id in VOICE_LINES) this.voice.say(id as VoiceId, this.sfx, 0.35);
+        break;
+      }
+      case 'contractFailed':
+        if (e.reason === 'You died') this.voice.say('fail-died', this.sfx, 1.5);
+        else this.voice.say('fail-escaped', this.sfx, 0.8);
         break;
       case 'lightning':
         setTimeout(() => this.play('thunder', 0.9, 0.8 + Math.random() * 0.3), 400 + Math.random() * 1400);
@@ -172,13 +188,15 @@ export class AudioManager {
       const near = Math.max(0, 1 - Math.hypot(b.x - sim.player.x, b.y - sim.player.y) / 700);
       engine = 0.06 + near * (0.18 + b.throttle * 0.14);
     } else if (b.riderless && !b.fallen) engine = 0.1;
-    set('engine', engine * this.sfx, 0.55 + k * 1.75 + b.throttle * 0.12);
+    // the handler talking pushes the engine and music down
+    const duck = this.voice.speaking() ? 0.55 : 1;
+    set('engine', engine * this.sfx * (0.4 + 0.6 * duck), 0.55 + k * 1.75 + b.throttle * 0.12);
     set('screech', !paused && b.skidding && !b.riderless ? 0.35 * this.sfx : 0);
     set('rain', !paused && sim.raining ? 0.275 * this.sfx : 0);
     const police = sim.police.units;
     let near = 0;
     for (const u of police) near = Math.max(near, 1 - Math.hypot(u.x - sim.player.x, u.y - sim.player.y) / 1400);
     set('siren', !paused && this.sirenOn ? 0.45 * near * this.sfx : 0);
-    set('music', paused ? this.music * 0.25 : this.music * 0.4);
+    set('music', (paused ? this.music * 0.25 : this.music * 0.4) * duck);
   }
 }

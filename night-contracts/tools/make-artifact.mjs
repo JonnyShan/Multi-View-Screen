@@ -31,6 +31,8 @@ const page = `<title>Night Contracts</title>
 <div id="ui"></div>
 <script type="module">${code}</script>
 `;
+// the host serves pages up to 16 MB; art files dropped into assets/ are inlined, so watch the total
+if (page.length > 15.5e6) throw new Error(`page is ${(page.length / 1e6).toFixed(2)} MB, over the 15.5 MB budget: trim assets/ before a single-page build`);
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(out, page);
 console.log(`wrote ${out}: ${(page.length / 1e6).toFixed(2)} MB (escaped ${closers} script closers)`);

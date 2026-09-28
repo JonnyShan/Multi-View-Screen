@@ -56,6 +56,8 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] Pedestrians walk footpath loops, cross streets, scatter from gunfire, get knocked down. They are instanced people built from parts (four hairstyles, two builds, jackets, belts, shorts or skirts, trainers) with a walk and run cycle, a per-person palette, umbrellas in the rain and the odd phone call
 - [x] GLB swap-in: bike, rider (AnimationMixer clips), cars, palm, lamp, bench, bus stop, barrier, fence. Verified with `node tools/glbcheck.mjs` (exports placeholder GLBs, drops them in, confirms they load, removes them)
 - [x] Audio: engine loop pitched by speed, gun, katana, screech, impacts, explosion, rain, phone, siren, thunder, music, all synthesised at runtime; files in assets/audio override them
+- [x] Handler voice: drop `audio/voice/<id>.mp3` files in (script in ASSETS.md) and the calls are spoken through a phone line filter, with music and engine dipping under the voice. No voice files ship yet
+- [x] The single-page build inlines everything in assets/ (models, sounds, voice) so dropped-in art works there too
 - [x] Hit markers where your rounds land (white ticks, red when the round kills) with a tick sound, and a red glow on the screen edge facing whoever hurt you (every edge for damage with no direction, like a hard landing)
 - [x] Slow motion on wheel cut and roof strike (0.3x for 0.6 s), hit stop, screen shake, sparks, skid marks, tyre smoke, fire
 - [x] Settings menu (quality, weather, clock, volumes, haptics, debug, button layout), save/load (e2e test)

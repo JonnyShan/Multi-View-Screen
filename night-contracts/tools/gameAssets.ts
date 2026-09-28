@@ -5,6 +5,8 @@
  *   AssetRegistry only requests real files (no 404 console noise).
  * - Dev: files are served from /game-assets/.
  * - Build: models, ui and audio are copied to dist/game-assets/.
+ * - Single-page build: no side files ship, so every file is inlined as a
+ *   base64 data: URI (`gameAssetInline`) and read without a request.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,6 +14,21 @@ import type { Plugin } from 'vite';
 
 const SHIPPED = ['models', 'ui', 'audio'];
 const EXT = /\.(glb|gltf|bin|png|jpg|jpeg|webp|ktx2|svg|ogg|mp3|m4a|wav)$/i;
+const MIME: Record<string, string> = {
+  glb: 'model/gltf-binary',
+  gltf: 'model/gltf+json',
+  bin: 'application/octet-stream',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  ktx2: 'image/ktx2',
+  svg: 'image/svg+xml',
+  ogg: 'audio/ogg',
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  wav: 'audio/wav',
+};
 const VIRTUAL_ID = 'virtual:game-assets';
 const RESOLVED_ID = '\0' + VIRTUAL_ID;
 
@@ -43,8 +60,16 @@ export function gameAssets(assetsDir: string, opts: { ship?: boolean } = {}): Pl
     },
     load(id) {
       if (id !== RESOLVED_ID) return null;
-      // a single-page build ships no side files, so it lists none
-      return `export const gameAssetFiles = ${JSON.stringify(ship ? listGameAssets(assetsDir) : [])};`;
+      const files = listGameAssets(assetsDir);
+      // a single-page build ships no side files, so it carries them inline
+      const inline: Record<string, string> = {};
+      if (!ship) {
+        for (const rel of files) {
+          const ext = rel.slice(rel.lastIndexOf('.') + 1).toLowerCase();
+          inline[rel] = `data:${MIME[ext] ?? 'application/octet-stream'};base64,${fs.readFileSync(path.join(assetsDir, rel)).toString('base64')}`;
+        }
+      }
+      return `export const gameAssetFiles = ${JSON.stringify(files)};\nexport const gameAssetInline = ${JSON.stringify(inline)};`;
     },
     configureServer(server) {
       // new or removed art files refresh the asset list without a restart

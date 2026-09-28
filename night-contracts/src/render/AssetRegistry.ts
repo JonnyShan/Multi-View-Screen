@@ -11,6 +11,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { gameAssetFiles } from 'virtual:game-assets';
 import { UNITS_PER_METRE, type CarModel } from '../config/tuning';
+import { assetUrl, dataUriBytes, hasAsset } from '../core/assetUrl';
 
 export interface AssetPart {
   geometry: THREE.BufferGeometry;
@@ -22,8 +23,6 @@ export type CarAssetPart = AssetPart;
 export interface CarAsset {
   parts: AssetPart[];
 }
-
-const BASE = `${import.meta.env.BASE_URL}game-assets/`;
 
 const CAR_FILES: Record<CarModel, string> = {
   sedan: 'models/cars/sedan.glb',
@@ -74,7 +73,7 @@ export class AssetRegistry {
   readonly missing: string[] = [];
 
   has(path: string): boolean {
-    return gameAssetFiles.includes(path);
+    return hasAsset(path);
   }
 
   async load(): Promise<void> {
@@ -85,7 +84,9 @@ export class AssetRegistry {
     await Promise.all(
       files.map(async (path) => {
         try {
-          const gltf = await loader.loadAsync(BASE + path);
+          const url = assetUrl(path);
+          // inlined in the single-page build: parse the bytes, no request
+          const gltf = url.startsWith('data:') ? await loader.parseAsync(dataUriBytes(url), '') : await loader.loadAsync(url);
           const root = gltf.scene;
           root.scale.setScalar(UNITS_PER_METRE);
           root.updateMatrixWorld(true);
