@@ -80,6 +80,7 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - Traffic unjamming: a civilian stuck behind something stationary overtakes through the other lane; if it is still stuck after 10 s it briefly stops colliding with other cars and drives through. It never sits still for good, and it looks better than cars teleporting in view.
 - Spinning cars take damage from gentler impacts and at 4.5x, so a wheel cut into a wall or another car reliably finishes a light target (crash kill x1.6). The limo usually needs a harder hit.
 - A car hitting the player is judged by relative speed before the bike's own crash check, so a ram is never mistaken for the rider hitting a wall.
+- The player has 2x armour (`player.armor`): every hit does half damage. A heavy car hit does a full health bar of damage before armour, so it now takes half your health instead of killing outright.
 - The art deco building kit is procedural (plinth, window bands, cornices, fins, balconies, roof kit, merged per chunk). GLB city kit pieces are not wired in yet; props, palms, lamps, cars, bike and rider are.
 - A rigged rider GLB needs a `ride` clip; without it the idle clip plays while riding.
 - Render maps sim (x, y, z) to three (x, z, y) as the brief asks. This is a mirror, so "left" and "right" go through helpers in `core/math.ts`.

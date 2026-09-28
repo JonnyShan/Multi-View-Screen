@@ -106,6 +106,8 @@ export const tuning = {
 
   player: {
     maxHealth: 100,
+    /** Damage taken is divided by this: 2 means every hit does half. */
+    armor: 2,
     runSpeed: 50,
     accel: 420,
     turnRate: 12,
@@ -260,7 +262,7 @@ export const tuning = {
   danger: {
     /** Relative speed at contact: below light is a push only. */
     light: 70,
-    /** At or above heavy the player dies outright. */
+    /** At or above heavy the hit does a full health bar of damage before armour (so without armour it kills). */
     heavy: 235,
     mediumMinDamage: 18,
     mediumMaxDamage: 60,

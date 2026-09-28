@@ -145,8 +145,8 @@ describe('Explosions', () => {
 });
 
 describe('Car versus player danger', () => {
-  const ram = (speed: number): Sim => {
-    const sim = bare();
+  const ram = (speed: number, t = base): Sim => {
+    const sim = bare(t);
     setBike(sim, 538, 322, Math.PI / 2, 0);
     const car = sim.spawnCar('escort', 'sedan', 0x111111, 538, 322 - 60, Math.PI / 2, 999);
     drive(car, speed);
@@ -165,9 +165,22 @@ describe('Car versus player danger', () => {
     expect(sim.player.health).toBeLessThan(base.player.maxHealth);
     expect(sim.player.health).toBeGreaterThan(0);
   });
-  it('a heavy hit kills outright', () => {
+  it('a heavy hit takes a full health bar, so armour 2 leaves you half', () => {
     const sim = ram(300);
+    expect(sim.player.mode).not.toBe('dead');
+    expect(sim.player.health).toBeLessThanOrEqual(base.player.maxHealth * (1 - 1 / base.player.armor) + 1);
+    expect(sim.player.health).toBeGreaterThan(0);
+  });
+  it('without armour a heavy hit kills outright', () => {
+    const soft = cloneTuning();
+    soft.player.armor = 1;
+    const sim = ram(300, soft);
     expect(sim.player.mode).toBe('dead');
+  });
+  it('armour halves the damage from any hit', () => {
+    const sim = bare();
+    sim.hurtPlayer(30);
+    expect(sim.player.health).toBe(base.player.maxHealth - 30 / base.player.armor);
   });
 });
 

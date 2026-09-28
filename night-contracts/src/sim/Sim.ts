@@ -377,9 +377,11 @@ export class Sim {
     this.emit({ type: 'crash', x: b.x, y: b.y, z: b.z, speed: impact });
   }
 
+  /** Damage the player; armour divides it. */
   hurtPlayer(amount: number): void {
     const pl = this.player;
     if (pl.mode === 'dead' || amount <= 0) return;
+    amount /= this.t.player.armor;
     pl.health -= amount;
     pl.sinceHurt = 0;
     this.emit({ type: 'playerHurt', amount });
@@ -727,12 +729,17 @@ export class Sim {
       if (car.kind === 'escort' || car.kind === 'police') car.backoffT = this.t.escort.backoffTime;
       this.emit({ type: 'impact', x: pl.x, y: pl.y, z: pl.z + 5, strength: closing });
       if (closing >= t.heavy) {
-        if (riding) this.throwRider(closing, closing, nx, ny);
-        else {
+        // a full health bar of damage: armour is what keeps you alive
+        if (riding) {
+          this.throwRider(closing, closing, nx, ny);
+          pl.pendingLandDamage = 0;
+        } else {
+          pl.setMode('down');
+          pl.downT = this.t.player.knockdownTime;
           pl.vx = nx * closing * 0.7;
           pl.vy = ny * closing * 0.7;
         }
-        this.killPlayer();
+        this.hurtPlayer(this.t.player.maxHealth);
         return;
       }
       const k = (closing - t.light) / (t.heavy - t.light);
