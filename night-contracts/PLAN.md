@@ -28,12 +28,13 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] 10 minute seeded test: no permanent jams, no cars in buildings (tests/unit/traffic.test.ts)
 
 ## M3 Combat
-- [ ] Gun with aim assist and mouse aim, tyre blowouts
-- [ ] Katana, wheel cut, spin physics, impact damage
-- [ ] Car HP, smoke, fire, explosions, chain reactions
-- [ ] On foot, remount, knockdown
-- [ ] Leap and roof strike
-- [ ] Death and respawn
+- [x] Gun with aim assist and mouse aim, tyre blowouts (tests/unit/combat.test.ts)
+- [x] Katana, wheel cut, spin physics, impact damage
+- [x] Car HP, smoke, fire, explosions, chain reactions
+- [x] On foot, remount, knockdown
+- [x] Leap and roof strike (lands on the roof, strike kills; too slow throws you off with damage)
+- [x] Death and respawn (safehouse, full health, $500 medical bill)
+- [x] Car versus player by relative speed: push, knock off and hurt, kill
 
 ## M4 Contracts
 - [ ] Phone UI, contract state machine
@@ -66,4 +67,6 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - Palm trunks and lamp posts are solid (`world.solidStreetFurniture`), so clipping one at speed throws you.
 - Stepping off the bike below leap speed leaves it standing on its stand; above leap speed you leap. On foot far from the bike, E calls it over.
 - Traffic unjamming: a civilian stuck behind something stationary overtakes through the other lane; if it is still stuck after 10 s it briefly stops colliding with other cars and drives through. It never sits still for good, and it looks better than cars teleporting in view.
+- Spinning cars take damage from gentler impacts and at 4.5x, so a wheel cut into a wall or another car reliably finishes a light target (crash kill x1.6). The limo usually needs a harder hit.
+- A car hitting the player is judged by relative speed before the bike's own crash check, so a ram is never mistaken for the rider hitting a wall.
 - Render maps sim (x, y, z) to three (x, z, y) as the brief asks. This is a mirror, so "left" and "right" go through helpers in `core/math.ts`.

@@ -218,7 +218,7 @@ export class FXView {
     this.tracerMesh.name = 'tracers';
     this.group.add(this.tracerMesh);
     this.flash = new THREE.PointLight(0xffc070, 0, 160, 1.6);
-    this.boom = new THREE.PointLight(0xff8a30, 0, 700, 1.4);
+    this.boom = new THREE.PointLight(0xff8a30, 0, 520, 1.6);
     this.group.add(this.flash, this.boom);
     const arc = new THREE.RingGeometry(14, 19, 24, 1, -1.2, 2.4).rotateX(-Math.PI / 2);
     this.slash = new THREE.Mesh(arc, new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.6, 3), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
@@ -242,26 +242,26 @@ export class FXView {
         if (this.tracers.length > 60) this.tracers.shift();
         if (e.by === 'player') {
           this.flash.position.copy(a);
-          this.flash.intensity = 1600;
+          this.flash.intensity = 700;
           this.flashT = 0.05;
-          this.sparks.emit(e.x, e.z, e.y, 0, 0, 0, 7, 0.05, 4, 3, 1.5, 1);
+          this.sparks.emit(e.x, e.z, e.y, 0, 0, 0, 5, 0.04, 3, 2, 0.8, 0.8);
         }
         if (e.hit === 'car' || e.hit === 'wall') for (let i = 0; i < 3; i++) this.sparks.emit(e.tx, e.tz, e.ty, (Math.random() - 0.5) * 120, Math.random() * 80, (Math.random() - 0.5) * 120, 1.8, 0.25, 3, 1.8, 0.6, 1);
         break;
       }
       case 'explosion': {
         this.boom.position.set(e.x, e.z + 10, e.y);
-        this.boom.intensity = 90000;
+        this.boom.intensity = 16000;
         this.boomT = 0.7;
         for (let i = 0; i < 70; i++) {
           const a = Math.random() * Math.PI * 2;
           const s = Math.random() * 120;
-          this.fire.emit(e.x, e.z + 4, e.y, Math.cos(a) * s, 30 + Math.random() * 110, Math.sin(a) * s, 16 + Math.random() * 14, 0.6 + Math.random() * 0.5, 4, 1.8, 0.5, 1, 20);
+          this.fire.emit(e.x, e.z + 4, e.y, Math.cos(a) * s, 30 + Math.random() * 110, Math.sin(a) * s, 14 + Math.random() * 12, 0.5 + Math.random() * 0.5, 2.6, 0.9, 0.2, 0.7, 18);
         }
         for (let i = 0; i < 40; i++) {
           const a = Math.random() * Math.PI * 2;
           const s = Math.random() * 70;
-          this.smoke.emit(e.x, e.z + 8, e.y, Math.cos(a) * s, 20 + Math.random() * 50, Math.sin(a) * s, 30, 2.5 + Math.random() * 1.5, 0.08, 0.075, 0.07, 0.85, 26);
+          this.smoke.emit(e.x, e.z + 8, e.y, Math.cos(a) * s, 20 + Math.random() * 50, Math.sin(a) * s, 30, 2.5 + Math.random() * 1.5, 0.05, 0.045, 0.04, 0.9, 26);
         }
         for (let i = 0; i < 40; i++) {
           const a = Math.random() * Math.PI * 2;
@@ -317,7 +317,7 @@ export class FXView {
         this.smoke.emit(fx, z + car.spec.roof * 0.7, fy, (Math.random() - 0.5) * 6, 14 + Math.random() * 8, (Math.random() - 0.5) * 6, 9, car.dead ? 3 : 1.8, dark, dark, dark * 1.05, car.dead ? 0.5 : 0.4, 12);
       }
       if (car.burning) {
-        this.fire.emit(fx + (Math.random() - 0.5) * 6, z + car.spec.roof * 0.6, fy + (Math.random() - 0.5) * 6, 0, 22 + Math.random() * 20, 0, 7 + Math.random() * 5, 0.5, 4, 1.6, 0.4, 1, 6);
+        this.fire.emit(fx + (Math.random() - 0.5) * 6, z + car.spec.roof * 0.6, fy + (Math.random() - 0.5) * 6, 0, 22 + Math.random() * 20, 0, 7 + Math.random() * 5, 0.5, 2.6, 0.9, 0.2, 0.8, 6);
       }
       if (car.spinT > 0 && Math.abs(car.speed) + Math.abs(car.w) * 20 > 40) {
         this.smoke.emit(car.x, z + 2, car.y, 0, 6, 0, 10, 1.3, 0.6, 0.6, 0.6, 0.4, 20);
@@ -336,7 +336,7 @@ export class FXView {
     this.flashT -= dt;
     if (this.flashT <= 0) this.flash.intensity = 0;
     this.boomT -= dt;
-    this.boom.intensity = this.boomT > 0 ? 90000 * (this.boomT / 0.7) ** 2 : 0;
+    this.boom.intensity = this.boomT > 0 ? 16000 * (this.boomT / 0.7) ** 2 : 0;
     this.slashT -= dt;
     (this.slash.material as THREE.MeshBasicMaterial).opacity = Math.max(0, this.slashT / 0.16);
   }

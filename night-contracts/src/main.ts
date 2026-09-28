@@ -42,6 +42,8 @@ declare global {
       setClock: (h: number) => void;
       setWeather: (w: 'auto' | 'clear' | 'rain') => void;
       teleport: (x: number, y: number, a: number) => void;
+      /** Debug: scale all time (sim and effects), e.g. 0.05 to inspect FX. */
+      slow: (k: number) => void;
     };
   }
 }
@@ -275,6 +277,7 @@ async function boot(): Promise<void> {
   const hit = new THREE.Vector3();
   const ndc = new THREE.Vector2();
   let saveT = 0;
+  let debugSlow = 1;
   let intent: Intent = emptyIntent();
 
   const loop = new Loop(t.sim.hz, t.sim.maxStepsPerFrame, {
@@ -283,9 +286,10 @@ async function boot(): Promise<void> {
       sim.step(intent);
       for (const e of sim.events) bus.emit('sim', e);
     },
-    render: (alpha, frameDt) => {
+    render: (alpha, realDt) => {
       frames++;
-      loop.timeScale = paused ? 1 : timeScale.update(frameDt);
+      const frameDt = realDt * debugSlow;
+      loop.timeScale = (paused ? 1 : timeScale.update(frameDt)) * debugSlow;
       if (!playing) gr.rig.addOrbit(frameDt * 0.12);
       else if (!paused) gr.rig.addOrbit(input.orbit(frameDt));
       // mouse aim on the ground plane at the player's height
@@ -344,6 +348,9 @@ async function boot(): Promise<void> {
       sim.weather.mode = w;
       if (w === 'rain') sim.weather.wet = 1;
       if (w === 'clear') sim.weather.wet = 0;
+    },
+    slow: (k: number) => {
+      debugSlow = k;
     },
     teleport: (x: number, y: number, a: number) => {
       sim.bike.place(x, y, sim.city.heightAt(x, y), a);

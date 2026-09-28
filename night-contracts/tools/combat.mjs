@@ -1,0 +1,32 @@
+// Dev helper: spawn a car ahead, shoot it, blow it up, screenshot each stage.
+import { chromium } from '@playwright/test';
+const [out = 'combat.png', hour = '21.5'] = process.argv.slice(2);
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+const logs = [];
+page.on('console', (m) => (m.type() === 'error') && logs.push(`${m.type()}: ${m.text()}`));
+page.on('pageerror', (e) => logs.push(`pageerror: ${e.message}`));
+await page.goto('http://localhost:5199/?e2e=1');
+await page.waitForFunction(() => window.__nc?.ready(), null, { timeout: 120000 });
+await page.click('[data-act="ride"]');
+await page.evaluate((h) => {
+  const nc = window.__nc; nc.setClock(+h);
+  const sim = nc.sim();
+  window.__car = sim.spawnCar('target', 'sedan', 0x121316, 538, 480, Math.PI / 2, 120);
+  window.__car.mode = 'idle';
+  window.__car2 = sim.spawnCar('civilian', 'van', 0xe9e6de, 520, 530, Math.PI / 2 + 0.3, 30);
+  window.__car2.mode = 'idle';
+}, hour);
+await page.waitForTimeout(500);
+await page.keyboard.down('Space');
+await page.waitForTimeout(900);
+await page.screenshot({ path: out.replace('.png', '-fire.png') });
+await page.keyboard.up('Space');
+await page.evaluate(() => window.__nc.sim().damageCar(window.__car, 500, 'player', 'gun'));
+await page.waitForTimeout(700);
+await page.screenshot({ path: out.replace('.png', '-boom.png') });
+await page.waitForTimeout(1500);
+await page.screenshot({ path: out.replace('.png', '-after.png') });
+console.log(JSON.stringify(await page.evaluate(() => window.__nc.state())));
+console.log(logs.join('\n'));
+await browser.close();

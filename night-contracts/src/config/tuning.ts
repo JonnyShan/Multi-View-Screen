@@ -189,7 +189,9 @@ export const tuning = {
     /** Delta-v per step above which an impact hurts the car. */
     impactThreshold: 75,
     impactDamage: 0.45,
-    spinImpactMul: 2.2,
+    spinImpactMul: 4.5,
+    /** Spinning cars take damage from gentler impacts too. */
+    spinThresholdMul: 0.5,
     spinGrip: 0.55,
     spinAngularDamp: 0.9,
     blownTyreGrip: 0.45,

@@ -239,10 +239,13 @@ export class Sim {
 
     this.physics.step();
 
-    this.postBike();
+    const bikeImpact = this.postBike();
     this.postPlayer();
     this.postCars(dt);
+    // cars hitting the player are judged by relative speed first; only then
+    // does a hard bike impact count as the rider crashing on their own
     this.dangerChecks();
+    if (this.player.mode === 'riding' && bikeImpact.impact > this.t.bike.crashImpactSpeed) this.throwRider(bikeImpact.impact, bikeImpact.before);
     this.peds.update(dt);
     this.pedHits();
     this.combat.postUpdate(dt);
@@ -254,9 +257,10 @@ export class Sim {
     for (let i = this.cars.length - 1; i >= 0; i--) {
       const car = this.cars[i];
       const impact = car.afterPhysics();
-      if (impact > c.impactThreshold && !car.dead) {
-        const spinning = car.spinT > 0;
-        const dmg = (impact - c.impactThreshold) * c.impactDamage * (spinning ? c.spinImpactMul : 1);
+      const spinning = car.spinT > 0;
+      const threshold = spinning ? c.impactThreshold * c.spinThresholdMul : c.impactThreshold;
+      if (impact > threshold && !car.dead) {
+        const dmg = (impact - threshold) * c.impactDamage * (spinning ? c.spinImpactMul : 1);
         const credit = spinning || (car.lastHitBy === 'player' && this.time - car.lastHitTime < 5) ? 'player' : 'env';
         this.emit({ type: 'impact', x: car.x, y: car.y, z: 6, strength: impact });
         this.emit({ type: 'sparks', x: car.x, y: car.y, z: 5, count: Math.min(24, Math.round(impact / 12)) });
@@ -299,7 +303,7 @@ export class Sim {
     this.bikeBody.setLinvel({ x: b.cmdX, y: b.cmdY, z: 0 }, true);
   }
 
-  private postBike(): void {
+  private postBike(): { impact: number; before: number } {
     const b = this.bike;
     const v = this.bikeBody.linvel();
     const p = this.bikeBody.translation();
@@ -316,9 +320,7 @@ export class Sim {
       this.emit({ type: 'impact', x: b.x, y: b.y, z: b.z + 4, strength: impact });
       this.emit({ type: 'sparks', x: b.x + b.impactNX * 8, y: b.y + b.impactNY * 8, z: b.z + 3, count: Math.min(30, Math.round(impact / 8)) });
     }
-    if (this.player.mode === 'riding' && impact > this.t.bike.crashImpactSpeed) {
-      this.throwRider(impact, before);
-    }
+    return { impact, before };
   }
 
   // ---------------------------------------------------------------- player
@@ -335,7 +337,8 @@ export class Sim {
   private enableFoot(x: number, y: number, collision: number): void {
     this.footBody.setEnabled(true);
     this.footBody.setTranslation({ x, y, z: 0 }, true);
-    this.footBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    // carry the player's current velocity so the first step does not read as a wall hit
+    this.footBody.setLinvel({ x: this.player.vx, y: this.player.vy, z: 0 }, true);
     this.physics.setCollision(this.footBody, collision);
   }
 
@@ -695,12 +698,15 @@ export class Sim {
     const t = this.t.danger;
     if (pl.mode === 'dead' || pl.mode === 'roof' || pl.mode === 'air' || pl.hitCooldown > 0) return;
     const riding = pl.mode === 'riding';
-    const r = riding ? this.t.bike.radius + 3 : this.t.player.radius + 1.5;
+    const r = riding ? this.t.bike.radius + 2 : this.t.player.radius + 1.5;
+    const hl = riding ? this.t.bike.halfLength : 0;
+    const fx = Math.cos(this.bike.heading) * hl;
+    const fy = Math.sin(this.bike.heading) * hl;
     const pvx = riding ? this.bike.cmdX : pl.vx;
     const pvy = riding ? this.bike.cmdY : pl.vy;
     for (const car of this.cars) {
       if (Math.abs(car.x - pl.x) > 60 || Math.abs(car.y - pl.y) > 60) continue;
-      const d = obbDistance(car, pl.x, pl.y);
+      const d = riding ? Math.min(obbDistance(car, pl.x, pl.y), obbDistance(car, pl.x + fx, pl.y + fy), obbDistance(car, pl.x - fx, pl.y - fy)) : obbDistance(car, pl.x, pl.y);
       if (d > r) continue;
       let nx = pl.x - car.x;
       let ny = pl.y - car.y;
