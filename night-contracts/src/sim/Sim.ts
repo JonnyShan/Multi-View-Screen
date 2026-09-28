@@ -8,6 +8,7 @@ import { angleDiff, clamp, dist, fwdX, fwdY, leftX, leftY, obbContains, obbDista
 import { generateCity, placeByName, type City } from '../world/CityGenerator';
 import { Weather } from '../world/Weather';
 import { Bike } from './Bike';
+import { BikeCall } from './BikeCall';
 import { Car, type CarKind } from './Car';
 import { Combat } from './Combat';
 import { Contracts } from './Contracts';
@@ -43,6 +44,7 @@ export class Sim {
   readonly physics: Physics;
   readonly rng: RNG;
   readonly bike: Bike;
+  readonly bikeCall: BikeCall;
   readonly player: Player;
   readonly bikeBody: Body;
   readonly footBody: Body;
@@ -84,6 +86,7 @@ export class Sim {
     this.pedScale = opts.bare ? 0 : (opts.pedScale ?? 1);
 
     this.bike = new Bike(t);
+    this.bikeCall = new BikeCall(this);
     this.player = new Player(t);
     this.player.cash = opts.cash ?? 0;
     const spawn = this.spawnPoint();
@@ -291,6 +294,16 @@ export class Sim {
   private updateBike(intent: Intent): void {
     const riding = this.player.mode === 'riding';
     const b = this.bike;
+    if (b.auto) {
+      // whistled over: the autopilot drives until it arrives
+      const ctl = this.bikeCall.update(this.dt);
+      if (b.auto) {
+        b.control(ctl, this.dt, this.wet);
+        setYaw(this.bikeBody, b.heading);
+        this.bikeBody.setLinvel({ x: b.cmdX, y: b.cmdY, z: 0 }, true);
+        return;
+      }
+    }
     if (b.riderless && (b.fallen || b.parked) && Math.abs(b.speed) < 1) {
       b.speed = 0;
       this.bikeBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
@@ -393,6 +406,7 @@ export class Sim {
   respawn(): void {
     const pl = this.player;
     const sp = this.spawnPoint();
+    this.bikeCall.stop();
     this.bike.place(sp.x, sp.y, this.city.heightAt(sp.x, sp.y), sp.a);
     this.bike.riderless = false;
     this.bikeBody.setTranslation({ x: sp.x, y: sp.y, z: 0 }, true);
@@ -417,6 +431,7 @@ export class Sim {
 
   private mount(): void {
     const b = this.bike;
+    this.bikeCall.stop();
     b.riderless = false;
     b.parked = false;
     b.fallen = false;
@@ -467,6 +482,7 @@ export class Sim {
     pl.modeT += dt;
     pl.sinceHurt += dt;
     pl.hitCooldown = Math.max(0, pl.hitCooldown - dt);
+    pl.whistleT = Math.max(0, pl.whistleT - dt);
     if (pl.mode !== 'dead' && pl.sinceHurt > t.player.regenDelay) pl.health = Math.min(t.player.maxHealth, pl.health + t.player.regenRate * dt);
 
     switch (pl.mode) {
@@ -494,16 +510,8 @@ export class Sim {
         }
         this.footBody.setLinvel({ x: pl.vx, y: pl.vy, z: 0 }, true);
         if (intent.interact || intent.jump) {
-          const d2 = dist(pl.x, pl.y, this.bike.x, this.bike.y);
-          if (d2 < t.player.remountRange) this.mount();
-          else if (d2 > t.player.summonDistance && pl.summonT <= 0) {
-            pl.summonT = t.player.summonDelay;
-            this.emit({ type: 'toast', text: 'BIKE ON THE WAY', tone: 'gold' });
-          }
-        }
-        if (pl.summonT > 0) {
-          pl.summonT -= dt;
-          if (pl.summonT <= 0) this.summonBike();
+          if (dist(pl.x, pl.y, this.bike.x, this.bike.y) < t.player.remountRange) this.mount();
+          else this.whistle();
         }
         break;
       }
@@ -676,19 +684,14 @@ export class Sim {
     if (dmg > 0) this.hurtPlayer(dmg);
   }
 
-  private summonBike(): void {
+  /** Whistle for the bike: it rides itself over (BikeCall). */
+  private whistle(): void {
     const pl = this.player;
-    const near = this.city.graph.nearestEdge(pl.x, pl.y);
-    const e = near.edge;
-    const lp = this.city.graph.lanePoint(e, e.a, Math.max(70, Math.min(e.length - 70, near.t)));
-    this.bike.place(lp.x, lp.y, this.city.heightAt(lp.x, lp.y), lp.a);
-    this.bike.riderless = true;
-    this.bike.parked = true;
-    this.bikeBody.setTranslation({ x: lp.x, y: lp.y, z: 0 }, true);
-    this.bikeBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
-    setYaw(this.bikeBody, lp.a);
-    this.emit({ type: 'bikeSummoned' });
-    this.emit({ type: 'toast', text: 'BIKE DELIVERED', tone: 'gold' });
+    if (pl.whistleT > 0) return;
+    pl.whistleT = this.t.bikeCall.whistleTime;
+    this.emit({ type: 'whistle', x: pl.x, y: pl.y });
+    if (!this.bike.auto) this.emit({ type: 'toast', text: 'BIKE ON THE WAY', tone: 'gold' });
+    this.bikeCall.start();
   }
 
   // ---------------------------------------------------------------- danger

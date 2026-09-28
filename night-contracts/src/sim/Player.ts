@@ -39,7 +39,8 @@ export class Player {
   roofT = 0;
   roofLX = 0;
   roofLY = 0;
-  summonT = 0;
+  /** Counts down through the whistle pose. */
+  whistleT = 0;
   /** Seconds in current mode, for animation. */
   modeT = 0;
   // interpolation

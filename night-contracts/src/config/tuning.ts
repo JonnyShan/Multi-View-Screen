@@ -69,8 +69,9 @@ export const tuning = {
   },
 
   bike: {
-    topSpeed: 240 * KMH,
-    accel: 140,
+    /** Kept well under real superbike speeds: the city is only about 500 m across. */
+    topSpeed: 150 * KMH,
+    accel: 95,
     accelExponent: 1.7,
     brake: 250,
     reverseMax: 20 * KMH,
@@ -79,7 +80,7 @@ export const tuning = {
     aeroDrag: 0.00012,
     /** Yaw rate at low and top speed (rad/s). */
     steerRateLow: 2.7,
-    steerRateHigh: 0.95,
+    steerRateHigh: 1.4,
     /** Below this speed steering authority fades to zero. */
     steerFadeSpeed: 30,
     yawResponse: 11,
@@ -112,14 +113,34 @@ export const tuning = {
     regenDelay: 8,
     regenRate: 4,
     remountRange: 44,
-    /** If the bike is further than this on foot, E calls it over. */
-    summonDistance: 520,
-    summonDelay: 2.5,
     knockdownTime: 1.3,
     deathTime: 3.2,
     respawnCashPenalty: 500,
     gravity: 190,
     height: 14,
+  },
+
+  /** E on foot whistles: the bike rides itself over (see sim/BikeCall). */
+  bikeCall: {
+    /** Length of the whistle pose, and the gap before you can whistle again. */
+    whistleTime: 0.9,
+    standUpTime: 0.6,
+    speed: 95 * KMH,
+    cornerSpeed: 70,
+    approachSpeed: 45,
+    /** Plans braking at this rate (the bike brakes harder, so it always makes it). */
+    brake: 150,
+    /** Leaves the lane this far before the player to pull in at an angle. */
+    pullIn: 34,
+    /** Stops this far short of the player. */
+    stopShort: 14,
+    /** How far it moves over to squeeze past stopped traffic. */
+    filterOffset: 17,
+    /** Longer road trips skip ahead: the bike appears out of sight this far out and rides in. */
+    maxRide: 1400,
+    skipTo: 650,
+    /** Then it hops to a road near the player. */
+    giveUpTime: 25,
   },
 
   leap: {
@@ -173,14 +194,15 @@ export const tuning = {
   },
 
   car: {
+    /** Top speeds sit under the bike's so a clean line can still outrun police and escorts. */
     specs: {
-      sedan: { hl: 19, hw: 7.6, roof: 11.6, mass: 1500, maxSpeed: 190 * KMH, accel: 120, wheelbase: 23, hp: 100 },
-      suv: { hl: 20, hw: 8.4, roof: 14.4, mass: 2300, maxSpeed: 175 * KMH, accel: 105, wheelbase: 24, hp: 150 },
-      limo: { hl: 29, hw: 8, roof: 11.8, mass: 2900, maxSpeed: 165 * KMH, accel: 90, wheelbase: 38, hp: 170 },
-      police: { hl: 19.5, hw: 7.8, roof: 12, mass: 1700, maxSpeed: 215 * KMH, accel: 140, wheelbase: 23, hp: 130 },
-      hatch: { hl: 16, hw: 7, roof: 11.4, mass: 1100, maxSpeed: 170 * KMH, accel: 110, wheelbase: 20, hp: 80 },
-      ute: { hl: 21, hw: 8, roof: 13.6, mass: 1900, maxSpeed: 170 * KMH, accel: 100, wheelbase: 26, hp: 110 },
-      van: { hl: 21, hw: 8.4, roof: 16.5, mass: 2200, maxSpeed: 150 * KMH, accel: 85, wheelbase: 26, hp: 120 },
+      sedan: { hl: 19, hw: 7.6, roof: 11.6, mass: 1500, maxSpeed: 120 * KMH, accel: 120, wheelbase: 23, hp: 100 },
+      suv: { hl: 20, hw: 8.4, roof: 14.4, mass: 2300, maxSpeed: 110 * KMH, accel: 105, wheelbase: 24, hp: 150 },
+      limo: { hl: 29, hw: 8, roof: 11.8, mass: 2900, maxSpeed: 105 * KMH, accel: 90, wheelbase: 38, hp: 170 },
+      police: { hl: 19.5, hw: 7.8, roof: 12, mass: 1700, maxSpeed: 135 * KMH, accel: 140, wheelbase: 23, hp: 130 },
+      hatch: { hl: 16, hw: 7, roof: 11.4, mass: 1100, maxSpeed: 105 * KMH, accel: 110, wheelbase: 20, hp: 80 },
+      ute: { hl: 21, hw: 8, roof: 13.6, mass: 1900, maxSpeed: 105 * KMH, accel: 100, wheelbase: 26, hp: 110 },
+      van: { hl: 21, hw: 8.4, roof: 16.5, mass: 2200, maxSpeed: 95 * KMH, accel: 85, wheelbase: 26, hp: 120 },
     } satisfies Record<CarModel, CarSpec>,
     grip: 14,
     yawResponse: 9,
@@ -324,13 +346,13 @@ export const tuning = {
 
   camera: {
     distance: 44,
-    distanceFast: 66,
+    distanceFast: 58,
     height: 16,
     heightFast: 19,
     lookAhead: 34,
     lookHeight: 9,
     fov: 62,
-    fovFast: 80,
+    fovFast: 72,
     yawDamping: 6.5,
     posDamping: 11,
     footDistance: 40,

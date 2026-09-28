@@ -304,7 +304,10 @@ async function boot(): Promise<void> {
         else input.aimPoint = null;
       } else input.aimPoint = null;
       gr.render(alpha, frameDt, realDt);
-      if (playing) hud.update(frameDt);
+      if (playing) {
+        hud.update(frameDt);
+        if (touch) touchUi.setLabel('jump', hud.jumpLabel);
+      }
       audio.update(sim, frameDt, paused || !playing);
       debug.update(frameDt, gr.renderer, sim, quality.level);
       saveT += frameDt;

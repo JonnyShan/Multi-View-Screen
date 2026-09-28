@@ -354,6 +354,13 @@ export class RiderView {
           pose.elbow_r = [-0.9 * k - 0.2, 0, 0];
           m.root.position.y += Math.abs(Math.sin(this.runPhase)) * 0.6 * k;
         } else Object.assign(pose, POSES.idle);
+        if (pl.whistleT > 0) {
+          // whistling: right arm up high, with a little wave
+          const w = Math.sin((1 - pl.whistleT / sim.t.bikeCall.whistleTime) * Math.PI * 3) * 0.18;
+          pose.shoulder_r = [-2.85, 0, -0.3 + w];
+          pose.elbow_r = [-0.35, 0, 0];
+          pose.neck = [-0.15, 0, 0];
+        }
       } else if (pl.mode === 'air') {
         Object.assign(pose, POSES.air);
         if (pl.thrown) m.root.rotation.x = -Math.min(1.2, pl.modeT * 3);

@@ -9,17 +9,17 @@ const t = cloneTuning();
 const dt = 1 / 60;
 
 describe('Bike handling curves', () => {
-  it('accelerates strongly then tops out near 240 km/h', () => {
+  it('accelerates briskly then tops out near 150 km/h', () => {
     const b = new Bike(t);
     let time100 = -1;
     for (let i = 0; i < 60 * 30; i++) {
       b.control({ steer: 0, throttle: 1, brake: 0, drift: false }, dt, 0);
       if (time100 < 0 && b.speed >= 100 * KMH) time100 = i * dt;
     }
-    expect(time100).toBeGreaterThan(1.5);
-    expect(time100).toBeLessThan(4);
-    expect(b.speed / KMH).toBeGreaterThan(215);
-    expect(b.speed / KMH).toBeLessThanOrEqual(241);
+    expect(time100).toBeGreaterThan(2.5);
+    expect(time100).toBeLessThan(3.6);
+    expect(b.speed / KMH).toBeGreaterThan(145);
+    expect(b.speed / KMH).toBeLessThanOrEqual(150.5);
   });
   it('accel falls off with speed and steering authority drops', () => {
     const b = new Bike(t);

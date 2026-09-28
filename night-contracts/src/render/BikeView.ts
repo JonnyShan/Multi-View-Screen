@@ -325,15 +325,18 @@ export class BikeView {
     // pitch on ramps: positive sim pitch = nose up; model forward is +z so rotate about x negative
     this.model.leanPivot.rotation.set(-b.pitch, 0, 0);
     // lean: positive lean = right; right of a +z model is -x, rolling right is +z rotation
-    const fall = b.fallen ? b.fallT : 0;
-    this.model.leanPivot.rotation.z = lean + fall * 1.35 * Math.sign(lean || 1);
-    const steerTarget = sim.player.mode === 'riding' ? THREE.MathUtils.clamp(b.yawRate * 0.12, -0.35, 0.35) : 0;
+    // fallen: tip over onto its side (fallT eases back to 0 as it stands itself up)
+    this.model.leanPivot.rotation.z = lean + (b.fallSide * 1.42 - lean) * b.fallT;
+    const steerTarget = sim.player.mode === 'riding' || b.auto ? THREE.MathUtils.clamp(b.yawRate * 0.12, -0.35, 0.35) : 0;
     this.steerVis += (steerTarget - this.steerVis) * Math.min(1, dt * 10);
     this.model.steer.rotation.y = -this.steerVis;
     this.model.frontWheel.rotation.x = b.wheelSpin + this.model.frontRake;
     this.model.rearWheel.rotation.x = b.wheelSpin;
-    const on = !b.fallen;
+    // lights on while ridden or riding itself over; off once parked or down
+    const on = !b.fallen && (!b.riderless || b.auto);
     this.spot.intensity = on ? 2600 * (0.2 + night * 0.8) : 0;
+    const k = on ? 1 : 0.12;
+    (this.model.headlight.material as THREE.MeshBasicMaterial).color.setRGB(4 * k, 4 * k, 3.6 * k);
     const brake = b.speed > 5 && sim.player.mode === 'riding' ? 1 : 0.6;
     (this.model.taillight.material as THREE.MeshBasicMaterial).color.setRGB(3.2 * brake, 0.12, 0.08);
   }

@@ -32,8 +32,13 @@ export class Bike {
   riderless = false;
   /** Riderless but standing on its stand (stepped off at low speed). */
   parked = false;
+  /** Riderless and riding itself to the player after a whistle (see BikeCall). */
+  auto = false;
   fallen = false;
+  /** 0 upright to 1 lying on its side. */
   fallT = 0;
+  /** Side it fell towards: 1 right, -1 left. */
+  fallSide = 1;
   /** Throttle actually applied, for engine audio. */
   throttle = 0;
   /** Commanded velocity this step. */
@@ -63,6 +68,7 @@ export class Bike {
     this.lean = this.pLean = 0;
     this.fallen = false;
     this.parked = false;
+    this.auto = false;
     this.fallT = 0;
   }
 
@@ -92,7 +98,9 @@ export class Bike {
 
   control(c: BikeControls, dt: number, wet: number): void {
     const b = this.t.bike;
-    const ctl = this.riderless ? { steer: 0, throttle: 0, brake: 0, drift: false } : c;
+    // nobody steering: a riderless bike coasts unless it is riding itself over
+    const ghost = this.riderless && !this.auto;
+    const ctl = ghost ? { steer: 0, throttle: 0, brake: 0, drift: false } : c;
     const gripMul = 1 + (b.wetGripMul - 1) * wet;
     const brakeMul = 1 + (b.wetBrakeMul - 1) * wet;
 
@@ -117,7 +125,7 @@ export class Bike {
     if (ctl.throttle <= 0 || s > b.topSpeed) {
       s = s > 0 ? Math.max(0, s - drag * dt) : Math.min(0, s + drag * dt);
     }
-    if (this.riderless) s = s > 0 ? Math.max(0, s - b.riderlessFriction * dt) : Math.min(0, s + b.riderlessFriction * dt);
+    if (ghost) s = s > 0 ? Math.max(0, s - b.riderlessFriction * dt) : Math.min(0, s + b.riderlessFriction * dt);
     if (this.drifting) s = Math.max(0, s - b.driftSpeedLoss * dt);
     this.speed = s;
 
@@ -129,11 +137,13 @@ export class Bike {
 
     // lean follows the turn: atan(v * yawRate / g) in metres
     const g = 9.81 * 8;
-    const leanTarget = this.riderless && this.fallen ? b.maxLean * 1.9 : clamp(Math.atan((Math.abs(s) * this.yawRate) / g), -b.maxLean, b.maxLean);
+    // once down, the fall itself is fallT (the view tips it onto fallSide)
+    const leanTarget = this.fallen ? this.lean : clamp(Math.atan((Math.abs(s) * this.yawRate) / g), -b.maxLean, b.maxLean);
     this.lean = damp(this.lean, leanTarget, b.leanResponse, dt);
 
-    if (this.riderless && !this.fallen && !this.parked && Math.abs(s) < b.fallOverSpeed) {
+    if (ghost && !this.fallen && !this.parked && Math.abs(s) < b.fallOverSpeed) {
       this.fallen = true;
+      this.fallSide = this.lean < 0 ? -1 : 1;
     }
     if (this.fallen) this.fallT = Math.min(1, this.fallT + dt * 2.5);
 

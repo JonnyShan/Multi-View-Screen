@@ -100,6 +100,14 @@ export class TouchControls {
     this.look.addEventListener('pointercancel', endLook);
   }
 
+  /** Relabel a button (the JUMP button reads RIDE or WHISTLE on foot). */
+  setLabel(id: string, text: string): void {
+    const b = this.btns.get(id);
+    if (!b || b.textContent === text) return;
+    b.textContent = text;
+    b.classList.toggle('long', text.length > 5);
+  }
+
   show(on: boolean): void {
     this.root.classList.toggle('on', on);
     if (!on) this.release();

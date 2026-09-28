@@ -22,7 +22,8 @@ export type SimEvent =
   | { type: 'respawn' }
   | { type: 'mount' }
   | { type: 'dismount' }
-  | { type: 'bikeSummoned' }
+  | { type: 'whistle'; x: number; y: number }
+  | { type: 'bikeArrived'; x: number; y: number }
   | { type: 'phoneRing' }
   | { type: 'phoneAnswer' }
   | { type: 'contractBrief'; index: number }

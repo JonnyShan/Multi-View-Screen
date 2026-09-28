@@ -20,7 +20,9 @@ export type SoundName =
   | 'pop'
   | 'cut'
   | 'music'
-  | 'click';
+  | 'click'
+  | 'whistle'
+  | 'horn';
 
 type Build = (ctx: OfflineAudioContext) => void;
 
@@ -317,6 +319,74 @@ const SPECS: Record<SoundName, { seconds: number; build: Build; stereo?: boolean
       env(ctx, o, 0.004, 0.2, 0.4).connect(ctx.destination);
       n.start(0);
       o.start(0);
+    },
+  },
+  whistle: {
+    seconds: 0.95,
+    build: (ctx) => {
+      // a two-note call: a quick rise, then a longer fall, with breath and a little vibrato
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      const f = o.frequency;
+      f.setValueAtTime(1700, 0);
+      f.exponentialRampToValueAtTime(2650, 0.2);
+      f.setValueAtTime(2300, 0.29);
+      f.exponentialRampToValueAtTime(2750, 0.36);
+      f.exponentialRampToValueAtTime(1850, 0.85);
+      const vib = ctx.createOscillator();
+      vib.frequency.value = 6.5;
+      const vibGain = ctx.createGain();
+      vibGain.gain.value = 22;
+      vib.connect(vibGain).connect(f);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, 0);
+      g.gain.exponentialRampToValueAtTime(0.32, 0.03);
+      g.gain.setValueAtTime(0.3, 0.19);
+      g.gain.exponentialRampToValueAtTime(0.0001, 0.24);
+      g.gain.setValueAtTime(0.0001, 0.28);
+      g.gain.exponentialRampToValueAtTime(0.34, 0.31);
+      g.gain.setValueAtTime(0.28, 0.78);
+      g.gain.exponentialRampToValueAtTime(0.0001, 0.9);
+      o.connect(g).connect(ctx.destination);
+      const breath = noise(ctx, 0.95);
+      const bp = filter(ctx, 'bandpass', 2400, 3);
+      breath.connect(bp);
+      const bg = ctx.createGain();
+      bp.connect(bg);
+      // breath follows the notes
+      bg.gain.setValueAtTime(0.0001, 0);
+      bg.gain.exponentialRampToValueAtTime(0.05, 0.03);
+      bg.gain.exponentialRampToValueAtTime(0.0001, 0.24);
+      bg.gain.setValueAtTime(0.0001, 0.28);
+      bg.gain.exponentialRampToValueAtTime(0.05, 0.31);
+      bg.gain.exponentialRampToValueAtTime(0.0001, 0.9);
+      bg.connect(ctx.destination);
+      o.start(0);
+      vib.start(0);
+      breath.start(0);
+    },
+  },
+  horn: {
+    seconds: 0.5,
+    build: (ctx) => {
+      // a small bike horn: two short dual-tone beeps
+      for (const start of [0, 0.22]) {
+        for (const freq of [415, 520]) {
+          const o = ctx.createOscillator();
+          o.type = 'square';
+          o.frequency.value = freq;
+          const lp = filter(ctx, 'lowpass', 1800);
+          o.connect(lp);
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0.0001, start);
+          g.gain.exponentialRampToValueAtTime(0.14, start + 0.01);
+          g.gain.setValueAtTime(0.14, start + 0.12);
+          g.gain.exponentialRampToValueAtTime(0.0001, start + 0.15);
+          lp.connect(g).connect(ctx.destination);
+          o.start(start);
+          o.stop(start + 0.16);
+        }
+      }
     },
   },
   click: {

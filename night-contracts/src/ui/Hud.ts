@@ -60,6 +60,8 @@ export class Hud {
   private phoneOpenT = 0;
   onAnswer: (() => void) | null = null;
   touch = false;
+  /** What the touch JUMP button does right now (JUMP, RIDE or WHISTLE). */
+  jumpLabel = 'JUMP';
   private readonly v3 = new THREE.Vector3();
 
   constructor(
@@ -347,13 +349,20 @@ export class Hud {
     const pl = sim.player;
     let h = '';
     const t = this.touch;
+    let jump = 'JUMP';
     if (pl.mode === 'foot') {
       const d = Math.hypot(sim.bike.x - pl.x, sim.bike.y - pl.y);
-      if (d < sim.t.player.remountRange) h = t ? 'JUMP to ride' : 'E to ride';
-      else if (d > sim.t.player.summonDistance) h = t ? 'JUMP to call the bike' : 'E to call the bike';
+      if (d < sim.t.player.remountRange) {
+        h = t ? 'RIDE to get on' : 'E to ride';
+        jump = 'RIDE';
+      } else {
+        if (!sim.bike.auto) h = t ? 'WHISTLE for your bike' : 'E to whistle for your bike';
+        jump = 'WHISTLE';
+      }
     } else if (pl.mode === 'roof') h = t ? 'SLASH to strike. JUMP to hop off' : 'K or right click to strike. E to hop off';
     else if (pl.mode === 'riding' && sim.bike.speed > sim.t.leap.minSpeed && sim.contracts.target) h = t ? 'JUMP at speed to leap onto a roof' : 'E at speed to leap onto a roof';
     if (this.hint.textContent !== h) this.hint.textContent = h;
+    this.jumpLabel = jump;
   }
 
   // ---------------------------------------------------------------- minimap

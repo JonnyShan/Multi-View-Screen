@@ -132,6 +132,14 @@ export class AudioManager {
       case 'siren':
         this.sirenOn = e.on;
         break;
+      case 'whistle':
+        this.play('whistle', 0.75, 0.97 + Math.random() * 0.06);
+        break;
+      case 'bikeArrived': {
+        const s = this.spatial(sim, e.x, e.y, camYaw, 600);
+        this.play('horn', 0.6 * Math.max(0.3, s.vol), 1, s.pan);
+        break;
+      }
       case 'playerHurt':
         this.play('impact', 0.3, 1.6);
         break;
@@ -152,7 +160,15 @@ export class AudioManager {
     const b = sim.bike;
     const riding = sim.player.mode === 'riding' && !paused;
     const k = Math.min(1, Math.abs(b.speed) / sim.t.bike.topSpeed);
-    set('engine', riding ? (0.28 + b.throttle * 0.25 + k * 0.2) * this.sfx : b.riderless && !b.fallen && !paused ? 0.1 * this.sfx : 0, 0.55 + k * 1.75 + b.throttle * 0.12);
+    let engine = 0;
+    if (riding) engine = 0.28 + b.throttle * 0.25 + k * 0.2;
+    else if (paused) engine = 0;
+    else if (b.auto) {
+      // riding itself over: louder as it gets close
+      const near = Math.max(0, 1 - Math.hypot(b.x - sim.player.x, b.y - sim.player.y) / 700);
+      engine = 0.06 + near * (0.18 + b.throttle * 0.14);
+    } else if (b.riderless && !b.fallen) engine = 0.1;
+    set('engine', engine * this.sfx, 0.55 + k * 1.75 + b.throttle * 0.12);
     set('screech', !paused && b.skidding && !b.riderless ? 0.35 * this.sfx : 0);
     set('rain', !paused && sim.raining ? 0.55 * this.sfx : 0);
     const police = sim.police.units;

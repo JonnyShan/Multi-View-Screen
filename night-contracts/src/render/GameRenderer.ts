@@ -262,7 +262,7 @@ export class GameRenderer {
     }
     globalUniforms.uCamPos.value.copy(cam.position);
     this.cars.update(sim, alpha, dt, l.night, cam.position);
-    this.peds.update(sim, alpha);
+    this.peds.update(sim, alpha, cam, Math.min(this.q.cullRange, 1000));
     this.fx.update(sim, dt, this.renderer.domElement.height / Math.tan((cam.fov * Math.PI) / 360) / 2);
     // a lighter shower than the full drop count
     this.rain.update(cam, dt, sim.raining ? 0.75 : 0, sim.wet);

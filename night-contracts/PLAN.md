@@ -53,7 +53,7 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] 24 hour cycle (1 real minute = 1 game hour, pausable), sky dome with sun, moon and stars, warm haze by day, blue fog at night
 - [x] Rain as a random weather event: streaks, splashes, wet asphalt with puddles, lamp reflection streaks, lightning with thunder
 - [x] Post FX: bloom (quarter resolution on phones), per time of day LUT grade blend, vignette, hurt flash; desktop ambient occlusion option (off by default)
-- [x] Pedestrians walk footpath loops, cross streets, scatter from gunfire, get knocked down
+- [x] Pedestrians walk footpath loops, cross streets, scatter from gunfire, get knocked down. They are instanced people built from parts (four hairstyles, two builds, jackets, belts, shorts or skirts, trainers) with a walk and run cycle, a per-person palette, umbrellas in the rain and the odd phone call
 - [x] GLB swap-in: bike, rider (AnimationMixer clips), cars, palm, lamp, bench, bus stop, barrier, fence. Verified with `node tools/glbcheck.mjs` (exports placeholder GLBs, drops them in, confirms they load, removes them)
 - [x] Audio: engine loop pitched by speed, gun, katana, screech, impacts, explosion, rain, phone, siren, thunder, music, all synthesised at runtime; files in assets/audio override them
 - [x] Slow motion on wheel cut and roof strike (0.3x for 0.6 s), hit stop, screen shake, sparks, skid marks, tyre smoke, fire
@@ -75,7 +75,8 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - Coast layout: the raised boulevard runs one block south of the grid with ramps on columns 0, 4 and 8, a row of low lots between it and row 0, then beach and ocean. Nothing passes under the boulevard, so height is a simple function of position.
 - Physics is Rapier on a flat slab (z locked, gravity off); ramps, the boulevard and airborne arcs are handled by the sim. This keeps car handling arcade and deterministic.
 - Palm trunks and lamp posts are solid (`world.solidStreetFurniture`), so clipping one at speed throws you.
-- Stepping off the bike below leap speed leaves it standing on its stand; above leap speed you leap. On foot far from the bike, E calls it over.
+- Stepping off the bike below leap speed leaves it standing on its stand; above leap speed you leap. On foot, E whistles: the bike stands itself up and rides to you along the roads (left lane, slowing for traffic, squeezing past stopped cars on the kerb side) and stops beside you. From more than about 1400 units of road away it appears out of sight about 650 out and rides in.
+- The bike tops out at 150 km/h (0 to 100 in about 3 s): the city is only about 500 m across, and 240 km/h crossed it in 8 seconds. Car top speeds were scaled down with it so police and escorts stay just slower than the bike.
 - Traffic unjamming: a civilian stuck behind something stationary overtakes through the other lane; if it is still stuck after 10 s it briefly stops colliding with other cars and drives through. It never sits still for good, and it looks better than cars teleporting in view.
 - Spinning cars take damage from gentler impacts and at 4.5x, so a wheel cut into a wall or another car reliably finishes a light target (crash kill x1.6). The limo usually needs a harder hit.
 - A car hitting the player is judged by relative speed before the bike's own crash check, so a ram is never mistaken for the rider hitting a wall.

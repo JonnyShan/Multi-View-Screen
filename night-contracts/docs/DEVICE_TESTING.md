@@ -39,7 +39,7 @@ In Xcode pick your team under Signing and Capabilities, plug in the iPhone, choo
    - Recent iPhone: 60 fps most of the time.
    - Mid-range Android: never below 30 fps.
    - The game lowers its resolution by itself when frames run long (adaptive pixel ratio). If it still misses, force `Graphics: Low` in Settings.
-2. **Budgets** (overlay): under 150 draw calls and under 300k triangles on Medium and Low. The emulated iPhone run in CI shows about 100 to 135 calls and 80k to 145k triangles on Medium. Recent iPhones and flagship Android phones now start on High (about 200 calls and 250k triangles): confirm they hold 60 fps there, and if a device cannot, make `detectLevel` pick Medium for it.
+2. **Budgets** (overlay): under 150 draw calls and under 300k triangles on Medium and Low. The emulated iPhone run in CI shows about 100 to 135 calls and 80k to 145k triangles on Medium. Recent iPhones and flagship Android phones now start on High (about 210 calls and 190k to 280k triangles, of which the new pedestrians are about 2,100 triangles each, typically 10 to 15 in view): confirm they hold 60 fps there, and if a device cannot, make `detectLevel` pick Medium for it.
 3. **Battery and heat, 20 minutes.** Full brightness, sound on, take the three contracts and ride around. Note battery drop and whether the phone gets hot or throttles (fps sinks over time). Target: under 15 percent battery for 20 minutes on a recent phone and no throttling warnings.
 4. **Touch controls.** Floating stick on the left, FIRE, SLASH, JUMP, DRIFT on the right, phone card answers calls, drag on the right half looks around. Settings, Move Buttons lets you reposition them.
 5. **Haptics** on hits, crashes, wheel cuts and roof strikes (native apps; Android Chrome also vibrates).
