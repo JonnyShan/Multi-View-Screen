@@ -398,7 +398,7 @@ export class Hud {
     const W = this.mapCanvas.width;
     const cx = W / 2;
     const cy = W / 2;
-    const zoom = 0.62;
+    const zoom = 0.34;
     const yaw = this.yaw();
     const sn = Math.sin(yaw);
     const cs = Math.cos(yaw);

@@ -2,7 +2,7 @@
 
 Open-city superbike action game. Mobile first (phones in landscape), web build wrapped with Capacitor, desktop browser also supported.
 
-Current milestone: **M4 Contracts** (M0 to M3 done) (see `PLAN.md`).
+Current milestone: **M5 Heat and police** (M0 to M4 done) (see `PLAN.md`).
 
 ## Run
 

@@ -37,10 +37,11 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] Car versus player by relative speed: push, knock off and hurt, kill
 
 ## M4 Contracts
-- [ ] Phone UI, contract state machine
-- [ ] Target, escort AI
-- [ ] Scoring, fail states
-- [ ] HUD, minimap, off-screen arrows, toasts
+- [x] Phone UI (ringing card with ANSWER, dossier that collapses), contract state machine (tests/unit/contracts.test.ts)
+- [x] Target AI (spawns two blocks out, parks at the kerb, runs for its destination, overtakes when fleeing)
+- [x] Escort AI (follows, then hunts: rams with lead and backs off, or holds off and shoots in bursts)
+- [x] Scoring (method multipliers, $2,000 per civilian car), fail states (escaped, died), loop at 1.5x
+- [x] HUD, rotating minimap with clamped blips, off-screen arrows with metres, target marker, toasts
 
 ## M5 Heat and police
 - [ ] Stars, decay, police cruisers, roadblocks

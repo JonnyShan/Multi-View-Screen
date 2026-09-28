@@ -42,7 +42,8 @@ export function billboardMaterial(color: THREE.Color, opacityUniform: { value: n
         vUv = uv;
         vec4 center = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
         float size = length(instanceMatrix[0].xyz);
-        vec4 mvPosition = center + vec4(position.xy * size, 0.0, 0.0);
+        float closeK = clamp(-center.z / 120.0, 0.45, 1.0);
+        vec4 mvPosition = center + vec4(position.xy * size * closeK, 0.0, 0.0);
         vBlink = ${blink ? 'step(0.5, fract(uTime * 0.7 + instanceMatrix[3].x * 0.001))' : '1.0'};
         gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
@@ -136,7 +137,7 @@ export class LampsView {
       const hx = l.x + Math.cos(l.a) * (arm - 1);
       const hy = l.y + Math.sin(l.a) * (arm - 1);
       this.lampPos.push(new THREE.Vector3(hx, l.z + H - 3, hy));
-      m.compose(p.set(hx, l.z + H - 3, hy), q.identity(), s.set(13, 13, 13));
+      m.compose(p.set(hx, l.z + H - 3, hy), q.identity(), s.set(9, 9, 9));
       glow.setMatrixAt(i, m);
       const ground = city.heightAt(hx, hy) + (city.heightAt(hx, hy) > 0.5 ? 0.3 : 1.4);
       m.compose(p.set(hx, ground, hy), q.identity(), s.set(150, 1, 150));
@@ -159,9 +160,11 @@ export class LampsView {
           varying float vY;
           varying vec3 vN;
           varying vec3 vV;
+          varying float vDist;
           void main() {
             vY = -position.y / ${(H - 4).toFixed(1)};
             vec4 mv = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+            vDist = -mv.z;
             vN = normalize(normalMatrix * mat3(instanceMatrix) * normal);
             vV = normalize(-mv.xyz);
             gl_Position = projectionMatrix * mv;
@@ -173,10 +176,13 @@ export class LampsView {
           varying float vY;
           varying vec3 vN;
           varying vec3 vV;
+          varying float vDist;
           void main() {
             float edge = pow(abs(dot(vN, vV)), 1.5);
             float fade = (1.0 - vY) * (1.0 - vY);
-            gl_FragColor = vec4(uColor * edge * fade * uOpacity * 0.16, 1.0);
+            // fade out when the camera is right inside a cone
+            float near = smoothstep(40.0, 140.0, vDist);
+            gl_FragColor = vec4(uColor * edge * fade * uOpacity * near * 0.12, 1.0);
           }
         `,
         transparent: true,
@@ -269,7 +275,7 @@ export class LampsView {
     const on = THREE.MathUtils.smoothstep(night, 0.25, 0.7);
     this.glowOpacity.value = on;
     this.poolOpacity.value = on * (0.9 + wet * 0.3);
-    this.coneOpacity.value = on * (0.35 + rain * 1.2);
+    this.coneOpacity.value = on * (0.3 + rain * 0.5);
     this.streakOpacity.value = on * wet;
     this.beaconOpacity.value = 0.4 + on * 0.6;
     this.headMat.color.setHex(SODIUM, THREE.SRGBColorSpace).multiplyScalar(0.6 + on * 2.6);
