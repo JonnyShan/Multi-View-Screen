@@ -50,12 +50,14 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] A loud contract kill brings the police
 
 ## M6 Juice
-- [ ] Day/night, rain, lightning, post FX, LUT grading
-- [ ] Pedestrians
-- [ ] GLB swap-in
-- [ ] Audio
-- [ ] Slow motion, hit stop, shake, sparks
-- [ ] Settings, save/load
+- [x] 24 hour cycle (1 real minute = 1 game hour, pausable), sky dome with sun, moon and stars, warm haze by day, blue fog at night
+- [x] Rain as a random weather event: streaks, splashes, wet asphalt with puddles, lamp reflection streaks, lightning with thunder
+- [x] Post FX: bloom (quarter resolution on phones), per time of day LUT grade blend, vignette, hurt flash; desktop ambient occlusion option (off by default)
+- [x] Pedestrians walk footpath loops, cross streets, scatter from gunfire, get knocked down
+- [x] GLB swap-in: bike, rider (AnimationMixer clips), cars, palm, lamp, bench, bus stop, barrier, fence. Verified with `node tools/glbcheck.mjs` (exports placeholder GLBs, drops them in, confirms they load, removes them)
+- [x] Audio: engine loop pitched by speed, gun, katana, screech, impacts, explosion, rain, phone, siren, thunder, music, all synthesised at runtime; files in assets/audio override them
+- [x] Slow motion on wheel cut and roof strike (0.3x for 0.6 s), hit stop, screen shake, sparks, skid marks, tyre smoke, fire
+- [x] Settings menu (quality, weather, clock, volumes, haptics, debug, button layout), save/load (e2e test)
 
 ## M7 Ship to phones
 - [ ] Quality presets
@@ -73,4 +75,6 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - Traffic unjamming: a civilian stuck behind something stationary overtakes through the other lane; if it is still stuck after 10 s it briefly stops colliding with other cars and drives through. It never sits still for good, and it looks better than cars teleporting in view.
 - Spinning cars take damage from gentler impacts and at 4.5x, so a wheel cut into a wall or another car reliably finishes a light target (crash kill x1.6). The limo usually needs a harder hit.
 - A car hitting the player is judged by relative speed before the bike's own crash check, so a ram is never mistaken for the rider hitting a wall.
+- The art deco building kit is procedural (plinth, window bands, cornices, fins, balconies, roof kit, merged per chunk). GLB city kit pieces are not wired in yet; props, palms, lamps, cars, bike and rider are.
+- A rigged rider GLB needs a `ride` clip; without it the idle clip plays while riding.
 - Render maps sim (x, y, z) to three (x, z, y) as the brief asks. This is a mirror, so "left" and "right" go through helpers in `core/math.ts`.

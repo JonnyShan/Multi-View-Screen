@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
@@ -135,6 +136,11 @@ export class PostFX {
     const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: q.msaa });
     this.composer = new EffectComposer(renderer, target);
     this.composer.addPass(new RenderPass(scene, camera));
+    if (q.ssao) {
+      const ao = new GTAOPass(scene, camera, size.x, size.y);
+      ao.updateGtaoMaterial({ radius: 12, distanceExponent: 1, thickness: 4, scale: 1 });
+      this.composer.addPass(ao);
+    }
     if (q.bloom !== 'off') {
       const div = q.bloom === 'cheap' ? 4 : 2;
       this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / div, size.y / div), 0.55, 0.45, 0.82);

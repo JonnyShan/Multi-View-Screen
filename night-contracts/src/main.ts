@@ -44,6 +44,7 @@ declare global {
       teleport: (x: number, y: number, a: number) => void;
       /** Debug: scale all time (sim and effects), e.g. 0.05 to inspect FX. */
       slow: (k: number) => void;
+      camera: (c: { x: number; y: number; z: number; tx: number; ty: number; tz: number } | null) => void;
     };
   }
 }
@@ -94,7 +95,7 @@ async function boot(): Promise<void> {
   // heavy init while the title shows
   const probe = document.createElement('canvas').getContext('webgl2');
   const qParam = new URLSearchParams(location.search).get('q') as 'low' | 'medium' | 'high' | null;
-  const quality = qualityFor(qParam ?? settings.quality, probe);
+  const quality = qualityFor(qParam ?? settings.quality, probe, settings.ao);
   await Promise.all([initPhysics(), document.fonts?.ready ?? Promise.resolve()]);
   try {
     await Promise.all(['600 64px Teko', '600 14px "Chakra Petch"', '400 14px Barlow'].map((f) => document.fonts.load(f)));
@@ -351,6 +352,9 @@ async function boot(): Promise<void> {
     },
     slow: (k: number) => {
       debugSlow = k;
+    },
+    camera: (c) => {
+      gr.debugCamera = c;
     },
     teleport: (x: number, y: number, a: number) => {
       sim.bike.place(x, y, sim.city.heightAt(x, y), a);

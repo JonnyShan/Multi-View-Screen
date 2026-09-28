@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Sim } from '../sim/Sim';
+import { findNode } from './AssetRegistry';
 import type { BikeModel } from './BikeView';
 import { srgb, yawToThree } from './Shared';
 
@@ -160,16 +161,16 @@ export function buildRiderModel(): RiderModel {
   const katana = new THREE.Group();
   katana.name = 'katana';
   const steel = new THREE.MeshStandardMaterial({ color: 0xdfe3e8, roughness: 0.15, metalness: 1, emissive: 0x223344, emissiveIntensity: 0.2 });
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.1, 8.6, 0.42).translate(0, 5.1, 0), steel);
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.1, 7.2, 0.42).translate(0, 4.4, 0), steel);
   const handle = new THREE.Mesh(new THREE.BoxGeometry(0.34, 2.6, 0.38).translate(0, -0.5, 0), new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.8 }));
   const tsuba = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.14, 12).translate(0, 0.85, 0), new THREE.MeshStandardMaterial({ color: srgb(0xd9a441), metalness: 1, roughness: 0.3 }));
   katana.add(blade, handle, tsuba);
-  const saya = new THREE.Mesh(new THREE.BoxGeometry(0.34, 8.8, 0.62).translate(0, 5.2, 0), new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.35, metalness: 0.3 }));
+  const saya = new THREE.Mesh(new THREE.BoxGeometry(0.34, 7.4, 0.6).translate(0, 4.5, 0), new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.35, metalness: 0.3 }));
   saya.name = 'saya';
   bones.chest.add(saya);
   // diagonal across the back, handle over the right shoulder
-  saya.position.set(-1.1, 2.0, -1.3);
-  saya.rotation.set(0, 0, -Math.PI + 0.62);
+  saya.position.set(-0.9, 1.6, -1.25);
+  saya.rotation.set(0, 0, -Math.PI + 0.38);
 
   // compact machine gun
   const gun = new THREE.Group();
@@ -188,15 +189,15 @@ export function buildRiderModel(): RiderModel {
 
 const POSES: Record<string, Pose> = {
   ride: {
-    hips: [0.25, 0, 0],
-    spine: [0.45, 0, 0],
-    chest: [0.35, 0, 0],
-    neck: [-0.55, 0, 0],
-    head: [-0.35, 0, 0],
-    shoulder_l: [-1.95, 0, 0.22],
-    elbow_l: [0.45, 0, 0],
-    shoulder_r: [-1.95, 0, -0.22],
-    elbow_r: [0.45, 0, 0],
+    hips: [0.3, 0, 0],
+    spine: [0.55, 0, 0],
+    chest: [0.42, 0, 0],
+    neck: [-0.75, 0, 0],
+    head: [-0.45, 0, 0],
+    shoulder_l: [-2.05, 0, 0.3],
+    elbow_l: [-0.35, 0, 0],
+    shoulder_r: [-2.05, 0, -0.3],
+    elbow_r: [-0.35, 0, 0],
     hip_l: [-1.3, 0, 0.28],
     knee_l: [1.75, 0, 0],
     foot_l: [-0.35, 0, 0],
@@ -248,6 +249,10 @@ const POSES: Record<string, Pose> = {
 
 export class RiderView {
   readonly model: RiderModel;
+
+  get root(): THREE.Group {
+    return this.model.root;
+  }
   private runPhase = 0;
   private blend = new Map<string, THREE.Euler>();
   private katanaInHand = false;
@@ -320,9 +325,9 @@ export class RiderView {
     if (riding) {
       Object.assign(pose, POSES.ride);
       const lean = sim.bike.lean;
-      pose.hips = [0.25, 0, -lean * 0.25];
-      pose.chest = [0.35, 0, -lean * 0.2];
-      pose.head = [-0.35, 0, lean * 0.4];
+      pose.hips = [0.3, 0, -lean * 0.25];
+      pose.chest = [0.42, 0, -lean * 0.2];
+      pose.head = [-0.45, 0, lean * 0.4];
       m.root.position.set(-lean * 0.6, this.bike.seat.y - 7.6 + 0.1, this.bike.seat.z);
       m.root.rotation.set(0, 0, 0);
     } else {
@@ -381,7 +386,7 @@ export class RiderView {
       while (rel > Math.PI) rel -= Math.PI * 2;
       while (rel < -Math.PI) rel += Math.PI * 2;
       rel = THREE.MathUtils.clamp(rel, -1.9, 1.9);
-      const torsoPitch = riding ? 1.05 : 0.05;
+      const torsoPitch = riding ? 1.27 : 0.05;
       // increasing sim angle turns right; right of a +z model is -x which is a negative yaw about three y
       pose.chest = [pose.chest?.[0] ?? 0, -rel * 0.45, pose.chest?.[2] ?? 0];
       pose.shoulder_r = [-Math.PI / 2 - torsoPitch * 0.9, -rel * 0.55, riding ? -0.35 : -0.1];
@@ -394,5 +399,88 @@ export class RiderView {
       this.tmpEuler.set(e.x, e.y, e.z);
       m.bones[name].rotation.copy(this.tmpEuler);
     }
+  }
+}
+
+/** Clip names the GLB rider may provide (matched case-insensitively, by prefix). */
+const CLIP_KEYS = ['idle', 'run', 'ride', 'slash', 'shoot', 'jump', 'land', 'fall'] as const;
+type ClipKey = (typeof CLIP_KEYS)[number];
+
+/**
+ * A rigged rider GLB driven by an AnimationMixer. Clips are matched by name
+ * (idle, run, ride, slash, shoot, jump, land, fall). The katana and gun attach
+ * to the `hand_r` bone when it exists.
+ */
+export class GlbRiderView {
+  readonly root = new THREE.Group();
+  private readonly mixer: THREE.AnimationMixer;
+  private readonly actions = new Map<ClipKey, THREE.AnimationAction>();
+  private current: THREE.AnimationAction | null = null;
+  private readonly katana: THREE.Group;
+  private readonly gun: THREE.Group;
+  private readonly hand: THREE.Object3D | null;
+  private readonly back: THREE.Object3D;
+
+  constructor(
+    private readonly bike: BikeModel,
+    scene: THREE.Group,
+    clips: THREE.AnimationClip[],
+  ) {
+    this.root.name = 'rider';
+    this.root.add(scene);
+    scene.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) {
+        (o as THREE.Mesh).castShadow = true;
+        o.frustumCulled = false;
+      }
+    });
+    this.mixer = new THREE.AnimationMixer(scene);
+    for (const key of CLIP_KEYS) {
+      const clip = clips.find((c) => c.name.toLowerCase().startsWith(key)) ?? clips.find((c) => c.name.toLowerCase().includes(key));
+      if (clip) this.actions.set(key, this.mixer.clipAction(clip));
+    }
+    const placeholder = buildRiderModel();
+    this.katana = placeholder.katana;
+    this.gun = placeholder.gun;
+    this.hand = findNode(scene, 'hand_r', 'righthand', 'mixamorig:righthand', 'hand.r');
+    this.back = findNode(scene, 'spine2', 'chest', 'spine', 'mixamorig:spine2') ?? scene;
+    this.back.add(this.katana);
+    this.katana.position.set(0, 0, -1.2);
+    this.katana.rotation.set(0, 0, Math.PI - 0.4);
+    this.gun.visible = false;
+    if (this.hand) this.hand.add(this.gun);
+  }
+
+  private play(key: ClipKey, fallback: ClipKey = 'idle'): void {
+    const a = this.actions.get(key) ?? this.actions.get(fallback) ?? null;
+    if (!a || a === this.current) return;
+    a.reset().play();
+    if (this.current) a.crossFadeFrom(this.current, 0.2, false);
+    this.current = a;
+  }
+
+  update(sim: Sim, alpha: number, dt: number): void {
+    const pl = sim.player;
+    const riding = pl.mode === 'riding';
+    if (riding && this.root.parent !== this.bike.leanPivot) this.bike.leanPivot.add(this.root);
+    else if (!riding && this.root.parent === this.bike.leanPivot) this.bike.root.parent?.add(this.root);
+    if (riding) {
+      this.root.position.set(0, this.bike.seat.y - 7.6, this.bike.seat.z);
+      this.root.rotation.set(0, 0, 0);
+    } else {
+      this.root.position.set(pl.px + (pl.x - pl.px) * alpha, pl.pz + (pl.z - pl.pz) * alpha, pl.py + (pl.y - pl.py) * alpha);
+      this.root.rotation.set(0, yawToThree(pl.facing), 0);
+    }
+    const speed = Math.hypot(pl.vx, pl.vy);
+    if (pl.slashAnim < 0.34) this.play('slash');
+    else if (pl.firing) this.play('shoot', riding ? 'ride' : 'idle');
+    else if (riding) this.play('ride');
+    else if (pl.mode === 'air') this.play('jump');
+    else if (pl.mode === 'down' || pl.mode === 'dead') this.play('fall');
+    else if (pl.mode === 'roof') this.play('land');
+    else if (speed > 6) this.play('run');
+    else this.play('idle');
+    this.gun.visible = pl.firing && !!this.hand;
+    this.mixer.update(dt);
   }
 }

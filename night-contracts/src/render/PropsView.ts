@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { City, Prop, PropKind } from '../world/CityGenerator';
+import type { AssetPart, AssetRegistry } from './AssetRegistry';
 import { globalUniforms, srgb, yawToThree } from './Shared';
 
 function merged(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
@@ -93,10 +94,31 @@ const materialColour: Partial<Record<PropKind, number>> = {
   rail: 0x6a6660,
 };
 
+/** Props that a handed-off GLB can replace (assets/models/props/<name>.glb). */
+const GLB_PROPS: Partial<Record<PropKind, string>> = {
+  bench: 'models/props/bench.glb',
+  busstop: 'models/props/busstop.glb',
+  barrier: 'models/props/barrier.glb',
+  fence: 'models/props/fence.glb',
+};
+
+/** One instanced mesh per GLB part, all sharing the same instance matrices. */
+export function instancedParts(parts: AssetPart[], matrices: THREE.Matrix4[], castShadow: boolean, name: string): THREE.InstancedMesh[] {
+  return parts.map((part, i) => {
+    const im = new THREE.InstancedMesh(part.geometry, part.material, matrices.length);
+    matrices.forEach((m, k) => im.setMatrixAt(k, m));
+    im.castShadow = castShadow;
+    im.receiveShadow = true;
+    im.computeBoundingSphere();
+    im.name = `${name}-${i}`;
+    return im;
+  });
+}
+
 export class PropsView {
   readonly group = new THREE.Group();
 
-  constructor(city: City, castShadow: boolean) {
+  constructor(city: City, castShadow: boolean, assets?: AssetRegistry) {
     this.group.name = 'props';
     const byKind = new Map<PropKind, Prop[]>();
     for (const p of city.props) {
@@ -110,6 +132,12 @@ export class PropsView {
     const v = new THREE.Vector3();
     const yAxis = new THREE.Vector3(0, 1, 0);
     for (const [kind, list] of byKind) {
+      const glb = GLB_PROPS[kind] ? assets?.parts(GLB_PROPS[kind]!) : null;
+      if (glb) {
+        const mats = list.map((p) => new THREE.Matrix4().compose(new THREE.Vector3(p.x, p.z, p.y), new THREE.Quaternion().setFromAxisAngle(yAxis, yawToThree(p.a)), new THREE.Vector3(1, 1, 1)));
+        for (const im of instancedParts(glb, mats, castShadow, `props-${kind}`)) this.group.add(im);
+        continue;
+      }
       const geo = geometryFor(kind);
       const perInstanceColour = !materialColour[kind];
       const mat = new THREE.MeshStandardMaterial({
@@ -152,7 +180,7 @@ export class PropsView {
       this.group.add(mesh);
     }
     this.buildRailSleepers(city);
-    this.group.add(new PalmsView(city, castShadow).group);
+    this.group.add(new PalmsView(city, castShadow, assets?.parts('models/props/palm.glb') ?? null).group);
   }
 
   private buildRailSleepers(city: City): void {
@@ -180,8 +208,24 @@ export class PropsView {
 export class PalmsView {
   readonly group = new THREE.Group();
 
-  constructor(city: City, castShadow: boolean) {
+  constructor(city: City, castShadow: boolean, glb: AssetPart[] | null = null) {
     const palms = city.palms;
+    if (glb) {
+      // handed-off palm model, scaled to each palm's height
+      const box = new THREE.Box3();
+      for (const part of glb) {
+        part.geometry.computeBoundingBox();
+        box.union(part.geometry.boundingBox!);
+      }
+      const modelH = Math.max(1, box.max.y - box.min.y);
+      const mats = palms.map((pl) => {
+        const axis = new THREE.Vector3(Math.cos(pl.leanDir), 0, Math.sin(pl.leanDir));
+        const k = pl.h / modelH;
+        return new THREE.Matrix4().compose(new THREE.Vector3(pl.x, pl.z, pl.y), new THREE.Quaternion().setFromAxisAngle(axis, pl.lean), new THREE.Vector3(k, k, k));
+      });
+      for (const im of instancedParts(glb, mats, castShadow, 'palms')) this.group.add(im);
+      return;
+    }
     // trunk: unit height, ringed segments
     const trunk = new THREE.CylinderGeometry(1.1, 1.9, 1, 7, 8, false).translate(0, 0.5, 0);
     const pos = trunk.getAttribute('position');

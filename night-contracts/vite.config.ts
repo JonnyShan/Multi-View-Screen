@@ -27,7 +27,22 @@ export default defineConfig({
   },
   server: { port: 5173 },
   optimizeDeps: {
-    include: ['three', '@dimforge/rapier3d-compat', 'howler', '@capacitor/haptics', '@capacitor/core'],
+    include: [
+      'three',
+      'three/addons/loaders/GLTFLoader.js',
+      'three/addons/utils/SkeletonUtils.js',
+      'three/addons/utils/BufferGeometryUtils.js',
+      'three/addons/postprocessing/EffectComposer.js',
+      'three/addons/postprocessing/GTAOPass.js',
+      'three/addons/postprocessing/OutputPass.js',
+      'three/addons/postprocessing/RenderPass.js',
+      'three/addons/postprocessing/ShaderPass.js',
+      'three/addons/postprocessing/UnrealBloomPass.js',
+      '@dimforge/rapier3d-compat',
+      'howler',
+      '@capacitor/haptics',
+      '@capacitor/core',
+    ],
   },
   preview: { port: 4173 },
   test: {

@@ -2,7 +2,7 @@
 
 Open-city superbike action game. Mobile first (phones in landscape), web build wrapped with Capacitor, desktop browser also supported.
 
-Current milestone: **M6 Juice** (M0 to M5 done) (see `PLAN.md`).
+Current milestone: **M7 Ship to phones** (M0 to M6 done) (see `PLAN.md`).
 
 ## Run
 

@@ -52,7 +52,7 @@ export function detectLevel(gl?: WebGLRenderingContext | WebGL2RenderingContext 
   return 'low';
 }
 
-export function qualityFor(pref: QualityPref, gl?: WebGLRenderingContext | WebGL2RenderingContext | null): QualitySettings {
+export function qualityFor(pref: QualityPref, gl?: WebGLRenderingContext | WebGL2RenderingContext | null, ao = false): QualitySettings {
   const level: QualityLevel = pref === 'auto' ? detectLevel(gl) : pref;
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
   switch (level) {
@@ -101,7 +101,7 @@ export function qualityFor(pref: QualityPref, gl?: WebGLRenderingContext | WebGL
         lampLights: 8,
         bloom: 'full',
         msaa: 4,
-        ssao: false,
+        ssao: ao,
         lightCones: true,
         reflections: true,
         trafficScale: 1,

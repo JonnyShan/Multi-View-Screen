@@ -140,6 +140,7 @@ export class Menus {
       <div class="row"><span>Music</span>${range('music', s.music)}</div>
       <div class="row"><span>Effects</span>${range('sfx', s.sfx)}</div>
       <div class="row"><span>Haptics</span>${check('haptics', s.haptics)}</div>
+      ${this.touch ? '' : `<div class="row"><span>Ambient occlusion (high only)</span>${check('ao', s.ao)}</div>`}
       <div class="row"><span>Debug overlay</span>${check('showDebug', s.showDebug)}</div>
       ${this.touch ? `<div class="row"><span>Touch buttons</span>${btn('MOVE BUTTONS', false, 'edit')}</div>` : ''}
       <div class="row"><span>Progress</span>${btn('RESET SAVE', false, 'reset')}</div>
@@ -155,7 +156,10 @@ export class Menus {
     let reload = false;
     this.settingsEl.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-set]').forEach((n) => {
       const k = n.dataset.set as keyof Settings;
-      if (n instanceof HTMLInputElement && n.type === 'checkbox') (s[k] as boolean) = n.checked;
+      if (n instanceof HTMLInputElement && n.type === 'checkbox') {
+        if (k === 'ao' && s.ao !== n.checked) reload = true;
+        (s[k] as boolean) = n.checked;
+      }
       else if (n instanceof HTMLInputElement && n.type === 'range') (s[k] as number) = parseFloat(n.value);
       else if (k === 'quality') {
         if (s.quality !== n.value) reload = true;

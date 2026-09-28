@@ -17,6 +17,8 @@ export interface Settings {
   haptics: boolean;
   showDebug: boolean;
   invertLook: boolean;
+  /** Screen space ambient occlusion, desktop high quality only. */
+  ao: boolean;
   layout: ButtonLayout;
 }
 
@@ -40,6 +42,7 @@ export const defaultSettings = (): Settings => ({
   haptics: true,
   showDebug: false,
   invertLook: false,
+  ao: false,
   layout: {},
 });
 

@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import type { Sim } from '../sim/Sim';
+import { findNode } from './AssetRegistry';
 import { srgb, yawToThree } from './Shared';
 
 const BLACK = 0x0c0d10;
@@ -23,6 +24,49 @@ export interface BikeModel {
   taillight: THREE.Mesh;
   /** Where the rider's pelvis sits, in lean-pivot space. */
   seat: THREE.Vector3;
+  /** Extra x rotation on the front wheel to undo the fork rake (code model only). */
+  frontRake: number;
+}
+
+/**
+ * Wrap a handed-off bike GLB. Uses nodes named wheel_f / wheel_r (or
+ * wheel_front / wheel_rear), fork, light_head_l/r, light_tail_l/r and seat
+ * when present; anything missing gets a sensible stand-in.
+ */
+export function bikeFromGlb(scene: THREE.Object3D): BikeModel {
+  const root = new THREE.Group();
+  root.name = 'bike';
+  const leanPivot = new THREE.Group();
+  root.add(leanPivot);
+  leanPivot.add(scene);
+  scene.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
+  });
+  const frontWheel = findNode(scene, 'wheel_f', 'wheel_front', 'wheel_fl') ?? new THREE.Object3D();
+  const rearWheel = findNode(scene, 'wheel_r', 'wheel_rear', 'wheel_rl', 'wheel_rr') ?? new THREE.Object3D();
+  const steer = findNode(scene, 'fork', 'steer', 'handlebar') ?? new THREE.Object3D();
+  const lamp = (names: string[], color: THREE.Color, fallback: THREE.Vector3): THREE.Mesh => {
+    const node = findNode(scene, ...names);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 0.25), new THREE.MeshBasicMaterial({ color }));
+    if (node) {
+      node.updateWorldMatrix(true, false);
+      const p = new THREE.Vector3().setFromMatrixPosition(node.matrixWorld);
+      leanPivot.worldToLocal(p);
+      m.position.copy(p);
+    } else m.position.copy(fallback);
+    leanPivot.add(m);
+    return m;
+  };
+  const headlight = lamp(['light_head_l', 'light_head', 'headlight'], new THREE.Color(4, 4, 3.6), new THREE.Vector3(0, 6.25, 8.05));
+  const taillight = lamp(['light_tail_l', 'light_tail', 'taillight'], new THREE.Color(3.2, 0.12, 0.08), new THREE.Vector3(0, 8.25, -7.75));
+  const seatNode = findNode(scene, 'seat');
+  const seat = new THREE.Vector3(0, 7.7, -1.9);
+  if (seatNode) {
+    seatNode.updateWorldMatrix(true, false);
+    seat.setFromMatrixPosition(seatNode.matrixWorld);
+    leanPivot.worldToLocal(seat);
+  }
+  return { root, leanPivot, frontWheel, rearWheel, steer, headlight, taillight, seat, frontRake: 0 };
 }
 
 function sideShape(points: [number, number][]): THREE.Shape {
@@ -56,7 +100,7 @@ export function buildBikeModel(physical: boolean): BikeModel {
   root.add(leanPivot);
 
   const paint = physical
-    ? new THREE.MeshPhysicalMaterial({ color: srgb(BLACK), roughness: 0.4, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 0.6 })
+    ? new THREE.MeshPhysicalMaterial({ color: srgb(BLACK), roughness: 0.45, metalness: 0.05, clearcoat: 0.55, clearcoatRoughness: 0.12, envMapIntensity: 0.35 })
     : new THREE.MeshStandardMaterial({ color: srgb(BLACK), roughness: 0.28, metalness: 0.08, envMapIntensity: 0.6 });
   const gunmetal = new THREE.MeshStandardMaterial({ color: srgb(GUNMETAL), roughness: 0.35, metalness: 0.85 });
   const gold = new THREE.MeshStandardMaterial({ color: srgb(GOLD), roughness: 0.3, metalness: 1, emissive: srgb(GOLD), emissiveIntensity: 0.05 });
@@ -195,10 +239,11 @@ export function buildBikeModel(physical: boolean): BikeModel {
 
   // steering: fork, bars, front wheel
   const steer = new THREE.Group();
-  steer.position.set(0, 8.2, 4.4);
-  steer.rotation.x = 0.42;
+  steer.position.set(0, 8.2, 4.3);
+  // raked forward: the fork runs down and ahead of the steering head
+  steer.rotation.x = -0.42;
   leanPivot.add(steer);
-  const forkLen = 7.4;
+  const forkLen = (8.2 - R) / Math.cos(0.42);
   for (const side of [-1, 1]) {
     const fork = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, forkLen, 8), gold);
     fork.position.set(side * 1.05, -forkLen / 2, 0);
@@ -236,7 +281,9 @@ export function buildBikeModel(physical: boolean): BikeModel {
   };
   const frontWheel = makeWheel();
   // place the front wheel at the fork bottom in steer space
-  frontWheel.position.set(0, -forkLen + 0.3, 0.1);
+  frontWheel.position.set(0, -forkLen, 0);
+  // keep the wheel upright despite the rake
+  frontWheel.rotation.order = 'YXZ';
   steer.add(frontWheel);
   const rearWheel = makeWheel();
   rearWheel.position.set(0, R, -wheelZ);
@@ -246,7 +293,7 @@ export function buildBikeModel(physical: boolean): BikeModel {
     if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
   });
 
-  return { root, leanPivot, frontWheel, rearWheel, steer, headlight, taillight, seat: new THREE.Vector3(0, 7.9, -1.6) };
+  return { root, leanPivot, frontWheel, rearWheel, steer, headlight, taillight, seat: new THREE.Vector3(0, 7.7, -1.9), frontRake: 0.42 };
 }
 
 export class BikeView {
@@ -254,8 +301,8 @@ export class BikeView {
   readonly spot: THREE.SpotLight;
   private steerVis = 0;
 
-  constructor(physical: boolean) {
-    this.model = buildBikeModel(physical);
+  constructor(physical: boolean, glb: THREE.Object3D | null = null) {
+    this.model = glb ? bikeFromGlb(glb) : buildBikeModel(physical);
     this.spot = new THREE.SpotLight(0xf4f2ff, 0, 900, 0.5, 0.45, 1.3);
     this.spot.position.set(0, 6.4, 8.2);
     this.spot.target.position.set(0, 0, 60);
@@ -283,7 +330,7 @@ export class BikeView {
     const steerTarget = sim.player.mode === 'riding' ? THREE.MathUtils.clamp(b.yawRate * 0.12, -0.35, 0.35) : 0;
     this.steerVis += (steerTarget - this.steerVis) * Math.min(1, dt * 10);
     this.model.steer.rotation.y = -this.steerVis;
-    this.model.frontWheel.rotation.x = b.wheelSpin;
+    this.model.frontWheel.rotation.x = b.wheelSpin + this.model.frontRake;
     this.model.rearWheel.rotation.x = b.wheelSpin;
     const on = !b.fallen;
     this.spot.intensity = on ? 2600 * (0.2 + night * 0.8) : 0;

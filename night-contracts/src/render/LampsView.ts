@@ -6,6 +6,8 @@
 import * as THREE from 'three';
 import type { Tuning } from '../config/tuning';
 import type { City } from '../world/CityGenerator';
+import type { AssetPart } from './AssetRegistry';
+import { instancedParts } from './PropsView';
 import { globalUniforms, srgb, yawToThree } from './Shared';
 
 export const SODIUM = 0xffa347;
@@ -89,6 +91,7 @@ export class LampsView {
     lightCount: number,
     lightCones: boolean,
     beacons: THREE.Vector3[],
+    glb: AssetPart[] | null = null,
   ) {
     this.group.name = 'lamps';
     const lamps = city.lamps;
@@ -150,7 +153,17 @@ export class LampsView {
     glow.name = 'lamp-glow';
     pools.name = 'lamp-pools';
     glow.frustumCulled = false;
-    this.group.add(poleMesh, headMesh, pools, glow);
+    if (glb) {
+      // handed-off lamp model replaces the code-built pole; keep the glowing head
+      const mats: THREE.Matrix4[] = [];
+      for (let i = 0; i < lamps.length; i++) {
+        const mm = new THREE.Matrix4();
+        poleMesh.getMatrixAt(i, mm);
+        mats.push(mm);
+      }
+      for (const im of instancedParts(glb, mats, true, 'lamp-glb')) this.group.add(im);
+      this.group.add(headMesh, pools, glow);
+    } else this.group.add(poleMesh, headMesh, pools, glow);
 
     if (lightCones) {
       const coneGeo = new THREE.CylinderGeometry(2, 40, H - 4, 16, 1, true).translate(0, -(H - 4) / 2, 0);

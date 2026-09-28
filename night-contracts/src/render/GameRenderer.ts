@@ -21,7 +21,7 @@ import { PostFX } from './PostFX';
 import { PropsView } from './PropsView';
 import type { QualitySettings } from './Quality';
 import { RainView } from './RainView';
-import { RiderView } from './RiderView';
+import { GlbRiderView, RiderView } from './RiderView';
 import { globalUniforms } from './Shared';
 import { SkyView, WaterView } from './SkyView';
 
@@ -36,7 +36,7 @@ export class GameRenderer {
   private readonly lamps: LampsView;
   private readonly neon: NeonView;
   private readonly bike: BikeView;
-  private readonly rider: RiderView;
+  private readonly rider: RiderView | GlbRiderView;
   private readonly cars: CarView;
   private readonly peds: PedView;
   private readonly fx: FXView;
@@ -48,6 +48,8 @@ export class GameRenderer {
   private flash = 0;
   private hurt = 0;
   private time = 0;
+  /** Debug: fixed camera (position, target) in sim space; null uses the rig. */
+  debugCamera: { x: number; y: number; z: number; tx: number; ty: number; tz: number } | null = null;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -77,15 +79,16 @@ export class GameRenderer {
     this.scene.add(new CityView(city, t).group);
     const buildings = new BuildingsView(city, t, q.shadows);
     this.scene.add(buildings.group);
-    this.scene.add(new PropsView(city, q.shadows).group);
-    this.lamps = new LampsView(city, t, q.lampLights, q.lightCones, buildings.beacons);
+    this.scene.add(new PropsView(city, q.shadows, assets).group);
+    this.lamps = new LampsView(city, t, q.lampLights, q.lightCones, buildings.beacons, assets.parts('models/props/lamp.glb'));
     this.scene.add(this.lamps.group);
     this.neon = new NeonView(city);
     this.scene.add(this.neon.group);
-    this.bike = new BikeView(q.physicalPaint);
+    this.bike = new BikeView(q.physicalPaint, assets.scene('models/bike/bike.glb'));
     this.scene.add(this.bike.model.root);
-    this.rider = new RiderView(this.bike.model);
-    this.scene.add(this.rider.model.root);
+    const riderGlb = assets.scene('models/rider/rider.glb');
+    this.rider = riderGlb ? new GlbRiderView(this.bike.model, riderGlb, assets.animations('models/rider/rider.glb', 'models/rider/animations/')) : new RiderView(this.bike.model);
+    this.scene.add(this.rider.root);
     this.cars = new CarView(t, assets, q.shadows);
     this.scene.add(this.cars.group);
     this.peds = new PedView(Math.max(8, Math.round(t.peds.count * q.pedScale) + 4));
@@ -186,6 +189,12 @@ export class GameRenderer {
     this.rider.update(sim, alpha, dt);
     this.rig.update(sim, alpha, dt);
     const cam = this.rig.camera;
+    if (this.debugCamera) {
+      const d = this.debugCamera;
+      cam.position.set(d.x, d.z, d.y);
+      cam.lookAt(d.tx, d.tz, d.ty);
+      cam.updateMatrixWorld();
+    }
     globalUniforms.uCamPos.value.copy(cam.position);
     this.cars.update(sim, alpha, dt, l.night, cam.position);
     this.peds.update(sim, alpha);

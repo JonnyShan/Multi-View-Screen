@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const MILESTONE = process.env.MILESTONE ?? 'm1';
+const MILESTONE = process.env.MILESTONE ?? 'latest';
 
 type State = Record<string, unknown>;
 
@@ -56,5 +56,23 @@ test('boot, ride, answer the phone', async ({ page }, info) => {
 
   const s = await state(page);
   console.log(`[${info.project.name}] calls=${s.calls} tris=${s.triangles} quality=${s.quality}`);
+  expect(errors).toEqual([]);
+});
+
+test('saves progress and settings across a reload', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'storage behaviour is the same on both');
+  const errors = watchErrors(page);
+  await page.goto('/?e2e=1&q=low');
+  await page.waitForFunction(() => window.__nc?.ready(), null, { timeout: 120_000 });
+  await page.locator('[data-act="ride"]').click();
+  await page.evaluate(() => {
+    window.__nc!.sim()!.player.cash = 43210;
+  });
+  // pausing persists the save
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.screen.on h2')).toHaveText('PAUSED');
+  await page.reload();
+  await page.waitForFunction(() => window.__nc?.ready(), null, { timeout: 120_000 });
+  expect((await state(page)).cash).toBe(43210);
   expect(errors).toEqual([]);
 });

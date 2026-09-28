@@ -45,6 +45,15 @@ export function gameAssets(assetsDir: string): Plugin {
       return `export const gameAssetFiles = ${JSON.stringify(listGameAssets(assetsDir))};`;
     },
     configureServer(server) {
+      // new or removed art files refresh the asset list without a restart
+      server.watcher.add(assetsDir);
+      const refresh = (file: string): void => {
+        if (!file.startsWith(assetsDir) || !EXT.test(file)) return;
+        const mod = server.moduleGraph.getModuleById(RESOLVED_ID);
+        if (mod) server.moduleGraph.invalidateModule(mod);
+      };
+      server.watcher.on('add', refresh);
+      server.watcher.on('unlink', refresh);
       server.middlewares.use('/game-assets', (req, res, next) => {
         const rel = decodeURIComponent((req.url ?? '').split('?')[0]).replace(/^\/+/, '');
         const first = rel.split('/')[0];
