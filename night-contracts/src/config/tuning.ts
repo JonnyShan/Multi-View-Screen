@@ -54,6 +54,8 @@ export const tuning = {
     /** Beach strip depth south of the boulevard, then ocean. */
     beachDepth: 260,
     lampHeight: 60,
+    /** Palm trunks and lamp posts are solid. */
+    solidStreetFurniture: true,
     lampInset: 12,
     /** Floors per block type [min, max]. */
     floors: {
@@ -68,7 +70,7 @@ export const tuning = {
 
   bike: {
     topSpeed: 240 * KMH,
-    accel: 270,
+    accel: 140,
     accelExponent: 1.7,
     brake: 250,
     reverseMax: 20 * KMH,
@@ -223,6 +225,7 @@ export const tuning = {
     reverseTime: 1.4,
     respawnStuckTime: 16,
     parkOffset: 44,
+    maxParked: 28,
   },
 
   danger: {

@@ -26,6 +26,9 @@ export default defineConfig({
     chunkSizeWarningLimit: 4000,
   },
   server: { port: 5173 },
+  optimizeDeps: {
+    include: ['three', '@dimforge/rapier3d-compat', 'howler', '@capacitor/haptics', '@capacitor/core'],
+  },
   preview: { port: 4173 },
   test: {
     include: ['tests/unit/**/*.test.ts'],

@@ -14,6 +14,8 @@ export class Loop {
   readonly dt: number;
   timeScale = 1;
   paused = false;
+  /** Longest real frame we try to simulate in full (seconds). */
+  maxFrameDt = 0.25;
   private acc = 0;
   private last = 0;
   private raf = 0;
@@ -21,7 +23,7 @@ export class Loop {
 
   constructor(
     hz: number,
-    private readonly maxSteps: number,
+    public maxSteps: number,
     private readonly cb: LoopCallbacks,
   ) {
     this.dt = 1 / hz;
@@ -34,7 +36,7 @@ export class Loop {
     const frame = (now: number): void => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(frame);
-      const frameDt = Math.min(0.25, (now - this.last) / 1000);
+      const frameDt = Math.min(this.maxFrameDt, (now - this.last) / 1000);
       this.last = now;
       this.tick(frameDt);
     };

@@ -2,7 +2,7 @@
 
 Open-city superbike action game. Mobile first (phones in landscape), web build wrapped with Capacitor, desktop browser also supported.
 
-Current milestone: **M0 Scaffold** (see `PLAN.md`).
+Current milestone: **M2 Traffic** (M0, M1 done) (see `PLAN.md`).
 
 ## Run
 
@@ -16,6 +16,8 @@ pnpm typecheck
 pnpm build      # dist/ (PWA)
 pnpm cap:sync   # build + copy into the Capacitor iOS/Android projects
 ```
+
+Dev helpers: `node tools/shot.mjs out.png [seconds]` rides and screenshots, `node tools/title.mjs out.png [phone]` shoots the title screen (dev server on port 5199). URL params: `?q=low|medium|high` forces quality, `?e2e=1` lets the sim keep real time under slow software rendering.
 
 Playwright uses the preinstalled Chromium (`@playwright/test` is pinned to match it) with SwiftShader WebGL flags.
 

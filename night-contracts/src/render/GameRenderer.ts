@@ -1,0 +1,216 @@
+/**
+ * Owns the WebGL renderer, scene and every view. Reads the sim each frame and
+ * never writes to it.
+ */
+import * as THREE from 'three';
+import type { Tuning } from '../config/tuning';
+import type { SimEvent } from '../sim/events';
+import type { Sim } from '../sim/Sim';
+import { lightingAt, type Lighting } from '../world/DayNight';
+import type { AssetRegistry } from './AssetRegistry';
+import { BikeView } from './BikeView';
+import { BuildingsView } from './BuildingsView';
+import { CameraRig } from './CameraRig';
+import { CarView } from './CarView';
+import { CityView } from './CityView';
+import { FXView } from './FXView';
+import { LampsView } from './LampsView';
+import { NeonView } from './NeonView';
+import { PedView } from './PedView';
+import { PostFX } from './PostFX';
+import { PropsView } from './PropsView';
+import type { QualitySettings } from './Quality';
+import { RainView } from './RainView';
+import { RiderView } from './RiderView';
+import { globalUniforms } from './Shared';
+import { SkyView, WaterView } from './SkyView';
+
+export class GameRenderer {
+  readonly renderer: THREE.WebGLRenderer;
+  readonly scene = new THREE.Scene();
+  readonly rig: CameraRig;
+  readonly post: PostFX;
+  lighting: Lighting;
+  private readonly sky: SkyView;
+  private readonly water: WaterView;
+  private readonly lamps: LampsView;
+  private readonly neon: NeonView;
+  private readonly bike: BikeView;
+  private readonly rider: RiderView;
+  private readonly cars: CarView;
+  private readonly peds: PedView;
+  private readonly fx: FXView;
+  private readonly rain: RainView;
+  private readonly fog: THREE.FogExp2;
+  private envNight: THREE.Texture | null = null;
+  private envDay: THREE.Texture | null = null;
+  private lampTimer = 0;
+  private flash = 0;
+  private hurt = 0;
+  private time = 0;
+
+  constructor(
+    canvas: HTMLCanvasElement,
+    readonly sim: Sim,
+    readonly t: Tuning,
+    readonly q: QualitySettings,
+    assets: AssetRegistry,
+  ) {
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
+    this.renderer.setPixelRatio(q.pixelRatio);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.shadowMap.enabled = q.shadows;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.info.autoReset = false;
+
+    this.lighting = lightingAt(sim.clock);
+    this.fog = new THREE.FogExp2(0x101a28, 0.0004);
+    this.scene.fog = this.fog;
+    this.rig = new CameraRig(t);
+    this.rig.camera.far = q.drawDistance;
+
+    const city = sim.city;
+    this.sky = new SkyView(this.scene, q.shadows, q.shadowSize);
+    this.water = new WaterView(city.shoreY, city.bounds.minX, city.bounds.maxX);
+    this.scene.add(this.water.mesh);
+    this.scene.add(new CityView(city, t).group);
+    const buildings = new BuildingsView(city, t, q.shadows);
+    this.scene.add(buildings.group);
+    this.scene.add(new PropsView(city, q.shadows).group);
+    this.lamps = new LampsView(city, t, q.lampLights, q.lightCones, buildings.beacons);
+    this.scene.add(this.lamps.group);
+    this.neon = new NeonView(city);
+    this.scene.add(this.neon.group);
+    this.bike = new BikeView(q.physicalPaint);
+    this.scene.add(this.bike.model.root);
+    this.rider = new RiderView(this.bike.model);
+    this.scene.add(this.rider.model.root);
+    this.cars = new CarView(t, assets, q.shadows);
+    this.scene.add(this.cars.group);
+    this.peds = new PedView(Math.max(8, Math.round(t.peds.count * q.pedScale) + 4));
+    this.scene.add(this.peds.group);
+    this.fx = new FXView(this.rig.camera);
+    this.scene.add(this.fx.group);
+    this.rain = new RainView(q.rainDrops);
+    this.scene.add(this.rain.group);
+
+    this.post = new PostFX(this.renderer, this.scene, this.rig.camera, q);
+    this.buildEnvironments();
+  }
+
+  /** Small pre-filtered environments for glossy paint, glass and wet roads. */
+  private buildEnvironments(): void {
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const make = (zenith: number, horizon: number, glow: number, lights: boolean): THREE.Texture => {
+      const s = new THREE.Scene();
+      const geo = new THREE.SphereGeometry(100, 32, 16);
+      const mat = new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        uniforms: {
+          z: { value: new THREE.Color().setHex(zenith, THREE.SRGBColorSpace) },
+          h: { value: new THREE.Color().setHex(horizon, THREE.SRGBColorSpace) },
+          g: { value: new THREE.Color().setHex(glow, THREE.SRGBColorSpace) },
+        },
+        vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+        fragmentShader:
+          'uniform vec3 z; uniform vec3 h; uniform vec3 g; varying vec3 vD; void main(){ float t = max(vD.y, 0.0); vec3 c = mix(h, z, pow(t, 0.5)); c += g * exp(-abs(vD.y) * 8.0) * 0.8; if (vD.y < 0.0) c = h * 0.35; gl_FragColor = vec4(c, 1.0); }',
+      });
+      s.add(new THREE.Mesh(geo, mat));
+      if (lights) {
+        // warm city lights around the horizon so glossy surfaces pick up sparkle
+        const lm = new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 3.6, 1.6) });
+        for (let i = 0; i < 40; i++) {
+          const a = (i / 40) * Math.PI * 2;
+          const m = new THREE.Mesh(new THREE.SphereGeometry(1.4 + (i % 3), 6, 4), lm);
+          m.position.set(Math.cos(a) * 90, 4 + (i % 5) * 3, Math.sin(a) * 90);
+          s.add(m);
+        }
+      }
+      const rt = pmrem.fromScene(s, 0.02);
+      return rt.texture;
+    };
+    this.envNight = make(0x0a1426, 0x22324a, 0x6a4630, true);
+    this.envDay = make(0x4a86d0, 0xd0dce6, 0xf0dcc0, false);
+    pmrem.dispose();
+  }
+
+  onEvent(e: SimEvent): void {
+    this.fx.onEvent(e, this.sim);
+    switch (e.type) {
+      case 'crash':
+        this.rig.shake(0.8);
+        break;
+      case 'impact':
+        this.rig.shake(Math.min(0.5, e.strength / 400));
+        break;
+      case 'explosion': {
+        const d = Math.hypot(e.x - this.sim.player.x, e.y - this.sim.player.y);
+        this.rig.shake(Math.max(0, 0.9 - d / 700));
+        break;
+      }
+      case 'playerHurt':
+        this.hurt = Math.min(0.9, this.hurt + e.amount / 40);
+        this.rig.shake(0.15);
+        break;
+      case 'lightning':
+        this.flash = 1;
+        break;
+      case 'roofStrike':
+      case 'wheelCut':
+        this.rig.shake(0.35);
+        break;
+      default:
+        break;
+    }
+  }
+
+  resize(w: number, h: number): void {
+    this.renderer.setSize(w, h, false);
+    this.rig.camera.aspect = w / h;
+    this.rig.camera.updateProjectionMatrix();
+    this.post.setSize(w, h);
+  }
+
+  render(alpha: number, dt: number): void {
+    const sim = this.sim;
+    this.time += dt;
+    const overcast = sim.raining ? 0.8 : 0;
+    const l = (this.lighting = lightingAt(sim.clock, overcast));
+    globalUniforms.uTime.value = this.time;
+    globalUniforms.uNight.value = l.night;
+    globalUniforms.uWet.value = sim.wet;
+    globalUniforms.uRain.value = sim.raining ? 1 : 0;
+
+    this.bike.update(sim, alpha, dt, l.night);
+    this.rider.update(sim, alpha, dt);
+    this.rig.update(sim, alpha, dt);
+    const cam = this.rig.camera;
+    globalUniforms.uCamPos.value.copy(cam.position);
+    this.cars.update(sim, alpha, dt, l.night, cam.position);
+    this.peds.update(sim, alpha);
+    this.fx.update(sim, dt, this.renderer.domElement.height / Math.tan((cam.fov * Math.PI) / 360) / 2);
+    this.rain.update(cam, dt, sim.raining ? 1 : 0, sim.wet);
+
+    this.flash = Math.max(0, this.flash - dt * 3.5);
+    this.hurt = Math.max(0, this.hurt - dt * 1.2);
+    this.sky.update(l, this.rig.focusPoint, cam.position, this.flash * 0.6);
+    this.water.update(l);
+    this.fog.color.setHex(l.fog, THREE.SRGBColorSpace);
+    this.fog.density = l.fogDensity * (1 + sim.wet * 0.4);
+    this.renderer.toneMappingExposure = l.exposure;
+    this.scene.environment = l.night > 0.5 ? this.envNight : this.envDay;
+    this.scene.environmentIntensity = l.night > 0.5 ? 0.9 : 0.8;
+
+    this.lampTimer -= dt;
+    if (this.lampTimer <= 0) {
+      this.lamps.update(this.rig.focusPoint, l.night, sim.wet, sim.raining ? 1 : 0);
+      this.lampTimer = 0.1;
+    }
+    this.neon.update(dt, l.night, this.time);
+    this.post.update(l.grade, l.night, this.flash * 0.25, this.hurt);
+
+    this.renderer.info.reset();
+    this.post.render(this.scene, cam);
+  }
+}

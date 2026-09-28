@@ -10,14 +10,15 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] Capacitor config, PWA manifest
 
 ## M1 Ride
-- [ ] City generator: 8x8 blocks, block types, alleys with bollards, named places, seeded
-- [ ] Coastal kit: raised boulevard with ramps, beach, ocean, marina, hillside villas
-- [ ] Palms, lamps (instanced), neon (a few)
-- [ ] Sky dome, night lighting, lamp light pool
-- [ ] Rapier collisions (buildings static, bike dynamic arcade controller)
-- [ ] Bike handling, drift, skid marks, lean, crash throw, riderless bike
-- [ ] Chase camera with clip avoidance
-- [ ] Touch controls + keyboard + gamepad
+- [x] City generator: 8x8 blocks, block types, alleys with bollards, named places, seeded
+- [x] Coastal kit: raised boulevard with ramps, beach, ocean, marina, hillside villas
+- [x] Palms, lamps (instanced), neon (a few)
+- [x] Sky dome, night lighting, lamp light pool
+- [x] Rapier collisions (buildings static, bike dynamic arcade controller)
+- [x] Bike handling, drift, skid marks, lean, crash throw, riderless bike
+- [x] Chase camera with clip avoidance
+- [x] Touch controls + keyboard + gamepad
+- [ ] 60 fps on a MacBook Air: not measurable in this environment (headless software rendering); needs a check on real hardware
 
 ## M2 Traffic
 - [ ] Road graph lane paths, turn curves
@@ -59,3 +60,8 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - The prototype `reference/ronin-throttle-prototype.html` and the concept images were not in the repo when work started. Numbers come from the brief; everything else is tuned from scratch.
 - The game lives in `night-contracts/` because the repository already holds other projects at its root.
 - Alleys are 34 units wide as specified, with bollards at each mouth so bikes pass and cars cannot (a 34-unit alley would otherwise fit a realistic car).
+- Coast layout: the raised boulevard runs one block south of the grid with ramps on columns 0, 4 and 8, a row of low lots between it and row 0, then beach and ocean. Nothing passes under the boulevard, so height is a simple function of position.
+- Physics is Rapier on a flat slab (z locked, gravity off); ramps, the boulevard and airborne arcs are handled by the sim. This keeps car handling arcade and deterministic.
+- Palm trunks and lamp posts are solid (`world.solidStreetFurniture`), so clipping one at speed throws you.
+- Stepping off the bike below leap speed leaves it standing on its stand; above leap speed you leap. On foot far from the bike, E calls it over.
+- Render maps sim (x, y, z) to three (x, z, y) as the brief asks. This is a mirror, so "left" and "right" go through helpers in `core/math.ts`.
