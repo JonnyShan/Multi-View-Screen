@@ -1,0 +1,55 @@
+{
+  "_readme": "Language registry. `order` is the picker order. A language appears in the playable once content/<code>.json exists and passes `npm run check`. A new language needs an entry here plus its content file; nothing else changes.",
+  "_source": "Languages from Livewire 17 Sep 2026 (Mandarin, Cantonese, Vietnamese, Arabic, Hindi) plus English, as confirmed in Gamify's 21 Sep email.",
+  "default": "en",
+  "order": ["en", "cmn", "yue", "vi", "ar", "hi"],
+  "languages": {
+    "en": {
+      "name": "English",
+      "htmlLang": "en",
+      "dir": "ltr",
+      "font": "latin",
+      "numerals": ""
+    },
+    "cmn": {
+      "name": "Mandarin",
+      "htmlLang": "",
+      "dir": "ltr",
+      "font": "",
+      "script": "",
+      "numerals": "",
+      "_pending": "Client to confirm the written script (asked 21 Sep: Simplified for Mandarin?). Once confirmed as Simplified set script Hans, htmlLang zh-Hans and font han-sc."
+    },
+    "yue": {
+      "name": "Cantonese",
+      "htmlLang": "",
+      "dir": "ltr",
+      "font": "",
+      "script": "",
+      "numerals": "",
+      "_pending": "Client to confirm the written script (asked 21 Sep: Traditional for Cantonese?). Once confirmed as Traditional set script Hant, htmlLang zh-Hant (or zh-HK) and font han-tc (or han-hk for Hong Kong forms)."
+    },
+    "vi": {
+      "name": "Vietnamese",
+      "htmlLang": "vi",
+      "dir": "ltr",
+      "font": "latin",
+      "numerals": ""
+    },
+    "ar": {
+      "name": "Arabic",
+      "htmlLang": "ar",
+      "dir": "rtl",
+      "font": "arabic",
+      "numerals": "",
+      "_pending": "numerals: empty means Western digits (0 to 9). Confirm with the client whether scores should use Arabic Indic digits instead; if so set numerals to arab."
+    },
+    "hi": {
+      "name": "Hindi",
+      "htmlLang": "hi",
+      "dir": "ltr",
+      "font": "devanagari",
+      "numerals": ""
+    }
+  }
+}
