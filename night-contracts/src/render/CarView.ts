@@ -8,7 +8,7 @@ import type { CarModel, CarSpec, Tuning } from '../config/tuning';
 import type { Car } from '../sim/Car';
 import type { Sim } from '../sim/Sim';
 import type { AssetRegistry, CarAsset } from './AssetRegistry';
-import { radialTexture } from './LampsView';
+import { billboardMaterial, radialTexture } from './LampsView';
 import { srgb, yawToThree } from './Shared';
 
 const CAP = 48;
@@ -181,6 +181,9 @@ export class CarView {
   private readonly beams: THREE.InstancedMesh;
   private readonly pools: THREE.InstancedMesh;
   private readonly bars: THREE.InstancedMesh;
+  private readonly sirenRed: THREE.InstancedMesh;
+  private readonly sirenBlue: THREE.InstancedMesh;
+  private readonly sirenOpacity = { value: 1 };
   private readonly m = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
   private readonly q2 = new THREE.Quaternion();
@@ -289,13 +292,22 @@ export class CarView {
     this.pools.count = 0;
     this.pools.frustumCulled = false;
     this.pools.name = 'car-light-pools';
-    const barGeo = new THREE.BoxGeometry(2.6, 0.9, 1.4);
+    const barGeo = new THREE.BoxGeometry(3.2, 1.1, 1.8);
     this.bars = new THREE.InstancedMesh(barGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }), CAP * 2);
     this.bars.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(CAP * 2 * 3), 3);
     this.bars.count = 0;
     this.bars.frustumCulled = false;
     this.bars.name = 'police-bars';
-    this.group.add(this.wheels, this.heads, this.tails, this.beams, this.pools, this.bars);
+    const quad = new THREE.PlaneGeometry(1, 1);
+    this.sirenRed = new THREE.InstancedMesh(quad, billboardMaterial(new THREE.Color(1.6, 0.08, 0.05), this.sirenOpacity), CAP);
+    this.sirenBlue = new THREE.InstancedMesh(quad, billboardMaterial(new THREE.Color(0.08, 0.3, 1.8), this.sirenOpacity), CAP);
+    for (const im of [this.sirenRed, this.sirenBlue]) {
+      im.count = 0;
+      im.frustumCulled = false;
+    }
+    this.sirenRed.name = 'siren-red';
+    this.sirenBlue.name = 'siren-blue';
+    this.group.add(this.wheels, this.heads, this.tails, this.beams, this.pools, this.bars, this.sirenRed, this.sirenBlue);
   }
 
   update(sim: Sim, alpha: number, dt: number, night: number, camPos: THREE.Vector3): void {
@@ -308,6 +320,8 @@ export class CarView {
     let bi = 0;
     let pi = 0;
     let bari = 0;
+    let sr = 0;
+    let sb = 0;
     const lightsOn = night > 0.25;
     this.poolOpacity.value = THREE.MathUtils.smoothstep(night, 0.2, 0.7);
     for (const car of sim.cars) {
@@ -383,6 +397,11 @@ export class CarView {
             this.bars.setMatrixAt(bari, this.m);
             const on = (s > 0) === (phase === 0);
             this.bars.setColorAt(bari++, on ? (s > 0 ? this.c.setRGB(5, 0.2, 0.15) : this.c.setRGB(0.2, 0.6, 6)) : this.c.setRGB(0.05, 0.05, 0.05));
+            if (on) {
+              this.m.compose(bp, this.q, this.s.set(22, 22, 22));
+              if (s > 0) this.sirenRed.setMatrixAt(sr++, this.m);
+              else this.sirenBlue.setMatrixAt(sb++, this.m);
+            }
           }
         }
       }
@@ -407,6 +426,9 @@ export class CarView {
     finish(this.beams, bi);
     finish(this.pools, pi);
     finish(this.bars, bari);
+    finish(this.sirenRed, sr);
+    finish(this.sirenBlue, sb);
+    this.sirenOpacity.value = 0.5 + 0.5 * THREE.MathUtils.smoothstep(night, 0.1, 0.6);
   }
 
   /** Test helper: which models are visible. */

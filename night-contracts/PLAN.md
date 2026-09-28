@@ -44,7 +44,10 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] HUD, rotating minimap with clamped blips, off-screen arrows with metres, target marker, toasts
 
 ## M5 Heat and police
-- [ ] Stars, decay, police cruisers, roadblocks
+- [x] Stars (rise with loud kills, civilian damage, shots), decay out of sight, switch off with `heat.enabled` (tests/unit/heat.test.ts)
+- [x] Police cruisers at 2+ stars chase with sirens, ram, shoot at 3+
+- [x] Roadblocks across the road ahead at 4+ (prefers intersections you cannot see yet)
+- [x] A loud contract kill brings the police
 
 ## M6 Juice
 - [ ] Day/night, rain, lightning, post FX, LUT grading

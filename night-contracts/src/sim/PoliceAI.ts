@@ -79,8 +79,7 @@ export class Police {
     // roadblocks ahead of the player
     this.roadblockT -= dt;
     if (sim.heat.enabled && stars >= h.roadblockStars && this.roadblockT <= 0 && pl.mode === 'riding') {
-      this.spawnRoadblock();
-      this.roadblockT = h.roadblockInterval;
+      this.roadblockT = this.spawnRoadblock() ? h.roadblockInterval : 1.5;
     }
 
     const sirens = units.some((u) => u.siren);
@@ -111,7 +110,7 @@ export class Police {
     }
   }
 
-  private spawnRoadblock(): void {
+  private spawnRoadblock(): boolean {
     const sim = this.sim;
     const g = sim.city.graph;
     const b = sim.bike;
@@ -121,20 +120,23 @@ export class Police {
     let best = -1;
     let bestScore = Infinity;
     for (const n of g.nodes) {
+      if (n.kind !== 'grid') continue;
       const dx = n.x - b.x;
       const dy = n.y - b.y;
       const along = dx * fx + dy * fy;
-      if (along < 500 || along > 1300) continue;
+      if (along < 480 || along > 1500) continue;
       const side = Math.abs(dx * fy - dy * fx);
-      const score = side * 2 + along * 0.2;
+      if (side > 300) continue;
+      // prefer an intersection the player cannot see yet; far ones are hidden by the night anyway
+      const seen = sim.traffic.visible(n.x, n.y) && along < 850;
+      const score = side * 2 + along * 0.2 + (seen ? 2000 : 0);
       if (score < bestScore) {
         bestScore = score;
         best = n.id;
       }
     }
-    if (best < 0) return;
+    if (best < 0 || bestScore >= 2000) return false;
     const node = g.nodes[best];
-    if (sim.traffic.visible(node.x, node.y) && dist(node.x, node.y, b.x, b.y) < 800) return;
     // park two cruisers across the approach road
     const ax = Math.abs(fx) > Math.abs(fy);
     const approachDir = ax ? Math.sign(fx) : Math.sign(fy);
@@ -150,5 +152,6 @@ export class Police {
       car.siren = true;
     }
     sim.emit({ type: 'toast', text: 'ROADBLOCK AHEAD', tone: 'red' });
+    return true;
   }
 }
