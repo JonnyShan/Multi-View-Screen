@@ -27,6 +27,8 @@ export const COLLISION = {
   foot: groups(GROUP.FOOT, GROUP.STATIC | GROUP.CAR),
   air: groups(GROUP.AIR, GROUP.STATIC),
   ghost: groups(GROUP.AIR, 0),
+  /** A car that only collides with the world (unjamming). */
+  carGhost: groups(GROUP.CAR, GROUP.STATIC),
 } as const;
 
 let ready = false;

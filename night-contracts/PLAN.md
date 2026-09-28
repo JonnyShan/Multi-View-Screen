@@ -21,10 +21,11 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [ ] 60 fps on a MacBook Air: not measurable in this environment (headless software rendering); needs a check on real hardware
 
 ## M2 Traffic
-- [ ] Road graph lane paths, turn curves
-- [ ] Queueing, intersection yielding, panic
-- [ ] Respawn out of sight, stuck recovery
-- [ ] 10 minute seeded test: no permanent jams, no cars in buildings
+- [x] Road graph lane paths, turn curves
+- [x] Queueing, intersection yielding (axis based, right turns yield), panic
+- [x] Respawn out of sight (line of sight check), stuck recovery (reverse, overtake, then ghost through cars)
+- [x] Parked cars in car parks wake up when disturbed
+- [x] 10 minute seeded test: no permanent jams, no cars in buildings (tests/unit/traffic.test.ts)
 
 ## M3 Combat
 - [ ] Gun with aim assist and mouse aim, tyre blowouts
@@ -64,4 +65,5 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - Physics is Rapier on a flat slab (z locked, gravity off); ramps, the boulevard and airborne arcs are handled by the sim. This keeps car handling arcade and deterministic.
 - Palm trunks and lamp posts are solid (`world.solidStreetFurniture`), so clipping one at speed throws you.
 - Stepping off the bike below leap speed leaves it standing on its stand; above leap speed you leap. On foot far from the bike, E calls it over.
+- Traffic unjamming: a civilian stuck behind something stationary overtakes through the other lane; if it is still stuck after 10 s it briefly stops colliding with other cars and drives through. It never sits still for good, and it looks better than cars teleporting in view.
 - Render maps sim (x, y, z) to three (x, z, y) as the brief asks. This is a mirror, so "left" and "right" go through helpers in `core/math.ts`.

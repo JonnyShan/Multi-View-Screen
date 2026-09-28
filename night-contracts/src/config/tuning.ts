@@ -223,9 +223,14 @@ export const tuning = {
     intersectionTimeout: 4,
     stuckTime: 7,
     reverseTime: 1.4,
-    respawnStuckTime: 16,
+    respawnStuckTime: 8,
+    ghostAfter: 10,
+    ghostTime: 3,
     parkOffset: 44,
     maxParked: 28,
+    overtakeAfter: 2.5,
+    overtakeTime: 2.2,
+    overtakeSpeed: 60,
   },
 
   danger: {

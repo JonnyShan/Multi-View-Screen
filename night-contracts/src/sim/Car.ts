@@ -68,6 +68,11 @@ export class Car {
   routeGoal = -1;
   alerted = false;
   backoffT = 0;
+  blockedT = 0;
+  overtakeT = 0;
+  /** Accumulated time jammed; triggers ghosting through other cars. */
+  jamT = 0;
+  ghostT = 0;
   fireT = 0;
   burstLeft = 0;
   shoots = false;

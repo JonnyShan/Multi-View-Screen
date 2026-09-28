@@ -9,7 +9,7 @@ import { hillHeight, type City } from '../world/CityGenerator';
 import { GeoBuilder } from './GeoBuilder';
 import { createRoadMaterial, srgb } from './Shared';
 
-const ASPHALT = 0x2a2b30;
+const ASPHALT = 0x34353b;
 const CONCRETE = 0x8d8a84;
 const KERB = 0xa6a29a;
 const PAVING = 0x9c8e7a;

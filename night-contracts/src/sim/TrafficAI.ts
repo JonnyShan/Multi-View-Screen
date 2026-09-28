@@ -7,6 +7,7 @@ import type { CarModel } from '../config/tuning';
 import { clamp, dist, fwdX, fwdY, rightX, rightY } from '../core/math';
 import type { Car } from './Car';
 import { advanceWaypoints, laneWaypoints, lookaheadPoint, steerToward } from './Navigation';
+import { COLLISION } from './Physics';
 import type { Sim } from './Sim';
 
 const CIVIL_MODELS: CarModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'ute', 'van', 'suv'];
@@ -130,7 +131,7 @@ export class Traffic {
       this.driveLane(car, dt);
       // recycle far away cars
       const d = dist(car.x, car.y, pl.x, pl.y);
-      if (d > t.despawnDistance || (car.stuckT > t.respawnStuckTime && !this.visible(car.x, car.y))) this.respawn(car);
+      if (d > t.despawnDistance || (car.jamT > t.respawnStuckTime && !this.visible(car.x, car.y))) this.respawn(car);
     }
     // top up if cars were destroyed
     if (active < this.desired && sim.tick % 30 === 0) {
@@ -165,6 +166,7 @@ export class Traffic {
     }
     // stop for the intersection if we do not hold it
     const gate = this.upcomingGate(car);
+    let waitingForGate = false;
     if (gate && car.inIntersection !== gate.node) {
       if (this.tryEnter(car, gate.node, gate.turn)) {
         car.waitT = 0;
@@ -173,11 +175,34 @@ export class Traffic {
         if (car.waitT > t.intersectionTimeout || car.panicT > 0) {
           this.enter(car, gate.node, gate.turn);
           car.waitT = 0;
-        } else target = Math.min(target, Math.max(0, (gate.d - 6) * 1.6));
+        } else {
+          target = Math.min(target, Math.max(0, (gate.d - 6) * 1.6));
+          waitingForGate = true;
+        }
       }
     }
-    target = Math.min(target, this.followSpeed(car, target));
-    car.steer = steerToward(car, tp.x, tp.y, sim.t.car.maxSteer);
+    const follow = this.followSpeed(car, target);
+    // stuck behind something that is not moving: pull out and go around it
+    const blocked = !waitingForGate && follow < 6 && this.blockerSpeed < 6;
+    if (blocked) {
+      car.blockedT += dt;
+      car.jamT += dt;
+    } else if (follow > 20) car.blockedT = Math.max(0, car.blockedT - dt);
+    let tx = tp.x;
+    let ty = tp.y;
+    if (car.blockedT > t.overtakeAfter && car.overtakeT <= 0) {
+      car.overtakeT = t.overtakeTime;
+      car.blockedT = 0;
+    }
+    if (car.ghostT > 0) {
+      target = Math.min(target, t.overtakeSpeed * 0.8);
+    } else if (car.overtakeT > 0) {
+      car.overtakeT -= dt;
+      tx += rightX(car.a) * sim.t.world.laneOffset * 2;
+      ty += rightY(car.a) * sim.t.world.laneOffset * 2;
+      target = Math.min(target, Math.max(follow, t.overtakeSpeed * (this.blockerSpeed < 6 ? 1 : 0)));
+    } else target = Math.min(target, follow);
+    car.steer = steerToward(car, tx, ty, sim.t.car.maxSteer);
     car.targetSpeed = target;
     this.unstick(car, dt);
   }
@@ -197,18 +222,39 @@ export class Traffic {
     return v;
   }
 
-  /** Recovery: reverse out if wedged. */
+  /**
+   * Recovery when wedged: reverse out, and if that keeps failing drive
+   * through other cars for a moment (collisions with cars off) so nothing
+   * stays jammed for good.
+   */
   unstick(car: Car, dt: number): void {
     const t = this.sim.t.traffic;
+    if (car.ghostT > 0) {
+      car.ghostT -= dt;
+      if (car.ghostT <= 0) this.sim.physics.setCollision(car.body, COLLISION.car);
+    }
     if (car.reverseT > 0) {
       car.reverseT -= dt;
       car.targetSpeed = -40;
       car.steer = -car.steer;
       return;
     }
-    if (Math.abs(car.speed) < 4 && car.targetSpeed > 20) car.stuckT += dt;
-    else car.stuckT = Math.max(0, car.stuckT - dt * 2);
-    if (car.stuckT > t.stuckTime && car.stuckT < t.stuckTime + dt * 1.5) car.reverseT = t.reverseTime;
+    if (Math.abs(car.speed) < 4 && car.targetSpeed > 20) {
+      car.stuckT += dt;
+      car.jamT += dt;
+    } else {
+      car.stuckT = Math.max(0, car.stuckT - dt * 2);
+      if (Math.abs(car.speed) > 20) car.jamT = Math.max(0, car.jamT - dt * 0.5);
+    }
+    if (car.stuckT > t.stuckTime) {
+      car.reverseT = t.reverseTime;
+      car.stuckT = 0;
+    }
+    if (car.jamT > t.ghostAfter && car.ghostT <= 0) {
+      car.ghostT = t.ghostTime;
+      car.jamT = 0;
+      this.sim.physics.setCollision(car.body, COLLISION.carGhost);
+    }
   }
 
   private upcomingGate(car: Car): { node: number; d: number; turn: number } | null {
@@ -221,6 +267,7 @@ export class Traffic {
       acc += dist(px, py, w.x, w.y);
       px = w.x;
       py = w.y;
+      if (acc > 90) return null;
       if (w.gate >= 0) {
         const n = this.sim.city.graph.nodes[w.gate];
         if (n.edges.length < 3) return null;
@@ -276,8 +323,12 @@ export class Traffic {
     car.inIntersection = -1;
   }
 
+  /** Speed of whatever limited the last followSpeed call. */
+  blockerSpeed = 99;
+
   /** Speed allowed by whatever is ahead in our path. */
   followSpeed(car: Car, want: number): number {
+    this.blockerSpeed = 99;
     const sim = this.sim;
     const t = sim.t.traffic;
     const fx = fwdX(car.a);
@@ -296,7 +347,10 @@ export class Traffic {
       const gap = lx - car.spec.hl - ohl - 8;
       const theirs = Math.max(0, ovx * fx + ovy * fy);
       const v = gap <= 0 ? 0 : Math.min(want, theirs + gap * 1.4);
-      limit = Math.min(limit, v);
+      if (v < limit) {
+        limit = v;
+        this.blockerSpeed = Math.hypot(ovx, ovy);
+      }
     };
     for (const o of sim.cars) {
       if (o === car) continue;
@@ -400,7 +454,11 @@ export class Traffic {
     car.y = car.py = sp.y;
     car.a = car.pa = sp.a;
     car.vx = car.vy = car.w = car.speed = 0;
-    car.stuckT = car.reverseT = car.panicT = car.waitT = 0;
+    car.stuckT = car.reverseT = car.panicT = car.waitT = car.jamT = car.blockedT = car.overtakeT = 0;
+    if (car.ghostT > 0) {
+      car.ghostT = 0;
+      this.sim.physics.setCollision(car.body, COLLISION.car);
+    }
     car.spinT = 0;
     car.blown = [false, false, false, false];
     car.limp = false;
