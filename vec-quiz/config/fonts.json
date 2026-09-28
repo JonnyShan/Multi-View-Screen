@@ -1,0 +1,78 @@
+{
+  "_readme": "Font sources, pinned by npm package version and registry integrity. `npm run fonts` (or any build) downloads only the families the included languages need into fonts/cache/ and verifies the sha512 before use. The build subsets each font to the exact characters in the copy and inlines it as WOFF2. All families are Noto (SIL Open Font License 1.1). A licensed brand font in config/client.json replaces the latin family.",
+  "weights": ["400", "700"],
+  "families": {
+    "latin": {
+      "cssFamily": "VQ Latin",
+      "package": "@expo-google-fonts/noto-sans",
+      "version": "0.4.2",
+      "integrity": "sha512-zYD8G2ijWLxqmquoQgghNh/x9p0yxWwArD0oxO1oXY1qx5vOd4t0Kbhnu/Cx8RTy08OgA8RtxuULZFaXwVPnPw==",
+      "files": {
+        "400": "400Regular/NotoSans_400Regular.ttf",
+        "700": "700Bold/NotoSans_700Bold.ttf"
+      },
+      "licenseFile": "LICENSE_FONT",
+      "covers": "Latin including Vietnamese"
+    },
+    "arabic": {
+      "cssFamily": "VQ Arabic",
+      "package": "@expo-google-fonts/noto-sans-arabic",
+      "version": "0.4.3",
+      "integrity": "sha512-YvtxyuegxPegu2g5urXJ+gQxRp8i798nQswTmEjwXOWR/fqy0Gvey6h5IoNRBrc43SxRxPezqCiR9ivpfPAXSg==",
+      "files": {
+        "400": "400Regular/NotoSansArabic_400Regular.ttf",
+        "700": "700Bold/NotoSansArabic_700Bold.ttf"
+      },
+      "licenseFile": "LICENSE_FONT",
+      "covers": "Arabic"
+    },
+    "devanagari": {
+      "cssFamily": "VQ Devanagari",
+      "package": "@expo-google-fonts/noto-sans-devanagari",
+      "version": "0.4.1",
+      "integrity": "sha512-26boYPNKGP1r4R5MxsMAY/zCQOwiXLOJzX8sh1a2oEWyQurQsyniaCv4992c+9jjwshEEt2NNVv5GcnyzaL7QQ==",
+      "files": {
+        "400": "400Regular/NotoSansDevanagari_400Regular.ttf",
+        "700": "700Bold/NotoSansDevanagari_700Bold.ttf"
+      },
+      "licenseFile": "LICENSE_FONT",
+      "covers": "Hindi (Devanagari)"
+    },
+    "han-sc": {
+      "cssFamily": "VQ Han SC",
+      "package": "@expo-google-fonts/noto-sans-sc",
+      "version": "0.4.3",
+      "integrity": "sha512-9rAwdFTFHbO/u6Cs0gj2jZbW74TGIiaFNQnXYH2s5wA1bzVkwbaviL4t8YUV642eGYjg86eH6DkAEQmfNHDncQ==",
+      "files": {
+        "400": "400Regular/NotoSansSC_400Regular.ttf",
+        "700": "700Bold/NotoSansSC_700Bold.ttf"
+      },
+      "licenseFile": "LICENSE_FONT",
+      "covers": "Simplified Chinese"
+    },
+    "han-tc": {
+      "cssFamily": "VQ Han TC",
+      "package": "@expo-google-fonts/noto-sans-tc",
+      "version": "0.4.3",
+      "integrity": "sha512-69XAOTLPz0WlAxL6qJEKlDMxHsBd4J1M39HjV0gPF2o1xWVALOsVWvDgistnecVockA9wbU/tH5C/gyS2PdnHg==",
+      "files": {
+        "400": "400Regular/NotoSansTC_400Regular.ttf",
+        "700": "700Bold/NotoSansTC_700Bold.ttf"
+      },
+      "licenseFile": "LICENSE_FONT",
+      "covers": "Traditional Chinese (Taiwan forms)"
+    },
+    "han-hk": {
+      "cssFamily": "VQ Han HK",
+      "package": "@expo-google-fonts/noto-sans-hk",
+      "version": "0.4.3",
+      "integrity": "sha512-jPBN2bE492eP4xPhUdmgbmYIOoqkzBPoF+upZYr9meQF3nuwY2ajmjMNtaSMrTlOXWV53td+ru/kFTcZ7/v7fg==",
+      "files": {
+        "400": "400Regular/NotoSansHK_400Regular.ttf",
+        "700": "700Bold/NotoSansHK_700Bold.ttf"
+      },
+      "licenseFile": "LICENSE_FONT",
+      "covers": "Traditional Chinese (Hong Kong forms)"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "_readme": "Copy limits enforced by `npm run check`, sheet2json and the build. Characters are counted as Unicode code points, spaces included, which matches what Excel and Google Sheets report for this copy.",
+  "_source": "Question, answer and count limits were sent to Livewire on 21 Sep 2026. The per string UI limits under `strings` are Gamify proposals sized to the layout and have not been sent to the client yet.",
+  "count": "codepoints",
+  "questions": {
+    "min": 1,
+    "max": 5
+  },
+  "answersPerQuestion": {
+    "min": 2,
+    "max": 4
+  },
+  "question": {
+    "max": 90
+  },
+  "answer": {
+    "max": 30
+  },
+  "strings": {
+    "language.label": { "max": 20, "required": true },
+    "picker.title": { "max": 40, "required": true },
+    "question.progress": { "max": 30, "required": true, "tokens": ["{n}", "{total}"] },
+    "answer.correct": { "max": 20, "required": true },
+    "answer.incorrect": { "max": 20, "required": true },
+    "button.next": { "max": 16, "required": true },
+    "button.results": { "max": 20, "required": true },
+    "end.title": { "max": 40, "required": false },
+    "end.score": { "max": 60, "required": true, "tokens": ["{score}", "{total}"] },
+    "end.body": { "max": 120, "required": false },
+    "button.cta": { "max": 22, "required": true },
+    "button.replay": { "max": 16, "required": false },
+    "legal": { "max": 160, "required": false }
+  }
+}

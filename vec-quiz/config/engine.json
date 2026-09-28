@@ -1,0 +1,28 @@
+{
+  "_readme": "Engine behaviour. These are Gamify design choices, not client details, so they carry working values.",
+  "picker": {
+    "show": "auto",
+    "titleCycleMs": 1800,
+    "_note": "auto shows the language picker when two or more languages are included and skips it for one. always and never force it."
+  },
+  "answer": {
+    "revealDelayMs": 150,
+    "autoAdvanceMs": 0,
+    "_note": "autoAdvanceMs 0 means the player taps Next after reading the feedback."
+  },
+  "replay": "picker",
+  "fit": {
+    "minFontPx": 12
+  },
+  "testViewports": [
+    { "label": "Small phone", "width": 320, "height": 480 },
+    { "label": "Android", "width": 360, "height": 640 },
+    { "label": "iPhone", "width": 390, "height": 844 },
+    { "label": "Large phone", "width": 430, "height": 932 },
+    { "label": "Landscape small", "width": 480, "height": 320 },
+    { "label": "Landscape phone", "width": 844, "height": 390 },
+    { "label": "Tablet", "width": 768, "height": 1024 },
+    { "label": "MPU stress", "width": 300, "height": 250 }
+  ],
+  "_testViewportsNote": "Test viewports for review and QA only. They are not the client's placement sizes, which live in config/client.json placement.sizes and are empty until the specs arrive."
+}
