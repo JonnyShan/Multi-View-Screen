@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import type { Tuning } from '../config/tuning';
 import type { City } from '../world/CityGenerator';
 import type { AssetPart } from './AssetRegistry';
+import { InstanceCuller } from './InstanceCuller';
 import { instancedParts } from './PropsView';
 import { globalUniforms, srgb, yawToThree } from './Shared';
 
@@ -75,6 +76,7 @@ export function billboardMaterial(color: THREE.Color, opacityUniform: { value: n
 export class LampsView {
   readonly group = new THREE.Group();
   readonly lights: THREE.PointLight[] = [];
+  readonly culler: InstanceCuller;
   private readonly lampPos: THREE.Vector3[] = [];
   private readonly glowOpacity = { value: 1 };
   private readonly poolOpacity = { value: 1 };
@@ -98,9 +100,9 @@ export class LampsView {
     const H = t.world.lampHeight;
     const arm = 14;
     // pole + arm, long axis +Z for the arm
-    const pole = new THREE.CylinderGeometry(0.7, 1.1, H, 6).translate(0, H / 2, 0);
+    const pole = new THREE.CylinderGeometry(0.7, 1.1, H, 5, 1, true).translate(0, H / 2, 0);
     const armGeo = new THREE.BoxGeometry(1, 1, arm).translate(0, H - 1, arm / 2);
-    const base = new THREE.CylinderGeometry(1.8, 2.2, 3, 8).translate(0, 1.5, 0);
+    const base = new THREE.CylinderGeometry(1.8, 2.2, 3, 6, 1, true).translate(0, 1.5, 0);
     const poleGeo = mergeSimple([pole, armGeo, base]);
     const poleMesh = new THREE.InstancedMesh(poleGeo, new THREE.MeshStandardMaterial({ color: srgb(0x2c2e33), roughness: 0.5, metalness: 0.6 }), lamps.length);
     const headGeo = new THREE.BoxGeometry(4, 1.2, 7).translate(0, H - 2, arm - 1);
@@ -281,6 +283,11 @@ export class LampsView {
       this.group.add(l);
     }
     for (let i = 0; i < this.lampPos.length; i++) this.order.push(i);
+    this.culler = new InstanceCuller(lamps.map((l) => ({ x: l.x, z: l.y })), 90);
+    for (const child of this.group.children) {
+      const im = child as THREE.InstancedMesh;
+      if (im.isInstancedMesh && im.instanceMatrix.count === lamps.length) this.culler.add(im);
+    }
   }
 
   /** Move the real lights to the lamps nearest the focus point. */

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { City, Prop, PropKind } from '../world/CityGenerator';
 import type { AssetPart, AssetRegistry } from './AssetRegistry';
+import { InstanceCuller } from './InstanceCuller';
 import { globalUniforms, srgb, yawToThree } from './Shared';
 
 function merged(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
@@ -26,7 +27,7 @@ function boxAt(w: number, h: number, d: number, x: number, y: number, z: number)
 function geometryFor(kind: PropKind): THREE.BufferGeometry {
   switch (kind) {
     case 'bollard':
-      return new THREE.CylinderGeometry(1, 1.1, 1, 8).translate(0, 0.5, 0);
+      return new THREE.CylinderGeometry(1, 1.1, 1, 6, 1, true).translate(0, 0.5, 0);
     case 'bench':
       return merged([boxAt(4, 0.8, 12, 0, 3, 0), boxAt(0.8, 3.5, 12, -1.8, 5, 0), boxAt(3.4, 3, 0.8, 0, 1.5, -5), boxAt(3.4, 3, 0.8, 0, 1.5, 5)]);
     case 'bin':
@@ -47,12 +48,9 @@ function geometryFor(kind: PropKind): THREE.BufferGeometry {
       g.translate(0, 0, -7.8);
       return merged([g]);
     }
-    case 'fence': {
-      const parts = [boxAt(0.5, 0.5, 16, 0, 8.5, 0), boxAt(0.5, 0.5, 16, 0, 1, 0)];
-      for (let z = -7.5; z < 8; z += 2) parts.push(boxAt(0.35, 9, 0.35, 0, 4.5, z));
-      for (let z = -7.5; z < 8; z += 2) parts.push(new THREE.ConeGeometry(0.4, 1.2, 4).translate(0, 9.6, z));
-      return merged(parts);
-    }
+    case 'fence':
+      // a single alpha-tested panel; the bars come from a texture
+      return new THREE.PlaneGeometry(16, 10).rotateY(Math.PI / 2).translate(0, 5, 0);
     case 'planter':
       return boxAt(1, 1, 1, 0, 0.5, 0);
     case 'fountain': {
@@ -73,7 +71,7 @@ function geometryFor(kind: PropKind): THREE.BufferGeometry {
       return merged([boxAt(1, 0.8, 1, 0, 0.5, 0), boxAt(0.9, 0.12, 0.98, 0, 0.96, 0), boxAt(0.7, 0.1, 0.9, 0, 0.05, 0)]);
     case 'container': {
       const parts = [boxAt(1, 1, 1, 0, 0.5, 0)];
-      for (let z = -0.45; z <= 0.46; z += 0.1) parts.push(boxAt(1.02, 0.96, 0.02, 0, 0.5, z));
+      for (let z = -0.36; z <= 0.37; z += 0.24) parts.push(boxAt(1.02, 0.96, 0.03, 0, 0.5, z));
       return merged(parts);
     }
     case 'rail': {
@@ -115,8 +113,31 @@ export function instancedParts(parts: AssetPart[], matrices: THREE.Matrix4[], ca
   });
 }
 
+function fenceTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 64;
+  const g = c.getContext('2d')!;
+  g.clearRect(0, 0, 128, 64);
+  g.fillStyle = '#fff';
+  g.fillRect(0, 2, 128, 4);
+  g.fillRect(0, 54, 128, 4);
+  for (let x = 4; x < 128; x += 16) {
+    g.fillRect(x, 0, 3, 64);
+    g.beginPath();
+    g.moveTo(x - 2, 4);
+    g.lineTo(x + 1.5, 0);
+    g.lineTo(x + 5, 4);
+    g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.anisotropy = 4;
+  return t;
+}
+
 export class PropsView {
   readonly group = new THREE.Group();
+  readonly cullers: InstanceCuller[] = [];
 
   constructor(city: City, castShadow: boolean, assets?: AssetRegistry) {
     this.group.name = 'props';
@@ -145,6 +166,11 @@ export class PropsView {
         roughness: kind === 'fence' || kind === 'rail' ? 0.45 : 0.8,
         metalness: kind === 'fence' || kind === 'rail' ? 0.6 : 0,
       });
+      if (kind === 'fence') {
+        mat.alphaMap = fenceTexture();
+        mat.alphaTest = 0.5;
+        mat.side = THREE.DoubleSide;
+      }
       const mesh = new THREE.InstancedMesh(geo, mat, list.length);
       list.forEach((p, i) => {
         v.set(p.x, p.z, p.y);
@@ -178,9 +204,16 @@ export class PropsView {
       mesh.name = `props-${kind}`;
       mesh.computeBoundingSphere();
       this.group.add(mesh);
+      if (kind !== 'rail' && list.length > 12) {
+        const culler = new InstanceCuller(list.map((p) => ({ x: p.x, z: p.y })), 40);
+        culler.add(mesh);
+        this.cullers.push(culler);
+      }
     }
     this.buildRailSleepers(city);
-    this.group.add(new PalmsView(city, castShadow, assets?.parts('models/props/palm.glb') ?? null).group);
+    const palms = new PalmsView(city, castShadow, assets?.parts('models/props/palm.glb') ?? null);
+    this.group.add(palms.group);
+    this.cullers.push(palms.culler);
   }
 
   private buildRailSleepers(city: City): void {
@@ -207,9 +240,11 @@ export class PropsView {
 /** Instanced palms: tapered trunks and drooping fronds that sway in the wind. */
 export class PalmsView {
   readonly group = new THREE.Group();
+  readonly culler: InstanceCuller;
 
   constructor(city: City, castShadow: boolean, glb: AssetPart[] | null = null) {
     const palms = city.palms;
+    this.culler = new InstanceCuller(palms.map((p) => ({ x: p.x, z: p.y })), 60);
     if (glb) {
       // handed-off palm model, scaled to each palm's height
       const box = new THREE.Box3();
@@ -223,16 +258,19 @@ export class PalmsView {
         const k = pl.h / modelH;
         return new THREE.Matrix4().compose(new THREE.Vector3(pl.x, pl.z, pl.y), new THREE.Quaternion().setFromAxisAngle(axis, pl.lean), new THREE.Vector3(k, k, k));
       });
-      for (const im of instancedParts(glb, mats, castShadow, 'palms')) this.group.add(im);
+      for (const im of instancedParts(glb, mats, castShadow, 'palms')) {
+        this.group.add(im);
+        this.culler.add(im);
+      }
       return;
     }
     // trunk: unit height, ringed segments
-    const trunk = new THREE.CylinderGeometry(1.1, 1.9, 1, 7, 8, false).translate(0, 0.5, 0);
+    const trunk = new THREE.CylinderGeometry(1.1, 1.9, 1, 5, 4, true).translate(0, 0.5, 0);
     const pos = trunk.getAttribute('position');
     for (let i = 0; i < pos.count; i++) {
       const y = pos.getY(i);
       // subtle rings: bulge every segment
-      const ring = 1 + 0.08 * Math.cos(y * Math.PI * 16);
+      const ring = 1 + 0.08 * Math.cos(y * Math.PI * 8);
       pos.setX(i, pos.getX(i) * ring);
       pos.setZ(i, pos.getZ(i) * ring);
     }
@@ -288,11 +326,13 @@ transformed.x += cos(uTime * 1.1 + nc_phase) * 0.018 * nc_r;
     trunks.name = 'palm-trunks';
     fronds.name = 'palm-fronds';
     this.group.add(trunks, fronds);
+    this.culler.add(trunks);
+    this.culler.add(fronds);
   }
 
   static frondGeometry(): THREE.BufferGeometry {
-    const leaves = 10;
-    const segs = 5;
+    const leaves = 8;
+    const segs = 3;
     const positions: number[] = [];
     const idx: number[] = [];
     for (let l = 0; l < leaves; l++) {

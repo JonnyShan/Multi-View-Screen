@@ -45,6 +45,7 @@ declare global {
       /** Debug: scale all time (sim and effects), e.g. 0.05 to inspect FX. */
       slow: (k: number) => void;
       camera: (c: { x: number; y: number; z: number; tx: number; ty: number; tz: number } | null) => void;
+      scene: THREE.Scene;
     };
   }
 }
@@ -302,7 +303,7 @@ async function boot(): Promise<void> {
         if (raycaster.ray.intersectPlane(plane, hit)) input.aimPoint = { x: hit.x, y: hit.z };
         else input.aimPoint = null;
       } else input.aimPoint = null;
-      gr.render(alpha, frameDt);
+      gr.render(alpha, frameDt, realDt);
       if (playing) hud.update(frameDt);
       audio.update(sim, frameDt, paused || !playing);
       debug.update(frameDt, gr.renderer, sim, quality.level);
@@ -317,6 +318,7 @@ async function boot(): Promise<void> {
     // software rendering in CI is slow: let the sim keep real time anyway
     loop.maxSteps = 120;
     loop.maxFrameDt = 2;
+    gr.adaptive = false;
   }
   loop.start();
 
@@ -356,6 +358,7 @@ async function boot(): Promise<void> {
     camera: (c) => {
       gr.debugCamera = c;
     },
+    scene: gr.scene,
     teleport: (x: number, y: number, a: number) => {
       sim.bike.place(x, y, sim.city.heightAt(x, y), a);
       sim.bikeBody.setTranslation({ x, y, z: 0 }, true);
@@ -368,6 +371,16 @@ async function boot(): Promise<void> {
   rideBtn.querySelector('span')!.textContent = 'RIDE';
   document.body.dataset.ready = '1';
 }
+
+/** Offline support for the installed PWA (not needed inside the native apps). */
+function registerServiceWorker(): void {
+  const native = (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+  if (import.meta.env.DEV || native || !('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return;
+  void import('virtual:pwa-register')
+    .then(({ registerSW }) => registerSW({ immediate: true }))
+    .catch(() => undefined);
+}
+registerServiceWorker();
 
 void boot().catch((err) => {
   console.error('Boot failed', err);

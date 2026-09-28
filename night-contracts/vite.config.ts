@@ -24,6 +24,17 @@ export default defineConfig({
     target: 'es2022',
     assetsDir: '_app',
     chunkSizeWarningLimit: 4000,
+    rollupOptions: {
+      output: {
+        // separate, long-cached vendor chunks
+        manualChunks(id: string) {
+          if (id.includes('rapier3d')) return 'rapier';
+          if (id.includes('node_modules/three/')) return 'three';
+          if (id.includes('node_modules/howler') || id.includes('@capacitor')) return 'vendor';
+          return undefined;
+        },
+      },
+    },
   },
   server: { port: 5173 },
   optimizeDeps: {

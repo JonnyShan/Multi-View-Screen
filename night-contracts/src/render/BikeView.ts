@@ -101,7 +101,7 @@ export function buildBikeModel(physical: boolean): BikeModel {
 
   const paint = physical
     ? new THREE.MeshPhysicalMaterial({ color: srgb(BLACK), roughness: 0.45, metalness: 0.05, clearcoat: 0.55, clearcoatRoughness: 0.12, envMapIntensity: 0.35 })
-    : new THREE.MeshStandardMaterial({ color: srgb(BLACK), roughness: 0.28, metalness: 0.08, envMapIntensity: 0.6 });
+    : new THREE.MeshStandardMaterial({ color: srgb(BLACK), roughness: 0.42, metalness: 0.08, envMapIntensity: 0.35 });
   const gunmetal = new THREE.MeshStandardMaterial({ color: srgb(GUNMETAL), roughness: 0.35, metalness: 0.85 });
   const gold = new THREE.MeshStandardMaterial({ color: srgb(GOLD), roughness: 0.3, metalness: 1, emissive: srgb(GOLD), emissiveIntensity: 0.05 });
   const red = physical

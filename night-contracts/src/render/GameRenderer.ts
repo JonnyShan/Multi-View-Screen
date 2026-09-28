@@ -18,6 +18,7 @@ import { LampsView } from './LampsView';
 import { NeonView } from './NeonView';
 import { PedView } from './PedView';
 import { PostFX } from './PostFX';
+import { InstanceCuller } from './InstanceCuller';
 import { PropsView } from './PropsView';
 import type { QualitySettings } from './Quality';
 import { RainView } from './RainView';
@@ -45,9 +46,17 @@ export class GameRenderer {
   private envNight: THREE.Texture | null = null;
   private envDay: THREE.Texture | null = null;
   private lampTimer = 0;
+  private cullTimer = 0;
+  private readonly cullers: InstanceCuller[] = [];
   private flash = 0;
   private hurt = 0;
   private time = 0;
+  /** Adaptive resolution: drops the pixel ratio when frames run long. */
+  adaptive = true;
+  private frameAcc = 0;
+  private frameN = 0;
+  private fastT = 0;
+  private pixelRatio: number;
   /** Debug: fixed camera (position, target) in sim space; null uses the rig. */
   debugCamera: { x: number; y: number; z: number; tx: number; ty: number; tz: number } | null = null;
 
@@ -60,6 +69,7 @@ export class GameRenderer {
   ) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
     this.renderer.setPixelRatio(q.pixelRatio);
+    this.pixelRatio = q.pixelRatio;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = q.shadows;
@@ -79,8 +89,10 @@ export class GameRenderer {
     this.scene.add(new CityView(city, t).group);
     const buildings = new BuildingsView(city, t, q.shadows);
     this.scene.add(buildings.group);
-    this.scene.add(new PropsView(city, q.shadows, assets).group);
+    const props = new PropsView(city, q.shadows, assets);
+    this.scene.add(props.group);
     this.lamps = new LampsView(city, t, q.lampLights, q.lightCones, buildings.beacons, assets.parts('models/props/lamp.glb'));
+    this.cullers.push(...props.cullers, this.lamps.culler);
     this.scene.add(this.lamps.group);
     this.neon = new NeonView(city);
     this.scene.add(this.neon.group);
@@ -175,7 +187,45 @@ export class GameRenderer {
     this.post.setSize(w, h);
   }
 
-  render(alpha: number, dt: number): void {
+  /**
+   * Keep frame time near the target by scaling resolution: phones hold 60 fps
+   * when they can, and never sink far below 30 when they cannot.
+   */
+  private adapt(realDt: number): void {
+    if (!this.adaptive || realDt <= 0 || realDt > 0.25) return;
+    this.frameAcc += realDt;
+    this.frameN++;
+    if (this.frameAcc < 1.5) return;
+    const avg = this.frameAcc / this.frameN;
+    this.frameAcc = 0;
+    this.frameN = 0;
+    const min = Math.max(0.6, this.q.pixelRatio * 0.5);
+    if (avg > 1 / 45 && this.pixelRatio > min) {
+      this.pixelRatio = Math.max(min, this.pixelRatio - 0.15);
+      this.applyPixelRatio();
+      this.fastT = 0;
+    } else if (avg < 1 / 70) {
+      this.fastT += 1.5;
+      if (this.fastT >= 6 && this.pixelRatio < this.q.pixelRatio) {
+        this.pixelRatio = Math.min(this.q.pixelRatio, this.pixelRatio + 0.1);
+        this.applyPixelRatio();
+        this.fastT = 0;
+      }
+    } else this.fastT = 0;
+  }
+
+  private applyPixelRatio(): void {
+    this.renderer.setPixelRatio(this.pixelRatio);
+    const s = this.renderer.getSize(new THREE.Vector2());
+    this.resize(s.x, s.y);
+  }
+
+  get currentPixelRatio(): number {
+    return this.pixelRatio;
+  }
+
+  render(alpha: number, dt: number, realDt = dt): void {
+    this.adapt(realDt);
     const sim = this.sim;
     this.time += dt;
     const overcast = sim.raining ? 0.8 : 0;
@@ -217,6 +267,12 @@ export class GameRenderer {
       this.lampTimer = 0.1;
     }
     this.neon.update(dt, l.night, this.time);
+    this.cullTimer -= dt;
+    if (this.cullTimer <= 0) {
+      const range = Math.min(this.q.drawDistance, 2600) * (this.q.level === 'low' ? 0.55 : this.q.level === 'medium' ? 0.7 : 1);
+      for (const c of this.cullers) c.update(cam, range);
+      this.cullTimer = 0.12;
+    }
     this.post.update(l.grade, l.night, this.flash * 0.25, this.hurt);
 
     this.renderer.info.reset();
