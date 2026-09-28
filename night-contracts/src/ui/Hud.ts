@@ -1,7 +1,8 @@
 /**
  * DOM HUD: top-right stack (clock, cash, health, speed, weapon, heat stars),
  * objective line with target HP, round minimap that rotates with the camera,
- * off-screen arrows, phone card, toasts, roof countdown ring and crosshair.
+ * off-screen arrows, phone card, toasts, roof countdown ring, crosshair,
+ * hit markers and red screen edges on the side the player was hurt from.
  */
 import * as THREE from 'three';
 import { KMH, UNITS_PER_METRE } from '../config/tuning';
@@ -22,6 +23,9 @@ const fmtTime = (s: number): string => {
   const v = Math.max(0, Math.ceil(s));
   return `${Math.floor(v / 60)}:${(v % 60).toString().padStart(2, '0')}`;
 };
+
+/** Four ticks around the point a round landed. */
+const HIT_MARK = '<svg viewBox="0 0 32 32"><path d="M5 5l6 6M27 5l-6 6M5 27l6-6M27 27l-6-6"/></svg>';
 
 interface Toast {
   text: string;
@@ -52,6 +56,12 @@ export class Hud {
   private readonly roof = el('div', 'roofring', '<svg viewBox="0 0 110 110"><circle class="bg" cx="55" cy="55" r="46"/><circle class="fg" cx="55" cy="55" r="46"/></svg><span class="label">Strike</span>');
   private readonly crosshair = el('div', 'crosshair');
   private readonly hint = el('div', 'hint label');
+  private readonly hurtEl = el('div', 'hurtvignette', '<i class="l"></i><i class="r"></i><i class="t"></i><i class="b"></i>');
+  /** Glow on the left, right, top and bottom edges, 0 to 1. */
+  private readonly hurtEdge = [0, 0, 0, 0];
+  private readonly hitMark = el('div', 'hitmark', HIT_MARK);
+  private hitT = 0;
+  private hitLife = 1;
   private readonly toasts: Toast[] = [];
   private toastT = 0;
   private hudT = 0;
@@ -89,7 +99,7 @@ export class Hud {
       if (this.phoneMode === 'ringing') this.onAnswer?.();
       else if (this.phoneMode === 'brief') this.phoneOpenT = this.phone.classList.contains('compact') ? 8 : 0;
     });
-    this.root.append(stack, obj, mm, this.marker, this.phone, this.toastEl, this.roof, this.crosshair, this.hint);
+    this.root.append(this.hurtEl, stack, obj, mm, this.marker, this.phone, this.toastEl, this.roof, this.crosshair, this.hitMark, this.hint);
     this.weapon.innerHTML = `${ICON_SMG}<div class="ammo num"></div>`;
   }
 
@@ -100,6 +110,59 @@ export class Hud {
   onEvent(e: SimEvent): void {
     if (e.type === 'toast') this.toast(e.text, e.tone, e.sub);
     if (e.type === 'contractBrief') this.phoneOpenT = 9;
+    if (e.type === 'playerHurt') this.hurtFrom(e.amount, e.fromX, e.fromY);
+    if (e.type === 'shot' && e.by === 'player' && e.struck !== 'none') this.hitMarker(e.tx, e.ty, e.tz, e.struck === 'kill');
+    if (e.type === 'slash' && e.hit) {
+      const pl = this.sim.player;
+      this.hitMarker(e.x + Math.cos(e.a) * 10, e.y + Math.sin(e.a) * 10, pl.z + 8, false);
+    }
+  }
+
+  /** Light the screen edge facing where the damage came from (every edge when it had no direction). */
+  private hurtFrom(amount: number, fromX?: number, fromY?: number): void {
+    const k = Math.min(1, 0.65 + amount / 25);
+    const e = this.hurtEdge;
+    const pl = this.sim.player;
+    if (fromX === undefined || fromY === undefined || Math.hypot(fromX - pl.x, fromY - pl.y) < 1) {
+      for (let i = 0; i < 4; i++) e[i] = Math.min(1, e[i] + k * 0.6);
+      return;
+    }
+    const dx = fromX - pl.x;
+    const dy = fromY - pl.y;
+    const len = Math.hypot(dx, dy);
+    const yaw = this.yaw();
+    // camera space: forward is up the screen, right is right
+    const f = (dx * Math.cos(yaw) + dy * Math.sin(yaw)) / len;
+    const r = (dx * -Math.sin(yaw) + dy * Math.cos(yaw)) / len;
+    // squared so the nearest side dominates (the four weights sum to 1)
+    const w = [r < 0 ? r * r : 0, r > 0 ? r * r : 0, f > 0 ? f * f : 0, f < 0 ? f * f : 0];
+    for (let i = 0; i < 4; i++) e[i] = Math.min(1, e[i] + k * w[i]);
+  }
+
+  private hitMarker(x: number, y: number, z: number, kill: boolean): void {
+    const s = this.project(x, y, z);
+    if (s.behind) return;
+    // a kill holds the red marker longer; a plain hit never cuts a kill short
+    if (!kill && this.hitMark.classList.contains('kill') && this.hitT > 0.15) return;
+    this.hitLife = kill ? 0.5 : 0.22;
+    this.hitT = this.hitLife;
+    this.hitMark.classList.toggle('kill', kill);
+    this.hitMark.style.left = `${s.sx}px`;
+    this.hitMark.style.top = `${s.sy}px`;
+  }
+
+  private updateHits(dt: number): void {
+    const e = this.hurtEdge;
+    for (let i = 0; i < 4; i++) {
+      if (e[i] <= 0) continue;
+      e[i] = Math.max(0, e[i] - dt * 1.1);
+      (this.hurtEl.children[i] as HTMLElement).style.opacity = e[i].toFixed(3);
+    }
+    if (this.hitT <= 0) return;
+    this.hitT = Math.max(0, this.hitT - dt);
+    const k = this.hitT / this.hitLife;
+    this.hitMark.style.opacity = Math.min(1, k * 2.5).toFixed(3);
+    this.hitMark.style.transform = `scale(${(1 + 0.4 * k * k).toFixed(3)})`;
   }
 
   toast(text: string, tone: Tone, sub?: string): void {
@@ -110,6 +173,7 @@ export class Hud {
   }
 
   update(dt: number): void {
+    this.updateHits(dt);
     this.updateToasts(dt);
     this.updateArrows();
     this.updateRoof();

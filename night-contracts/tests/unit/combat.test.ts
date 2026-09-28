@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { cloneTuning, type Tuning } from '../../src/config/tuning';
 import type { Car } from '../../src/sim/Car';
+import type { SimEvent } from '../../src/sim/events';
 import { emptyIntent, type Intent } from '../../src/sim/Intent';
 import { initPhysics } from '../../src/sim/Physics';
 import { Sim } from '../../src/sim/Sim';
@@ -72,6 +73,29 @@ describe('Machine gun', () => {
     i.aimY = car.y + wheel.y;
     run(sim, 30, i);
     expect(car.blownCount).toBeGreaterThan(0);
+  });
+
+  it('says which rounds landed and which one killed, for the hit marker', () => {
+    const t = cloneTuning();
+    t.gun.spread = 0;
+    t.gun.tyreBlowChance = 0;
+    const sim = bare(t);
+    const car = sim.spawnCar('target', 'sedan', 0x111111, 538, 470, Math.PI / 2, t.gun.damageCar * 2.5);
+    car.mode = 'idle';
+    const i = emptyIntent();
+    i.fire = true;
+    i.hasAim = true;
+    i.aimX = car.x;
+    i.aimY = car.y;
+    const struck: string[] = [];
+    run(sim, 60 * 2, i, () => {
+      for (const e of sim.events) if (e.type === 'shot' && e.by === 'player') struck.push(e.struck);
+    });
+    expect(car.dead).toBe(true);
+    // two hits, then the round that kills; rounds into the wreck mark nothing
+    expect(struck.slice(0, 3)).toEqual(['hit', 'hit', 'kill']);
+    expect(struck.length).toBeGreaterThan(3);
+    expect(struck.slice(3).every((k) => k === 'none')).toBe(true);
   });
 });
 
@@ -176,6 +200,36 @@ describe('Car versus player danger', () => {
     soft.player.armor = 1;
     const sim = ram(300, soft);
     expect(sim.player.mode).toBe('dead');
+  });
+  it('a hit says where it came from, so the screen edge can show it', () => {
+    const sim = bare();
+    setBike(sim, 538, 322, Math.PI / 2, 0);
+    // from behind: the car drives up the road into the back of the bike
+    const car = sim.spawnCar('escort', 'sedan', 0x111111, 538, 322 - 60, Math.PI / 2, 999);
+    drive(car, 140);
+    let got: { fromX?: number; fromY?: number; px: number; py: number } | null = null;
+    run(sim, 90, emptyIntent(), () => {
+      const e = sim.events.find((v): v is Extract<SimEvent, { type: 'playerHurt' }> => v.type === 'playerHurt');
+      if (e && !got) got = { fromX: e.fromX, fromY: e.fromY, px: sim.player.x, py: sim.player.y };
+    });
+    expect(got).not.toBeNull();
+    const g = got!;
+    expect(g.fromY!).toBeLessThan(g.py - 5);
+    expect(Math.abs(g.fromX! - g.px)).toBeLessThan(10);
+  });
+  it('an escort round says it came from the shooter', () => {
+    const sim = bare();
+    setBike(sim, 538, 322, Math.PI / 2, 0);
+    const car = sim.spawnCar('escort', 'suv', 0x111111, 538, 322 + 120, -Math.PI / 2, 999);
+    car.mode = 'idle';
+    sim.combat.fireAtPlayer(car, 0);
+    let from: { x: number; y: number } | null = null;
+    run(sim, 60, emptyIntent(), () => {
+      const e = sim.events.find((v): v is Extract<SimEvent, { type: 'playerHurt' }> => v.type === 'playerHurt');
+      if (e && !from) from = { x: e.fromX!, y: e.fromY! };
+    });
+    expect(from).not.toBeNull();
+    expect(from!.y).toBeGreaterThan(sim.player.y + 50);
   });
   it('armour halves the damage from any hit', () => {
     const sim = bare();

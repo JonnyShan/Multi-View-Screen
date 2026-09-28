@@ -86,7 +86,11 @@ export class AudioManager {
     if (!this.ready) return;
     switch (e.type) {
       case 'shot':
-        if (e.by === 'player') this.play('gun', 0.55, 0.95 + Math.random() * 0.1);
+        if (e.by === 'player') {
+          this.play('gun', 0.55, 0.95 + Math.random() * 0.1);
+          if (e.struck === 'kill') this.play('hit', 0.75, 0.7);
+          else if (e.struck === 'hit') this.play('hit', 0.35, 0.95 + Math.random() * 0.1);
+        }
         else {
           const s = this.spatial(sim, e.x, e.y, camYaw);
           this.play('enemyGun', 0.5 * s.vol, 0.9 + Math.random() * 0.2, s.pan);
@@ -170,7 +174,7 @@ export class AudioManager {
     } else if (b.riderless && !b.fallen) engine = 0.1;
     set('engine', engine * this.sfx, 0.55 + k * 1.75 + b.throttle * 0.12);
     set('screech', !paused && b.skidding && !b.riderless ? 0.35 * this.sfx : 0);
-    set('rain', !paused && sim.raining ? 0.55 * this.sfx : 0);
+    set('rain', !paused && sim.raining ? 0.275 * this.sfx : 0);
     const police = sim.police.units;
     let near = 0;
     for (const u of police) near = Math.max(near, 1 - Math.hypot(u.x - sim.player.x, u.y - sim.player.y) / 1400);

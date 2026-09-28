@@ -573,6 +573,53 @@ body {
   pointer-events: none;
 }
 
+.hurtvignette i {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.hurtvignette .l {
+  background: radial-gradient(ellipse 30% 85% at 0% 50%, rgba(235, 20, 28, 0.95), rgba(224, 38, 43, 0.5) 40%, rgba(224, 38, 43, 0) 100%);
+}
+
+.hurtvignette .r {
+  background: radial-gradient(ellipse 30% 85% at 100% 50%, rgba(235, 20, 28, 0.95), rgba(224, 38, 43, 0.5) 40%, rgba(224, 38, 43, 0) 100%);
+}
+
+.hurtvignette .t {
+  background: radial-gradient(ellipse 80% 34% at 50% 0%, rgba(235, 20, 28, 0.95), rgba(224, 38, 43, 0.5) 40%, rgba(224, 38, 43, 0) 100%);
+}
+
+.hurtvignette .b {
+  background: radial-gradient(ellipse 80% 34% at 50% 100%, rgba(235, 20, 28, 0.95), rgba(224, 38, 43, 0.5) 40%, rgba(224, 38, 43, 0) 100%);
+}
+
+.hitmark {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hitmark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: #f4efe6;
+  stroke-width: 3;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
+}
+
+.hitmark.kill svg {
+  stroke: var(--red);
+  stroke-width: 3.6;
+}
+
 .crosshair {
   position: absolute;
   width: 26px;

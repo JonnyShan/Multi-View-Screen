@@ -162,10 +162,13 @@ export class Combat {
     const tx = ox + dx * best;
     const ty = oy + dy * best;
     let tz = sim.city.heightAt(tx, ty) + 6;
+    let struck: 'none' | 'hit' | 'kill' = 'none';
     if (hitCar) {
       hit = 'car';
       tz = sim.city.heightAt(tx, ty) + hitCar.spec.roof * 0.55;
+      const alive = !hitCar.dead;
       sim.damageCar(hitCar, g.damageCar, 'player', 'gun');
+      if (alive) struck = hitCar.dead ? 'kill' : 'hit';
       // wheels
       toLocal(hitCar, tx, ty, tmp);
       for (let i = 0; i < 4; i++) {
@@ -180,13 +183,14 @@ export class Combat {
       }
     } else if (hitPed >= 0) {
       hit = 'ped';
+      struck = 'hit';
       const p = sim.peds.list[hitPed];
       sim.peds.knock(p, dx * 60, dy * 60, true);
     } else if (hit === 'wall') {
       tz = oz;
       sim.emit({ type: 'sparks', x: tx, y: ty, z: tz, count: 4 });
     } else tz = oz - 4;
-    sim.emit({ type: 'shot', x: ox, y: oy, z: oz, tx, ty, tz, hit, by: 'player' });
+    sim.emit({ type: 'shot', x: ox, y: oy, z: oz, tx, ty, tz, hit, by: 'player', struck });
     sim.heat.add(sim.t.heat.shotFired, ox, oy);
     sim.traffic.panicAround(ox, oy, sim.t.traffic.panicRadius);
     sim.peds.scatter(ox, oy, sim.t.peds.scatterRadius);
@@ -293,7 +297,7 @@ export class Combat {
     const oy = car.y + Math.sin(a) * (car.spec.hw + 4);
     const z = sim.city.heightAt(car.x, car.y) + car.spec.roof * 0.8;
     this.bullets.push({ x: ox, y: oy, z, px: ox, py: oy, vx: Math.cos(a) * e.bulletSpeed, vy: Math.sin(a) * e.bulletSpeed, life: 1.2, damage: e.bulletDamage, from: car.id });
-    sim.emit({ type: 'shot', x: ox, y: oy, z, tx: ox + Math.cos(a) * 60, ty: oy + Math.sin(a) * 60, tz: z, hit: 'none', by: 'enemy' });
+    sim.emit({ type: 'shot', x: ox, y: oy, z, tx: ox + Math.cos(a) * 60, ty: oy + Math.sin(a) * 60, tz: z, hit: 'none', by: 'enemy', struck: 'none' });
     sim.peds.scatter(car.x, car.y, 250);
     sim.traffic.panicAround(car.x, car.y, 300);
   }
@@ -320,7 +324,8 @@ export class Combat {
         const perp = Math.abs(px * dy - py * dx);
         const radius = pl.mode === 'riding' ? 6 : 4;
         if (along >= 0 && along <= len && perp < radius && Math.abs(pl.z + 7 - b.z) < 16) {
-          sim.hurtPlayer(b.damage);
+          // from back along the round's path
+          sim.hurtPlayer(b.damage, pl.x - dx * 100, pl.y - dy * 100);
           sim.emit({ type: 'sparks', x: pl.x, y: pl.y, z: pl.z + 8, count: 3 });
           dead = true;
         }

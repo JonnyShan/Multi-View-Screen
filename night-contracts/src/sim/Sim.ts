@@ -207,7 +207,7 @@ export class Sim {
     const pd = dist(pl.x, pl.y, x, y);
     if (pd < c.blastRadius && pl.mode !== 'dead') {
       const k = 1 - pd / c.blastRadius;
-      this.hurtPlayer(c.blastPlayerDamage * k);
+      this.hurtPlayer(c.blastPlayerDamage * k, x, y);
       if (k > 0.45 && pl.mode === 'riding') this.throwRider(80, 60 + 200 * k);
     }
     for (const p of this.peds.list) {
@@ -377,14 +377,14 @@ export class Sim {
     this.emit({ type: 'crash', x: b.x, y: b.y, z: b.z, speed: impact });
   }
 
-  /** Damage the player; armour divides it. */
-  hurtPlayer(amount: number): void {
+  /** Damage the player; armour divides it. (fromX, fromY) is where it came from, if anywhere. */
+  hurtPlayer(amount: number, fromX?: number, fromY?: number): void {
     const pl = this.player;
     if (pl.mode === 'dead' || amount <= 0) return;
     amount /= this.t.player.armor;
     pl.health -= amount;
     pl.sinceHurt = 0;
-    this.emit({ type: 'playerHurt', amount });
+    this.emit({ type: 'playerHurt', amount, fromX, fromY });
     if (pl.health <= 0) this.killPlayer();
   }
 
@@ -739,7 +739,7 @@ export class Sim {
           pl.vx = nx * closing * 0.7;
           pl.vy = ny * closing * 0.7;
         }
-        this.hurtPlayer(this.t.player.maxHealth);
+        this.hurtPlayer(this.t.player.maxHealth, car.x, car.y);
         return;
       }
       const k = (closing - t.light) / (t.heavy - t.light);
@@ -753,7 +753,7 @@ export class Sim {
         pl.vx = nx * closing * 0.6;
         pl.vy = ny * closing * 0.6;
       }
-      this.hurtPlayer(dmg);
+      this.hurtPlayer(dmg, car.x, car.y);
       return;
     }
   }

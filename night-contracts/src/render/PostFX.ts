@@ -80,7 +80,6 @@ const GradeShader = {
     vignette: { value: 0.28 },
     lutSize: { value: 24 },
     flash: { value: 0 },
-    hurt: { value: 0 },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -97,7 +96,6 @@ const GradeShader = {
     uniform float vignette;
     uniform float lutSize;
     uniform float flash;
-    uniform float hurt;
     varying vec2 vUv;
     void main() {
       vec4 c = texture2D(tDiffuse, vUv);
@@ -109,8 +107,6 @@ const GradeShader = {
       float v = 1.0 - dot(d, d) * vignette * 2.2;
       g *= v;
       g += vec3(0.8, 0.85, 1.0) * flash;
-      float edge = smoothstep(0.25, 0.75, length(d) * 1.4);
-      g = mix(g, g * vec3(1.0, 0.25, 0.2) + vec3(0.25, 0.0, 0.0), hurt * edge);
       gl_FragColor = vec4(g, c.a);
     }
   `,
@@ -168,7 +164,7 @@ export class PostFX {
     this.composer.setSize(w, h);
   }
 
-  update(weights: [number, number, number, number], night: number, flash: number, hurt: number): void {
+  update(weights: [number, number, number, number], night: number, flash: number): void {
     if (this.bloom) {
       this.bloom.strength = 0.25 + night * 0.25;
       this.bloom.threshold = 0.92;
@@ -176,7 +172,6 @@ export class PostFX {
     if (this.grade) {
       this.grade.uniforms.weights.value.set(...weights);
       this.grade.uniforms.flash.value = flash;
-      this.grade.uniforms.hurt.value = hurt;
     }
   }
 

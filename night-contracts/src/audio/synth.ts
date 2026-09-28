@@ -22,7 +22,8 @@ export type SoundName =
   | 'music'
   | 'click'
   | 'whistle'
-  | 'horn';
+  | 'horn'
+  | 'hit';
 
 type Build = (ctx: OfflineAudioContext) => void;
 
@@ -396,6 +397,23 @@ const SPECS: Record<SoundName, { seconds: number; build: Build; stereo?: boolean
       o.frequency.value = 1800;
       env(ctx, o, 0.001, 0.2, 0.05).connect(ctx.destination);
       o.start(0);
+    },
+  },
+  hit: {
+    seconds: 0.09,
+    build: (ctx) => {
+      // a short bright tick for a round that lands
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(2600, 0);
+      o.frequency.exponentialRampToValueAtTime(1500, 0.05);
+      env(ctx, o, 0.001, 0.3, 0.06).connect(ctx.destination);
+      const n = noise(ctx, 0.03);
+      const hp = filter(ctx, 'highpass', 3000);
+      n.connect(hp);
+      env(ctx, hp, 0.001, 0.12, 0.02).connect(ctx.destination);
+      o.start(0);
+      n.start(0);
     },
   },
   music: {

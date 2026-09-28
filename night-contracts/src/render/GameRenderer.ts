@@ -49,7 +49,6 @@ export class GameRenderer {
   private cullTimer = 0;
   private readonly cullers: InstanceCuller[] = [];
   private flash = 0;
-  private hurt = 0;
   private time = 0;
   /** Adaptive resolution: drops the pixel ratio when frames run long. */
   adaptive = true;
@@ -171,7 +170,6 @@ export class GameRenderer {
         break;
       }
       case 'playerHurt':
-        this.hurt = Math.min(0.9, this.hurt + e.amount / 40);
         this.rig.shake(0.15);
         break;
       case 'lightning':
@@ -268,7 +266,6 @@ export class GameRenderer {
     this.rain.update(cam, dt, sim.raining ? 0.75 : 0, sim.wet);
 
     this.flash = Math.max(0, this.flash - dt * 3.5);
-    this.hurt = Math.max(0, this.hurt - dt * 1.2);
     this.sky.update(l, this.rig.focusPoint, cam.position, this.flash * 0.6);
     this.water.update(l);
     this.fog.color.setHex(l.fog, THREE.SRGBColorSpace);
@@ -288,7 +285,7 @@ export class GameRenderer {
       for (const c of this.cullers) c.update(cam, this.q.cullRange);
       this.cullTimer = 0.12;
     }
-    this.post.update(l.grade, l.night, this.flash * 0.25, this.hurt);
+    this.post.update(l.grade, l.night, this.flash * 0.25);
 
     this.renderer.info.reset();
     this.post.render(this.scene, cam);

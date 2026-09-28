@@ -6,7 +6,8 @@ export type Tone = 'red' | 'gold' | 'green' | 'bone';
 export type SimEvent =
   | { type: 'crash'; x: number; y: number; z: number; speed: number }
   | { type: 'land'; x: number; y: number; hard: boolean }
-  | { type: 'shot'; x: number; y: number; z: number; tx: number; ty: number; tz: number; hit: 'car' | 'wall' | 'ped' | 'player' | 'none'; by: 'player' | 'enemy' }
+  /** struck: whether the round hurt something alive ('kill' when it finished a car off). */
+  | { type: 'shot'; x: number; y: number; z: number; tx: number; ty: number; tz: number; hit: 'car' | 'wall' | 'ped' | 'player' | 'none'; by: 'player' | 'enemy'; struck: 'none' | 'hit' | 'kill' }
   | { type: 'reload' }
   | { type: 'slash'; x: number; y: number; a: number; hit: boolean }
   | { type: 'wheelCut'; car: number; x: number; y: number; spin: boolean }
@@ -17,7 +18,8 @@ export type SimEvent =
   | { type: 'roofLand'; car: number }
   | { type: 'roofStrike'; car: number }
   | { type: 'roofFail' }
-  | { type: 'playerHurt'; amount: number }
+  /** from: where the damage came from, when it had a direction (a shooter, a car, a blast). */
+  | { type: 'playerHurt'; amount: number; fromX?: number; fromY?: number }
   | { type: 'playerDied' }
   | { type: 'respawn' }
   | { type: 'mount' }
