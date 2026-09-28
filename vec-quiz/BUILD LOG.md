@@ -3,6 +3,7 @@
 Date: 28 Sep 2026
 Built by: Claude Code (cloud session), for Gamify
 Code: `JonnyShan/Multi-View-Screen`, branch `claude/funny-newton-efsdch`, folder `vec-quiz/`
+Pull request (draft): https://github.com/JonnyShan/Multi-View-Screen/pull/15
 Copy this file to `~/Brain/03 - Gamify/Game Studio/VEC Quiz Playable/BUILD LOG.md` (the vault is not reachable from the cloud session).
 
 ## Read first: what this build could not see
