@@ -208,7 +208,10 @@ export class Combat {
       if (c.dead) continue;
       const d = obbDistance(c, pl.x, pl.y);
       if (d > k.range) continue;
-      const off = Math.abs(angleDiff(facing, Math.atan2(c.y - pl.y, c.x - pl.x)));
+      // aim at the nearest point of the car, not its centre
+      toLocal(c, pl.x, pl.y, tmp);
+      toWorld(c, Math.max(-c.spec.hl, Math.min(c.spec.hl, tmp.x)), Math.max(-c.spec.hw, Math.min(c.spec.hw, tmp.y)), tmp);
+      const off = Math.abs(angleDiff(facing, Math.atan2(tmp.y - pl.y, tmp.x - pl.x)));
       if (off > arc / 2 && d > 6) continue;
       if (d < bestD) {
         bestD = d;
@@ -217,19 +220,21 @@ export class Combat {
     }
     if (best) {
       hitAny = true;
-      // nearest wheel to the blade
+      // where the blade meets the car: the point on its box nearest the player
+      toLocal(best, pl.x, pl.y, tmp);
+      const hx = Math.max(-best.spec.hl, Math.min(best.spec.hl, tmp.x));
+      const hy = Math.max(-best.spec.hw, Math.min(best.spec.hw, tmp.y));
       let wi = -1;
       let wd = Infinity;
       for (let i = 0; i < 4; i++) {
         const w = this.wheelLocal(best, i);
-        toWorld(best, w.x, w.y, tmp);
-        const d = dist(tmp.x, tmp.y, pl.x, pl.y);
+        const d = Math.hypot(hx - w.x, hy - w.y);
         if (d < wd) {
           wd = d;
           wi = i;
         }
       }
-      if (wi >= 0 && wd < k.wheelRadius + k.range * 0.6 && !best.blown[wi]) {
+      if (wi >= 0 && wd < k.wheelRadius && !best.blown[wi]) {
         best.blown[wi] = true;
         const moving = Math.abs(best.speed) > k.spinMinSpeed;
         const side = WHEELS[wi][1];

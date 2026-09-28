@@ -85,7 +85,8 @@ describe('Katana', () => {
     const car = sim.spawnCar('target', 'sedan', 0x111111, roadX - 20, y, 0, 100);
     drive(car, 150);
     car.targetSpeed = 150;
-    setBike(sim, roadX - 20, y + 16, 0, 150);
+    // alongside the front wheel
+    setBike(sim, roadX - 20 + car.spec.wheelbase / 2, y + 16, 0, 150);
     let cut = false;
     let slowmo = false;
     const i = emptyIntent();
@@ -102,11 +103,24 @@ describe('Katana', () => {
     expect(car.lastMethod).toBe('crash');
   });
 
+  it('hits the body when the blade lands between the wheels', () => {
+    const sim = bare();
+    const car = sim.spawnCar('target', 'sedan', 0x111111, 538, 350, Math.PI / 2, 100);
+    car.mode = 'idle';
+    setBike(sim, 520, 350, Math.PI / 2, 0);
+    const i = emptyIntent();
+    i.slash = true;
+    run(sim, 1, i);
+    expect(car.blownCount).toBe(0);
+    expect(car.hp).toBe(100 - base.katana.damage);
+    expect(car.lastMethod).toBe('blade');
+  });
+
   it('makes a parked car limp away', () => {
     const sim = bare();
     const car = sim.spawnCar('civilian', 'hatch', 0xffffff, 538, 350, Math.PI / 2);
     car.mode = 'parked';
-    setBike(sim, 520, 350, Math.PI / 2, 0);
+    setBike(sim, 520, 350 + car.spec.wheelbase / 2, Math.PI / 2, 0);
     const i = emptyIntent();
     i.slash = true;
     run(sim, 1, i);
