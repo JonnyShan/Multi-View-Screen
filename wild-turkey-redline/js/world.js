@@ -909,18 +909,25 @@ export class World {
     const planks = [];
     const posts = [];
     const runs = [[T.length * 0.36, T.length * 0.52, -1], [T.length * 0.8, T.length * 0.92, -1], [T.length * 0.05, T.length * 0.2, -1]];
-    for (const [s0, s1, sideSign] of runs) {
+    const near = {};
+    this.fencePoints = [];
+    for (const [s0, s1] of runs) {
+      // one side for the whole run (the outside of the run's corners), so the fence never flips across the
+      // road where turnSide changes sign on a straight
+      let sum = 0;
+      for (let s = s0; s <= s1; s += 6) sum += T.turnSide[Math.floor(T.wrapS(s) / T.ds)];
+      const lat = (sum >= 0 ? -1 : 1) * 44;
       for (const h of [0.5, 0.95, 1.4]) {
-        const pts = [];
+        let prev = null;
         for (let s = s0; s <= s1; s += 6) {
-          const turn = T.turnSide[Math.floor(T.wrapS(s) / T.ds)];
-          const lat = -turn * 44 * sideSign * -1;
           const p = T.toWorld(s, lat);
+          T.nearest(p.x, p.z, 1, near);
+          if (near.d < 32) { prev = null; continue; } // too close to another part of the circuit
           p.y = this.heightAt(p.x, p.z) + h;
-          pts.push(p);
-          if (h === 0.5) posts.push(p.clone().setY(p.y - 0.5));
+          if (prev) planks.push([prev, p]);
+          prev = p;
+          if (h === 0.5) { posts.push(p.clone().setY(p.y - 0.5)); this.fencePoints.push({ x: p.x, z: p.z }); }
         }
-        for (let n = 0; n < pts.length - 1; n++) planks.push([pts[n], pts[n + 1]]);
       }
     }
     const plank = new THREE.BoxGeometry(1, 0.16, 0.05);

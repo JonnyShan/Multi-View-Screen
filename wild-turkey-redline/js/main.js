@@ -4,7 +4,9 @@ import { BRAND, AGE_RULES, DEFAULT_REGION, TUNE, QUALITY, QUALITY_TIERS, KIOSK, 
 import * as TX from './textures.js';
 import { Track, buildTrackMeshes, buildRubber, SECTORS } from './track.js';
 import { World } from './world.js';
-import { BikeModel, makeGhost } from './bike.js';
+import { buildDressing } from './dressing.js';
+import { BikeModel, makeGhost, setBikeAsset, setRiderAsset } from './bike.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { newState, step, Autopilot, simulateLap } from './physics.js';
 import { Audio } from './audio.js';
 import { Post, Particles } from './fx.js';
@@ -47,7 +49,14 @@ class Game {
     this.scene.add(buildTrackMeshes(this.track));
     progress(0.3, 'Carving the Kentucky River palisades'); await frame();
     this.world = new World(this.scene, this.renderer, this.track);
+    this.dressing = buildDressing(this.scene, this.track, this.world);
     progress(0.72, 'Rolling out the bike'); await frame();
+    if (QUALITY.tier !== 'low' && PARAMS.get('bike') !== 'code') {
+      const loader = new GLTFLoader();
+      const [bikeG, riderG] = await Promise.all(['assets/bike-ai.glb', 'assets/rider-ai.glb'].map(u => loader.loadAsync(u).catch(() => null)));
+      if (bikeG) setBikeAsset(bikeG.scene);
+      if (riderG && PARAMS.get('rider') !== 'code') setRiderAsset(riderG.scene);
+    }
     this.bike = new BikeModel();
     this.scene.add(this.bike.root);
     this.ghost = makeGhost();
@@ -224,6 +233,7 @@ class Game {
   #update(dt) {
     this.stateT += dt;
     this.world.update(performance.now() / 1000);
+    this.dressing.update(performance.now() / 1000);
     const s = this.state;
     if (s === 'gate' || s === 'denied' || s === 'title') this.#updateTitle(dt);
     else if (s === 'attract' || s === 'results') this.#updateDemo(dt, s === 'results');

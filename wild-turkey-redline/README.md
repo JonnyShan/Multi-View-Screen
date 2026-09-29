@@ -48,6 +48,7 @@ Records (leaderboard, personal best and ghost) are kept in `localStorage` on eac
 | `?auto=title\|race\|attract\|bike` | Dev and screenshot helpers. `race` lets the autopilot ride. |
 | `?at=<metres>` | With `auto=race`, starts mid-lap at that distance (dev only). |
 | `?fixeddt=0.033` | Fixed timestep for deterministic captures on slow GPUs (dev only). |
+| `?bike=code` / `?rider=code` | Use the procedural bike or rider instead of the generated 3D models (dev only). |
 
 To reset the leaderboard on a kiosk, clear site data for the page. A staff reset shortcut can be added if needed.
 
@@ -85,9 +86,20 @@ js/audio.js         Web Audio synth: engine, quickshifter, pops, wind, tyres, ke
 js/hud.js           timing tower, speedo, lean gauge, minimap
 js/textures.js      procedural canvas textures (asphalt, kerbs, liveries, boards)
 js/config.js        brand colours, copy, age rules, physics tuning, quality tiers
+js/dressing.js      trackside dressing: tyre walls, marshal posts, TV towers, crowds, flags, paddock
+assets/             generated 3D bike (bike-ai.glb) and rigged rider (rider-ai.glb)
 vendor/three/       Three.js r160 (MIT), vendored for offline use
 fonts/              Barlow Condensed + Zilla Slab (SIL OFL), self-hosted
 ```
+
+## 3D models
+
+`assets/bike-ai.glb` and `assets/rider-ai.glb` were generated with Higgsfield (GPT Image 2.5 concept art, then Meshy 7 image-to-3D; the rider auto-rigged with a 24-bone humanoid skeleton). Textures were re-encoded to JPEG to cut the download from 26 MB to 13.6 MB.
+
+- The bike mesh is split at load time so both wheels spin (`splitAIBike` in `js/bike.js`); wheel centres, grips, pegs and seat height were measured from the model.
+- The rider is posed every frame by swinging its bones onto the procedural rider's joint targets (hips on the seat, hands on the grips, boots on the pegs, hang-off in corners), using two-bone IK with the model's own limb lengths.
+- If either file is missing or fails to load, the game falls back to the procedural bike and rider. The Performance tier always uses the procedural ones.
+- Check the generator's licence terms for client use before launch.
 
 ## Brand and compliance: confirm with the client
 

@@ -696,7 +696,8 @@ class Dressing {
       for (let d = -58; d <= 58; d += 8) for (const dl of [2, 8, 14]) { const p = this.pt(sm + d, lat + Math.sign(lat) * dl); sp.add(p.x, p.z, 5.5, K_WORLD); }
     }
     const runs = [[L * 0.36, L * 0.52], [L * 0.8, L * 0.92], [L * 0.05, L * 0.2]];
-    for (const [s0, s1] of runs) for (let s = s0; s <= s1; s += 5) { const p = this.pt(s, -turnAt(s) * 44); sp.add(p.x, p.z, 1.2, K_WORLD); }
+    if (this.W.fencePoints) for (const p of this.W.fencePoints) sp.add(p.x, p.z, 3.4, K_WORLD);
+    else for (const [s0, s1] of runs) for (let s = s0; s <= s1; s += 5) { const p = this.pt(s, -turnAt(s) * 44); sp.add(p.x, p.z, 1.2, K_WORLD); }
     // the start gantry legs
     for (const lat of [-10.5, 10.5]) { const p = this.pt(0, lat); sp.add(p.x, p.z, 2, K_WORLD); }
   }

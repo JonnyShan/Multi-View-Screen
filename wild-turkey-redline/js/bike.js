@@ -1,11 +1,59 @@
 // Procedural prototype-class race bike + rider. Local space: +z forward, +y up, +x = rider's left.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { BRAND } from './config.js';
 import * as TX from './textures.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const UP = V(0, 1, 0);
+
+// Optional scanned/generated bike body (assets/bike-ai.glb). When set, it replaces the procedural bike; the
+// procedural rider stays and is fitted to its seat, clip-ons and pegs. Numbers were measured from the model.
+let AI_BIKE = null;
+const AI = {
+  scale: 1.073, xMid: 0.006, yGround: -0.4987,               // model units: length on x (front = -x), up on y
+  wheels: [                                                   // wheel centres in model units, radius to cut
+    { cx: -0.656, cy: -0.209, r: 0.335, bodyZ: 0.7, key: 'frontWheel' },
+    { cx: 0.668, cy: -0.214, r: 0.335, bodyZ: -0.72, key: 'rearWheel' },
+  ],
+  hub: 0.085,                                                 // |z| half-width of tyre + rim + discs
+  grip: { l: V(0.28, 0.785, 0.49), r: V(-0.28, 0.785, 0.49) },
+  pegs: { l: V(0.18, 0.41, -0.33), r: V(-0.18, 0.41, -0.33) },
+  hipDy: -0.1, hipDz: 0,
+  exhaustTip: V(0, 0.32, -1.05),
+};
+export function setBikeAsset(scene) { AI_BIKE = scene ? { scene, split: null } : null; }
+let AI_RIDER = null;
+export function setRiderAsset(scene) { AI_RIDER = scene || null; }
+
+// Split the single generated mesh into body + two wheels (so the wheels can spin), once.
+function splitAIBike() {
+  if (AI_BIKE.split) return AI_BIKE.split;
+  let mesh = null;
+  AI_BIKE.scene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
+  const g = mesh.geometry, pos = g.attributes.position;
+  const idx = g.index ? g.index.array : [...Array(pos.count).keys()];
+  const lists = [[], [], []];
+  for (let t = 0; t < idx.length; t += 3) {
+    const a = idx[t], b = idx[t + 1], c = idx[t + 2];
+    const x = (pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3, y = (pos.getY(a) + pos.getY(b) + pos.getY(c)) / 3, z = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3;
+    let k = 0;
+    AI.wheels.forEach((w, i) => { if (Math.abs(z) < AI.hub && (x - w.cx) ** 2 + (y - w.cy) ** 2 < w.r * w.r) k = i + 1; });
+    lists[k].push(a, b, c);
+  }
+  const part = (list) => {
+    const pg = new THREE.BufferGeometry();
+    for (const [name, attr] of Object.entries(g.attributes)) pg.setAttribute(name, attr);
+    pg.setIndex(list);
+    pg.computeBoundingSphere();
+    return pg;
+  };
+  const mat = mesh.material;
+  mat.side = THREE.DoubleSide;
+  AI_BIKE.split = { body: part(lists[0]), wheels: [part(lists[1]), part(lists[2])], mat };
+  return AI_BIKE.split;
+}
 const XA = V(1, 0, 0), ZA = V(0, 0, 1);
 const TAU = Math.PI * 2;
 const ss = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -656,12 +704,40 @@ export class BikeModel {
     this.static = [];
     this.#buildBike();
     this.#mergeStatic();
+    if (AI_BIKE) this.#useAIBike();
     this.#buildRider();
     this.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     this.wheelSpin = 0;
   }
 
   #add(mesh) { this.body.add(mesh); this.static.push(mesh); return mesh; }
+
+  // Swap the procedural bike for the generated one: body mesh + two spinning wheel groups; rider anchors refit.
+  #useAIBike() {
+    const sp = splitAIBike();
+    for (const o of [...this.body.children]) this.body.remove(o);
+    const S = AI.scale;
+    const place = (o) => { o.rotation.y = Math.PI / 2; o.scale.setScalar(S); return o; };
+    const body = place(new THREE.Mesh(sp.body, sp.mat));
+    body.position.set(0, -AI.yGround * S, AI.xMid * S - 0.01);
+    this.body.add(body);
+    AI.wheels.forEach((w, i) => {
+      const hub = new THREE.Group();
+      hub.position.set(0, (w.cy - AI.yGround) * S, -(w.cx - AI.xMid) * S - 0.01);
+      const spin = new THREE.Group();
+      hub.add(spin);
+      const wm = place(new THREE.Mesh(sp.wheels[i], sp.mat));
+      wm.position.set(0, -w.cy * S, w.cx * S);
+      spin.add(wm);
+      hub.userData.spin = spin;
+      this.body.add(hub);
+      this[w.key] = hub;
+    });
+    this.grip = { l: AI.grip.l.clone(), r: AI.grip.r.clone() };
+    this.pegs = { l: AI.pegs.l.clone(), r: AI.pegs.r.clone() };
+    this.fit = { dy: AI.hipDy, dz: AI.hipDz };
+    this.exhaustTip = AI.exhaustTip.clone();
+  }
   #geo(g, mat) { return this.#add(new THREE.Mesh(g, mat)); }
 
   #buildBike() {
@@ -1159,6 +1235,18 @@ export class BikeModel {
     this.helmet = this.#buildHelmet();
     this.rider.add(this.helmet);
     this.kneeL = V(0, 0, 0); this.kneeR = V(0, 0, 0);
+    this.anch = {
+      hip: V(), Yp: V(), lumbar: V(), Yc: V(), c7: V(), Yn: V(), Yh: V(),
+      arm: { l: { wr: V(), pole: V() }, r: { wr: V(), pole: V() } },
+      leg: { l: { ankle: V(), pole: V(), foot: V() }, r: { ankle: V(), pole: V(), foot: V() } },
+    };
+    if (AI_RIDER) {
+      // the procedural body still computes the pose; the generated rider is what you see
+      upper.visible = false; limbs.visible = false; this.helmet.visible = false;
+      this.ai = new AIRider(AI_RIDER, this.rider);
+      this.limbs = { torso: this.ai.mesh, hump: this.ai.mesh, neck: this.ai.mesh, pelvis: this.ai.mesh, arms: this.ai.mesh, legs: this.ai.mesh };
+      this.helmet = new THREE.Object3D();
+    }
     this.pose(0, 0, 1);
   }
 
@@ -1224,11 +1312,14 @@ export class BikeModel {
     const h = clamp(hang, -1, 1), ah = Math.abs(h);
     const up = clamp(1 - tuck + brake * 0.6, 0, 1);
     // hips slide across the seat to the inside; pelvis, chest and head progressively yaw/roll into the corner
-    const hip = P.hip.set(-h * 0.17, 0.985 - ah * 0.03, -0.3 - up * 0.015);
+    const fit = this.fit || { dy: 0, dz: 0 };
+    const hip = P.hip.set(-h * 0.17, 0.985 + fit.dy - ah * 0.03, -0.3 + fit.dz - up * 0.015);
     const pa = lerp(0.95, 1.12, up);
     _q.setFromEuler(_e.set(0, -h * 0.18, h * 0.14));
     P.Yp.set(0, Math.sin(pa), Math.cos(pa)).applyQuaternion(_q); P.Zp.set(0, -Math.cos(pa), Math.sin(pa)).applyQuaternion(_q);
     P.Xp.setFromMatrixColumn(this.#setBone(B.pelvis, hip, P.Yp, P.Zp), 0);
+    const An = this.anch;
+    An.hip.copy(hip); An.Yp.copy(P.Yp);
     const lumbar = P.lumbar.copy(hip).addScaledVector(P.Yp, 0.18);
     const ca = lerp(0.1, 0.66, up);
     _q.setFromEuler(_e.set(0, -h * 0.28, h * 0.26));
@@ -1240,6 +1331,8 @@ export class BikeModel {
     P.Yn.set(0, Math.sin(na), Math.cos(na)).applyQuaternion(_q); P.Zn.set(0, -Math.cos(na), Math.sin(na)).applyQuaternion(_q);
     this.#setBone(B.neck, c7, P.Yn, P.Zn);
     this.helmet.position.copy(c7).addScaledVector(P.Yn, 0.15);
+    An.lumbar.copy(lumbar); An.Yc.copy(P.Yc); An.c7.copy(c7); An.Yn.copy(P.Yn);
+    An.Yh.copy(P.Yn).add(_v1.set(-h * 0.25, 1.2, 0)).normalize(); // head lifts to look up the road, dips into the turn
     this.helmet.rotation.set(-0.12 + up * 0.22, -h * 0.35, -lean * 0.45);
 
     const { mid, end, t } = P;
@@ -1252,6 +1345,7 @@ export class BikeModel {
       P.wr.copy(grip).add(t.set(-sg * 0.004, 0.024, -0.058));
       const pole = P.pole.set(sg * (1 + outside * 0.4), -0.75 - inside * 0.45 + outside * 0.12, -0.12 + inside * 0.25 - outside * 0.1).normalize();
       ik(sh, P.wr, 0.28, 0.26, pole, mid, end);
+      An.arm[s].wr.copy(P.wr); An.arm[s].pole.copy(pole);
       P.Yu.subVectors(mid, sh).normalize(); P.Yf.subVectors(end, mid).normalize();
       P.nz.copy(pole).negate();
       this.#setBone(B['upper_' + s], sh, P.Yu, P.nz);
@@ -1266,6 +1360,7 @@ export class BikeModel {
       const ankle = P.ank.copy(this.pegs[s]).addScaledVector(Yft, -0.1).addScaledVector(Zft, 0.09);
       const kp = P.kp.set(sg * (0.35 + outside * 0.7), 0.3, 1).lerp(P.kp2.set(sg, -0.12, 0.95), ss(0.05, 1, inside)).normalize();
       ik(hj, ankle, 0.42, 0.42, kp, mid, end);
+      An.leg[s].ankle.copy(ankle); An.leg[s].pole.copy(kp); An.leg[s].foot.copy(Yft);
       P.Yt.subVectors(mid, hj).normalize(); P.Ys.subVectors(end, mid).normalize();
       this.#setBone(B['thigh_' + s], hj, P.Yt, kp);
       const mk = this.#setBone(B['knee_' + s], mid, t.addVectors(P.Yt, P.Ys), kp);
@@ -1274,6 +1369,7 @@ export class BikeModel {
       // knee slider position (rider space): outer face of the knee puck
       (k ? this.kneeR : this.kneeL).set(-sg * 0.085, 0.005, 0.006).applyMatrix4(mk);
     }
+    if (this.ai) { this.rider.updateMatrixWorld(true); this.ai.apply(this.anch); }
   }
 
   // Called per frame with the physics state.
@@ -1295,6 +1391,88 @@ export class BikeModel {
   kneeWorld(right, out) {
     out.copy(right ? this.kneeR : this.kneeL);
     return this.rider.localToWorld(out);
+  }
+}
+
+// Generated, auto-rigged rider (assets/rider-ai.glb, Mixamo-style bone names). Each frame its bones are swung
+// onto the joint targets the procedural pose() computes (hips, spine, head, two-bone IK for arms and legs),
+// using the model's own limb lengths.
+const _wq = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _sq = new THREE.Quaternion();
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _mid = new THREE.Vector3(), _end = new THREE.Vector3();
+class AIRider {
+  constructor(src, parent) {
+    this.root = cloneSkinned(src);
+    parent.add(this.root);
+    this.bones = {};
+    this.root.traverse(o => {
+      if (o.isBone) this.bones[o.name] = o;
+      if (o.isMesh) {
+        o.frustumCulled = false; o.castShadow = true; o.receiveShadow = true;
+        const m = o.material = o.material.clone();
+        m.emissiveMap = null; m.emissive && m.emissive.set(0);
+        m.roughness = 0.55; m.metalness = 0.05;
+        this.mesh = o;
+      }
+    });
+    this.bind = Object.values(this.bones).map(b => [b, b.position.clone(), b.quaternion.clone()]);
+    this.root.updateMatrixWorld(true);
+    const B = this.bones, dist = (a, b) => B[a].getWorldPosition(_a).distanceTo(B[b].getWorldPosition(_b));
+    this.len = {
+      thigh: dist('LeftUpLeg', 'LeftLeg'), shin: dist('LeftLeg', 'LeftFoot'),
+      upper: dist('LeftArm', 'LeftForeArm'), fore: dist('LeftForeArm', 'LeftHand'),
+    };
+    this.parent = parent;
+  }
+
+  // Rotate `bone` (in world space) so the direction to `child` becomes `dir` (world).
+  #aim(bone, child, dir) {
+    const t = (this._t || (this._t = new THREE.Vector3())).copy(dir).normalize();
+    bone.updateMatrixWorld(true);
+    bone.getWorldPosition(_a); child.getWorldPosition(_b);
+    _d.subVectors(_b, _a).normalize();
+    _sq.setFromUnitVectors(_d, t);
+    bone.getWorldQuaternion(_wq).premultiply(_sq);
+    bone.parent.getWorldQuaternion(_pq).invert();
+    bone.quaternion.copy(_pq.multiply(_wq));
+    bone.updateMatrixWorld(true);
+  }
+
+  apply(A) {
+    const B = this.bones, P = this.parent;
+    for (const [b, p, q] of this.bind) { b.position.copy(p); b.quaternion.copy(q); }
+    this.root.updateMatrixWorld(true);
+    const W = (v, out) => P.localToWorld(out.copy(v));
+    const D = (v, out) => out.copy(v).transformDirection(P.matrixWorld);
+    const v1 = this._v1 || (this._v1 = new THREE.Vector3()), v2 = this._v2 || (this._v2 = new THREE.Vector3());
+    // hips onto the seat
+    const hips = B.Hips;
+    hips.parent.worldToLocal(W(A.hip, v1));
+    hips.position.copy(v1);
+    hips.updateMatrixWorld(true);
+    this.#aim(hips, B.Spine02, D(A.Yp, v1));
+    this.#aim(B.Spine02, B.Spine01, D(v2.copy(A.Yp).lerp(A.Yc, 0.5), v1));
+    this.#aim(B.Spine01, B.Spine, D(A.Yc, v1));
+    this.#aim(B.Spine, B.neck, D(A.Yc, v1));
+    this.#aim(B.neck, B.Head, D(A.Yn, v1));
+    this.#aim(B.Head, B.head_end, D(A.Yh, v1));
+    const L = this.len;
+    for (const s of ['l', 'r']) {
+      const side = s === 'l' ? 'Left' : 'Right';
+      const arm = A.arm[s], leg = A.leg[s];
+      // arm: shoulder -> wrist on the grip
+      const sh = B[side + 'Arm'].getWorldPosition(v1);
+      const wr = W(arm.wr, v2);
+      ik(sh, wr, L.upper, L.fore, D(arm.pole, _d).clone(), _mid, _end);
+      this.#aim(B[side + 'Arm'], B[side + 'ForeArm'], _a.subVectors(_mid, sh));
+      this.#aim(B[side + 'ForeArm'], B[side + 'Hand'], _b.subVectors(_end, _mid));
+      // leg: hip joint -> ankle on the peg
+      const hj = B[side + 'UpLeg'].getWorldPosition(v1);
+      const an = W(leg.ankle, v2);
+      ik(hj, an, L.thigh, L.shin, D(leg.pole, _d).clone(), _mid, _end);
+      this.#aim(B[side + 'UpLeg'], B[side + 'Leg'], _a.subVectors(_mid, hj));
+      this.#aim(B[side + 'Leg'], B[side + 'Foot'], _b.subVectors(_end, _mid));
+      this.#aim(B[side + 'Foot'], B[side + 'ToeBase'], D(leg.foot, _a));
+    }
   }
 }
 
