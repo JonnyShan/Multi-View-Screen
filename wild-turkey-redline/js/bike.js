@@ -13,11 +13,13 @@ const UP = V(0, 1, 0);
 let AI_BIKE = null;
 const AI = {
   scale: 1.073, xMid: 0.006, yGround: -0.4987,               // model units: length on x (front = -x), up on y
-  wheels: [                                                   // wheel centres in model units, radius to cut
-    { cx: -0.656, cy: -0.209, r: 0.335, bodyZ: 0.7, key: 'frontWheel' },
-    { cx: 0.668, cy: -0.214, r: 0.335, bodyZ: -0.72, key: 'rearWheel' },
+  // Wheel centres in model units. The model is one fused mesh and the mudguard, hugger, belly pan, brake ducts
+  // and chain crowd the wheels, so only the spokes and hub spin (inside `rim`, within the z band). Tyre, rim lip
+  // and discs stay put; being round, it doesn't show.
+  wheels: [
+    { cx: -0.656, cy: -0.209, rim: 0.232, z: [-0.05, 0.04], bodyZ: 0.7, key: 'frontWheel' },
+    { cx: 0.668, cy: -0.214, rim: 0.232, z: [-0.085, 0.06], bodyZ: -0.72, key: 'rearWheel' },
   ],
-  hub: 0.085,                                                 // |z| half-width of tyre + rim + discs
   grip: { l: V(0.28, 0.785, 0.49), r: V(-0.28, 0.785, 0.49) },
   pegs: { l: V(0.18, 0.41, -0.33), r: V(-0.18, 0.41, -0.33) },
   hipDy: -0.1, hipDz: 0,
@@ -35,11 +37,14 @@ function splitAIBike() {
   const g = mesh.geometry, pos = g.attributes.position;
   const idx = g.index ? g.index.array : [...Array(pos.count).keys()];
   const lists = [[], [], []];
+  const onWheel = (w, v) => {
+    const z = pos.getZ(v);
+    return z > w.z[0] && z < w.z[1] && Math.hypot(pos.getX(v) - w.cx, pos.getY(v) - w.cy) < w.rim;
+  };
   for (let t = 0; t < idx.length; t += 3) {
     const a = idx[t], b = idx[t + 1], c = idx[t + 2];
-    const x = (pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3, y = (pos.getY(a) + pos.getY(b) + pos.getY(c)) / 3, z = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3;
     let k = 0;
-    AI.wheels.forEach((w, i) => { if (Math.abs(z) < AI.hub && (x - w.cx) ** 2 + (y - w.cy) ** 2 < w.r * w.r) k = i + 1; });
+    AI.wheels.forEach((w, i) => { if (onWheel(w, a) && onWheel(w, b) && onWheel(w, c)) k = i + 1; });
     lists[k].push(a, b, c);
   }
   const part = (list) => {
