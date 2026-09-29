@@ -60,19 +60,34 @@ export const LANES = {
   wall: 25.0,
 };
 
+// Graphics tiers. ?q= wins, then the player's saved choice, then a device default.
+export const QUALITY_TIERS = ['ultra', 'high', 'mid', 'low'];
 export const QUALITY = (() => {
   const q = new URLSearchParams(location.search).get('q');
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('wt_redline_v1_gfx')); } catch { /* storage blocked */ }
   const mobile = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
-  const tier = q || (mobile ? 'mid' : 'high');
+  let tier = QUALITY_TIERS.includes(q) ? q : QUALITY_TIERS.includes(saved) ? saved : (mobile ? 'high' : 'ultra');
+  const T = { ultra: 0, high: 1, mid: 2, low: 3 }[tier];
+  const pick = (...v) => v[T];
   return {
     tier,
     mobile,
-    maxDpr: tier === 'high' ? 2 : tier === 'mid' ? 1.5 : 1,
-    shadowMap: tier === 'high' ? 2048 : 1024,
-    msaa: tier === 'high' ? 4 : tier === 'mid' ? 2 : 0,
-    trees: tier === 'high' ? 2600 : tier === 'mid' ? 1500 : 800,
-    crowd: tier === 'high' ? 5200 : tier === 'mid' ? 3000 : 1500,
-    terrainSeg: tier === 'high' ? 280 : 200,
+    maxDpr: pick(2, 2, 1.5, 1),
+    minDpr: pick(1, 0.85, 0.7, 0.6),      // adaptive resolution never drops below this
+    shadowMap: pick(4096, 2048, 1024, 1024),
+    shadowSpan: pick(34, 40, 40, 40),       // half-width of the sun's shadow box around the bike (m)
+    msaa: pick(4, 4, 2, 0),
+    trees: pick(3400, 2600, 1500, 800),
+    leafCards: T <= 1,                      // alpha leaf-card canopies instead of solid blobs
+    crowd: pick(6000, 5200, 3000, 1500),
+    terrainSeg: pick(360, 280, 200, 200),
+    grass: pick(110000, 60000, 22000, 0),   // 3D grass tufts along the verges
+    grassRange: pick(150, 110, 70, 0),      // draw distance for grass (m)
+    rays: T <= 2,                           // screen-space sun shafts + lens dirt
+    sharpen: pick(0.35, 0.3, 0.2, 0),
+    rubber: T <= 2,                         // rubbered-in racing line + skid marks
+    texScale: pick(2, 2, 1, 1),             // procedural texture resolution multiplier
   };
 })();
 

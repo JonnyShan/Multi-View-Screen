@@ -1,8 +1,8 @@
 // Wild Turkey RED LINE: boot, game states, cameras, input, timing, leaderboard.
 import * as THREE from 'three';
-import { BRAND, AGE_RULES, DEFAULT_REGION, TUNE, QUALITY, KIOSK, PARAMS } from './config.js';
+import { BRAND, AGE_RULES, DEFAULT_REGION, TUNE, QUALITY, QUALITY_TIERS, KIOSK, PARAMS } from './config.js';
 import * as TX from './textures.js';
-import { Track, buildTrackMeshes, SECTORS } from './track.js';
+import { Track, buildTrackMeshes, buildRubber, SECTORS } from './track.js';
 import { World } from './world.js';
 import { BikeModel, makeGhost } from './bike.js';
 import { newState, step, Autopilot, simulateLap } from './physics.js';
@@ -57,6 +57,7 @@ class Game {
     this.dust = new Particles(this.scene, 220, { additive: false, size: 0.8, texture: TX.radialTexture('rgba(170,140,100,0.5)', 'rgba(170,140,100,0)') });
     progress(0.84, 'Setting the pace'); await frame();
     this.autopilot = new Autopilot(this.track);
+    if (QUALITY.rubber) this.scene.add(buildRubber(this.track, this.autopilot));
     this.pace = simulateLap(this.track, START_S, GHOST_HZ);
     const p = this.pace.time;
     this.medals = { gold: Math.floor(p * 0.99 * 10) / 10, silver: Math.floor(p * 1.05 * 10) / 10, bronze: Math.floor(p * 1.12 * 10) / 10 };
@@ -615,10 +616,15 @@ class Game {
     const onScreen = sp.z < 1 && Math.abs(sp.x) < 1.2 && Math.abs(sp.y) < 1.2;
     u.uSun.value.set(sp.x * 0.5 + 0.5, sp.y * 0.5 + 0.5);
     u.uSunOn.value = onScreen ? 1 - clamp((Math.max(Math.abs(sp.x), Math.abs(sp.y)) - 0.9) / 0.3, 0, 1) : 0;
+    const raysOn = sp.z < 1 ? 1 - clamp((Math.max(Math.abs(sp.x), Math.abs(sp.y)) - 1.0) / 0.9, 0, 1) : 0;
+    this.post.setRays(u.uSun.value, raysOn);
   }
 
   #render(dt) {
     this.world.followShadow(this.bike.root.position);
+    const cam = this.post.renderPass.camera;
+    cam.updateMatrixWorld();
+    this.world.updateView(cam);
     this.post.render(dt);
   }
 
@@ -632,9 +638,10 @@ class Game {
     p.t = 0; p.n = 0; p.sum = 0;
     const pr = this.renderer.getPixelRatio();
     const maxPr = Math.min(devicePixelRatio, QUALITY.maxDpr);
+    const minPr = Math.min(maxPr, QUALITY.minDpr);
     let next = pr;
-    if (avg > 1 / 45 && pr > 0.6) next = Math.max(0.6, pr - 0.2);
-    else if (avg < 1 / 58 && pr < maxPr) next = Math.min(maxPr, pr + 0.1);
+    if (avg > 1 / 45 && pr > minPr) next = Math.max(minPr, pr - 0.15);
+    else if (avg < 1 / 57 && pr < maxPr) next = Math.min(maxPr, pr + 0.1);
     if (Math.abs(next - pr) > 0.01) { this.renderer.setPixelRatio(next); this.#resize(); }
   }
 
@@ -802,6 +809,15 @@ class Game {
     $('togCam').addEventListener('click', () => this.#toggle('cam'));
     $('togAssist').addEventListener('click', () => this.#toggle('assist'));
     $('togSound').addEventListener('click', () => this.#toggle('sound'));
+    $('togGfx').addEventListener('click', () => {
+      // Tiers change what gets built (trees, grass, shadow maps), so apply by reloading.
+      const next = QUALITY_TIERS[(QUALITY_TIERS.indexOf(QUALITY.tier) + 1) % QUALITY_TIERS.length];
+      Store.save('gfx', next);
+      this.audio.click();
+      const u = new URL(location.href);
+      u.searchParams.delete('q');
+      location.replace(u.toString());
+    });
     $('togTilt').addEventListener('click', () => this.#toggle('tilt'));
     $('togFull').addEventListener('click', () => {
       const d = document;
@@ -892,6 +908,7 @@ class Game {
     $('togCam').querySelector('b').textContent = s.cam === 'chase' ? 'Chase' : 'Onboard';
     $('togAssist').querySelector('b').textContent = s.assist === 'standard' ? 'Standard' : 'Pro';
     $('togSound').querySelector('b').textContent = s.sound ? 'On' : 'Off';
+    $('togGfx').querySelector('b').textContent = { ultra: 'Ultra', high: 'High', mid: 'Balanced', low: 'Performance' }[QUALITY.tier];
     $('togTilt').querySelector('b').textContent = s.tilt ? 'On' : 'Off';
     // hide the lean buttons only once the phone is actually sending motion data
     document.body.classList.toggle('tilt', !!s.tilt && !!this.tiltSeen);
@@ -1043,7 +1060,7 @@ async function boot() {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.NoToneMapping;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  TX.setAnisotropy(Math.min(8, renderer.capabilities.getMaxAnisotropy()));
+  TX.setAnisotropy(Math.min(QUALITY.tier === 'ultra' || QUALITY.tier === 'high' ? 16 : 8, renderer.capabilities.getMaxAnisotropy()));
   const game = new Game(renderer);
   window.__game = game;
   await game.build(progress);

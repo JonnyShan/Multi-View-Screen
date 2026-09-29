@@ -1,6 +1,6 @@
 // Kentucky River Circuit: spline, lookups and track-side geometry.
 import * as THREE from 'three';
-import { LANES } from './config.js';
+import { LANES, QUALITY } from './config.js';
 import * as TX from './textures.js';
 
 // [x, z, elevation]. Clockwise. s = 0 is the start/finish line on the main straight.
@@ -315,7 +315,11 @@ export function buildTrackMeshes(track) {
 
   // Road
   const road = strip(track, 0, N - 1, (i, w) => P(i, w ? LANES.road : -LANES.road, 0.02), 26);
-  const roadMat = new THREE.MeshStandardMaterial({ map: TX.asphaltTexture(), roughness: 0.72, metalness: 0.0, envMapIntensity: 0.8 });
+  const asp = TX.asphaltSet(QUALITY.texScale);
+  const roadMat = new THREE.MeshStandardMaterial({
+    map: asp.map, normalMap: asp.normalMap, normalScale: new THREE.Vector2(0.25, 0.25),
+    roughnessMap: asp.roughnessMap, roughness: 1, metalness: 0.0, envMapIntensity: 1.0,
+  });
   const roadMesh = new THREE.Mesh(road, roadMat);
   roadMesh.receiveShadow = true;
   group.add(roadMesh);
@@ -354,7 +358,7 @@ export function buildTrackMeshes(track) {
     for (const [a, b] of maskRanges(N, gravelMask)) gravelG.push(strip(track, a, b + 1, mk, 10));
     for (const [a, b] of maskRanges(N, grassMask)) grassG.push(strip(track, a, b + 1, mk, 18));
   }
-  const grassMesh = new THREE.Mesh(merge(grassG), new THREE.MeshStandardMaterial({ map: TX.grassTexture(), roughness: 0.95 }));
+  const grassMesh = new THREE.Mesh(merge(grassG), new THREE.MeshStandardMaterial({ map: TX.grassTexture(QUALITY.texScale), roughness: 0.95 }));
   grassMesh.receiveShadow = true;
   group.add(grassMesh);
   if (gravelG.length) {
@@ -439,4 +443,71 @@ export function buildTrackMeshes(track) {
   }
 
   return group;
+}
+
+// Rubber laid down on the racing line, heavier into braking zones and apexes, plus skid marks.
+export function buildRubber(track, ap) {
+  const N = track.N, ds = track.ds;
+  const P = (i, lat, up) => {
+    const rx = -track.TZ[i], rz = track.TX[i];
+    return [track.X[i] + rx * lat, track.Y[i] + up, track.Z[i] + rz * lat];
+  };
+  const lim = LANES.road - 0.35;
+  const cl = (v) => Math.max(-lim, Math.min(lim, v));
+  const pos = [], uv = [], col = [], idx = [];
+  const quad = (i, xa, xb, ua, ub, v, a) => {
+    pos.push(...P(i, cl(xa), 0.03), ...P(i, cl(xb), 0.03));
+    uv.push(ua, v, ub, v);
+    col.push(1, 1, 1, a, 1, 1, 1, a);
+  };
+  const link = (n0, count) => {
+    for (let n = 0; n < count - 1; n++) {
+      const a = n0 + n * 2, b = a + 1, c = a + 2, d = a + 3;
+      idx.push(a, b, c, b, d, c);
+    }
+  };
+  // Racing-line groove
+  const inten = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const brake = Math.max(0, Math.min(1, (ap.vmax[i] - ap.vmax[(i + 8) % N]) / 5));
+    const corner = Math.max(0, Math.min(1, Math.abs(track.K[i]) * 60));
+    inten[i] = Math.min(1, 0.35 + 0.35 * corner + 0.45 * brake);
+  }
+  const sm = new Float32Array(N);
+  for (let i = 0; i < N; i++) { let a = 0; for (let j = -6; j <= 6; j++) a += inten[(i + j + N) % N]; sm[i] = a / 13; }
+  const n0 = pos.length / 3;
+  for (let n = 0; n <= N; n++) {
+    const i = n % N, x = ap.line[i];
+    quad(i, x - 1.9, x + 1.9, 0, 0.75, n * ds / 40, sm[i]);
+  }
+  link(n0, N + 1);
+  // Skid marks where the braking is hardest
+  const r = TX.rng(99);
+  for (let i = 0; i < N; i++) {
+    const drop = ap.vmax[i] - ap.vmax[(i + 10) % N];
+    if (drop < 3.5 || r() > 0.06) continue;
+    const len = Math.round((10 + r() * 30) / ds), off = (r() - 0.5) * 1.4, wv = r() * 6, amp = 0.1 + r() * 0.25;
+    const start = pos.length / 3;
+    for (let n = 0; n <= len; n++) {
+      const j = (i + n) % N, t = n / len;
+      const x = ap.line[j] + off + Math.sin(t * wv) * amp;
+      const a = Math.min(1, t * 6) * Math.min(1, (1 - t) * 3) * (0.5 + r() * 0.15);
+      quad(j, x - 0.08, x + 0.08, 0.82, 0.96, n * ds / 20, a);
+    }
+    link(start, len + 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({
+    map: TX.rubberTexture(), vertexColors: true, transparent: true, depthWrite: false,
+    roughness: 0.5, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  });
+  const mesh = new THREE.Mesh(g, mat);
+  mesh.receiveShadow = true;
+  mesh.renderOrder = 1;
+  return mesh;
 }

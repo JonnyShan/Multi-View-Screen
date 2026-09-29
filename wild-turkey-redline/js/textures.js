@@ -44,40 +44,177 @@ function speckle(g, w, h, n, colors, size = [1, 3], r = Math.random) {
   }
 }
 
-export function asphaltTexture() {
-  const W = 512, H = 1024;
-  const [c, g] = canvas(W, H);
+// Asphalt: colour + normal + roughness maps built from one procedural height field so the low sun
+// picks out the aggregate. u runs across the 14 m road, v along it (26 m per repeat).
+export function asphaltSet(scale = 1) {
+  const W = 512 * scale, H = 1024 * scale;
   const r = rng(7);
-  g.fillStyle = '#434143';
-  g.fillRect(0, 0, W, H);
-  // subtle longitudinal tonal bands (resurfacing / rubbered-in line)
+  const [hc, hg] = canvas(W, H);
+  hg.fillStyle = 'rgb(128,128,128)'; hg.fillRect(0, 0, W, H);
+  // aggregate stones
+  const stones = 90000 * scale * scale;
+  for (let i = 0; i < stones; i++) {
+    const v = 100 + r() * 130 | 0;
+    hg.fillStyle = `rgb(${v},${v},${v})`;
+    const sz = (0.6 + r() * r() * 1.8) * scale;
+    hg.fillRect(r() * W, r() * H, sz, sz * (0.7 + r() * 0.6));
+  }
+  // pores between stones
+  for (let i = 0; i < stones * 0.5; i++) {
+    hg.fillStyle = `rgba(20,20,20,${0.4 + r() * 0.5})`;
+    const sz = (0.5 + r() * 0.9) * scale;
+    hg.fillRect(r() * W, r() * H, sz, sz);
+  }
+  // sealed cracks
+  hg.lineCap = 'round';
+  for (let i = 0; i < 7; i++) {
+    let x = r() * W, y = r() * H;
+    hg.strokeStyle = 'rgba(40,40,40,0.8)'; hg.lineWidth = (1.2 + r() * 1.6) * scale;
+    hg.beginPath(); hg.moveTo(x, y);
+    for (let k = 0; k < 14; k++) { x += (r() - 0.5) * 30 * scale; y += (r() - 0.3) * 26 * scale; hg.lineTo(x, y); }
+    hg.stroke();
+  }
+  const hd = hg.getImageData(0, 0, W, H).data;
+
+  const [cc, cg] = canvas(W, H);
+  const [nc, ng] = canvas(W, H);
+  const [rc, rg] = canvas(W, H);
+  const cImg = cg.createImageData(W, H), nImg = ng.createImageData(W, H), rImg = rg.createImageData(W, H);
+  const cd = cImg.data, nd = nImg.data, rd = rImg.data;
+  const k = 1.6 / scale;
+  for (let y = 0; y < H; y++) {
+    const yu = ((y - 1 + H) % H) * W, yd = ((y + 1) % H) * W, y0 = y * W;
+    for (let x = 0; x < W; x++) {
+      const xl = (x - 1 + W) % W, xr = (x + 1) % W;
+      const h = hd[(y0 + x) * 4] / 255;
+      const dx = (hd[(y0 + xr) * 4] - hd[(y0 + xl) * 4]) / 255;
+      const dy = (hd[(yd + x) * 4] - hd[(yu + x) * 4]) / 255;
+      let nx = -dx * k, ny = dy * k;
+      const inv = 1 / Math.sqrt(nx * nx + ny * ny + 1);
+      const o = (y0 + x) * 4;
+      nd[o] = (nx * inv * 0.5 + 0.5) * 255; nd[o + 1] = (ny * inv * 0.5 + 0.5) * 255; nd[o + 2] = (inv * 0.5 + 0.5) * 255; nd[o + 3] = 255;
+      // warm grey binder, lighter limestone chips on the high spots
+      const t = Math.max(0, Math.min(1, (h - 0.35) * 1.6));
+      cd[o] = 56 + t * 44; cd[o + 1] = 54 + t * 42; cd[o + 2] = 53 + t * 38; cd[o + 3] = 255;
+      const rough = 0.92 - t * 0.28;
+      rd[o] = rd[o + 1] = rd[o + 2] = rough * 255; rd[o + 3] = 255;
+    }
+  }
+  cg.putImageData(cImg, 0, 0); ng.putImageData(nImg, 0, 0); rg.putImageData(rImg, 0, 0);
+
+  // colour: resurfacing bands, rubbered groove, repairs, painted edge lines
   for (let i = 0; i < 18; i++) {
-    const x = r() * W, w = 20 + r() * 90;
-    g.fillStyle = `rgba(${r() < 0.5 ? '20,20,22' : '80,78,76'},${0.05 + r() * 0.07})`;
-    g.fillRect(x, 0, w, H);
+    const x = r() * W, w = (20 + r() * 90) * scale;
+    cg.fillStyle = `rgba(${r() < 0.5 ? '20,20,22' : '90,86,80'},${0.04 + r() * 0.06})`;
+    cg.fillRect(x, 0, w, H);
   }
-  // darker rubbered racing groove in the middle third
-  const grd = g.createLinearGradient(0, 0, W, 0);
-  grd.addColorStop(0.0, 'rgba(0,0,0,0)');
-  grd.addColorStop(0.35, 'rgba(10,10,12,0.22)');
-  grd.addColorStop(0.5, 'rgba(10,10,12,0.30)');
-  grd.addColorStop(0.65, 'rgba(10,10,12,0.22)');
-  grd.addColorStop(1.0, 'rgba(0,0,0,0)');
-  g.fillStyle = grd; g.fillRect(0, 0, W, H);
-  speckle(g, W, H, 26000, ['#2a292b', '#4a494a', '#565453', '#303032', '#615e5b'], [1, 2.4], r);
-  // patch repairs
+  const groove = (g, a) => {
+    const grd = g.createLinearGradient(0, 0, W, 0);
+    grd.addColorStop(0.0, 'rgba(0,0,0,0)');
+    grd.addColorStop(0.3, `rgba(8,8,10,${a * 0.7})`);
+    grd.addColorStop(0.5, `rgba(8,8,10,${a})`);
+    grd.addColorStop(0.7, `rgba(8,8,10,${a * 0.7})`);
+    grd.addColorStop(1.0, 'rgba(0,0,0,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  };
+  groove(cg, 0.22);
+  groove(rg, 0.28); // rubber polishes the surface: smoother where the tyres run
   for (let i = 0; i < 6; i++) {
-    g.fillStyle = 'rgba(25,25,27,0.35)';
-    g.fillRect(40 + r() * (W - 140), r() * H, 30 + r() * 80, 40 + r() * 160);
+    const x = (40 + r() * 360) * scale, y = r() * H, w = (30 + r() * 80) * scale, h = (40 + r() * 160) * scale;
+    cg.fillStyle = 'rgba(22,22,24,0.32)'; cg.fillRect(x, y, w, h);
+    rg.fillStyle = 'rgba(0,0,0,0.12)'; rg.fillRect(x, y, w, h);
   }
-  // white edge lines (road is 14m wide; line ~0.25m)
-  g.fillStyle = '#e9e4d8';
-  g.fillRect(W * 0.012, 0, W * 0.018, H);
-  g.fillRect(W * (1 - 0.03), 0, W * 0.018, H);
-  // wear on the lines
-  speckle(g, W * 0.05, H, 1600, ['#3a393b', '#8a8680'], [1, 3], r);
-  g.save(); g.translate(W * 0.95, 0); speckle(g, W * 0.05, H, 1600, ['#3a393b', '#8a8680'], [1, 3], r); g.restore();
-  return tex(c);
+  const lines = (g, col) => {
+    g.fillStyle = col;
+    g.fillRect(W * 0.012, 0, W * 0.018, H);
+    g.fillRect(W * (1 - 0.03), 0, W * 0.018, H);
+  };
+  lines(cg, '#e9e4d8');
+  lines(rg, 'rgb(135,135,135)');
+  lines(ng, 'rgb(128,128,255)');
+  const wear = (g) => {
+    speckle(g, W * 0.05, H, 1600 * scale * scale, ['#3a393b', '#8a8680'], [scale, 3 * scale], r);
+    g.save(); g.translate(W * 0.95, 0); speckle(g, W * 0.05, H, 1600 * scale * scale, ['#3a393b', '#8a8680'], [scale, 3 * scale], r); g.restore();
+  };
+  wear(cg);
+  return { map: tex(cc), normalMap: tex(nc, { srgb: false }), roughnessMap: tex(rc, { srgb: false }) };
+}
+
+// Rubber laid down along the racing line (u 0..0.75: soft streaks) plus locked-tyre skid marks (u 0.8..1).
+export function rubberTexture() {
+  const W = 256, H = 1024;
+  const [c, g] = canvas(W, H);
+  const r = rng(21);
+  const RW = W * 0.75;
+  for (let i = 0; i < 260; i++) {
+    const x = RW * (0.5 + (r() + r() + r() - 1.5) * 0.42);
+    const w = 1 + r() * 5;
+    const a = 0.08 + r() * 0.2;
+    const y0 = r() * H, len = 100 + r() * 700;
+    const grd = g.createLinearGradient(0, y0, 0, y0 + len);
+    grd.addColorStop(0, 'rgba(10,9,9,0)'); grd.addColorStop(0.3, `rgba(10,9,9,${a})`);
+    grd.addColorStop(0.7, `rgba(10,9,9,${a})`); grd.addColorStop(1, 'rgba(10,9,9,0)');
+    g.fillStyle = grd; g.fillRect(x, y0, w, len);
+    if (y0 + len > H) { g.save(); g.translate(0, -H); g.fillRect(x, y0, w, len); g.restore(); }
+  }
+  const soft = g.createLinearGradient(0, 0, RW, 0);
+  soft.addColorStop(0, 'rgba(10,9,9,0)'); soft.addColorStop(0.5, 'rgba(10,9,9,0.4)'); soft.addColorStop(1, 'rgba(10,9,9,0)');
+  g.fillStyle = soft; g.fillRect(0, 0, RW, H);
+  // skid strip
+  for (let y = 0; y < H; y += 2) {
+    const a = 0.55 + r() * 0.35;
+    g.fillStyle = `rgba(8,7,7,${a})`;
+    g.fillRect(W * 0.82 + r() * 2, y, W * 0.14, 2);
+  }
+  const t = tex(c, { srgb: true });
+  return t;
+}
+
+// Leaf cluster for alpha-tested canopy cards (greyscale, tinted per tree).
+export function leafTexture(scale = 1) {
+  const S = 256 * scale;
+  const [c, g] = canvas(S, S);
+  const r = rng(33);
+  for (let i = 0; i < 260; i++) {
+    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * S * 0.42;
+    const x = S / 2 + Math.cos(a) * d, y = S / 2 + Math.sin(a) * d;
+    const l = (7 + r() * 9) * scale, w = l * (0.45 + r() * 0.2);
+    const v = 150 + r() * 105 | 0;
+    g.save(); g.translate(x, y); g.rotate(r() * Math.PI * 2);
+    g.fillStyle = `rgb(${v},${v * 0.97 | 0},${v * 0.92 | 0})`;
+    g.beginPath(); g.ellipse(0, 0, l, w, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = `rgba(0,0,0,0.18)`; g.lineWidth = Math.max(1, scale * 0.8);
+    g.beginPath(); g.moveTo(-l * 0.9, 0); g.lineTo(l * 0.9, 0); g.stroke();
+    g.restore();
+  }
+  const t = tex(c, { repeat: false });
+  return t;
+}
+
+// Grime on the lens: lights up when the camera looks into the sun.
+export function lensDirtTexture() {
+  const W = 512, H = 288;
+  const [c, g] = canvas(W, H);
+  const r = rng(77);
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 70; i++) {
+    const x = r() * W, y = r() * H, rad = 6 + r() * r() * 46;
+    const grd = g.createRadialGradient(x, y, 0, x, y, rad);
+    const a = 0.05 + r() * 0.16;
+    grd.addColorStop(0, `rgba(255,240,220,${a})`); grd.addColorStop(0.7, `rgba(255,240,220,${a * 0.6})`); grd.addColorStop(1, 'rgba(255,240,220,0)');
+    g.fillStyle = grd; g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill();
+  }
+  for (let i = 0; i < 260; i++) {
+    g.fillStyle = `rgba(255,245,230,${0.1 + r() * 0.35})`;
+    g.beginPath(); g.arc(r() * W, r() * H, 0.4 + r() * 1.4, 0, Math.PI * 2); g.fill();
+  }
+  g.strokeStyle = 'rgba(255,240,220,0.06)';
+  for (let i = 0; i < 6; i++) {
+    g.lineWidth = 2 + r() * 6;
+    g.beginPath(); const x = r() * W, y = r() * H; g.moveTo(x, y); g.quadraticCurveTo(x + (r() - 0.5) * 200, y + (r() - 0.5) * 80, x + (r() - 0.5) * 300, y + (r() - 0.5) * 120); g.stroke();
+  }
+  return tex(c, { repeat: false, aniso: false });
 }
 
 export function runoffTexture() {
@@ -107,14 +244,22 @@ export function kerbTexture() {
   return tex(c);
 }
 
-export function grassTexture() {
-  const W = 256, H = 512;
+export function grassTexture(scale = 1) {
+  const W = 256 * scale, H = 512 * scale;
   const [c, g] = canvas(W, H);
   const r = rng(5);
   // mowing stripes along the track
   g.fillStyle = '#51702f'; g.fillRect(0, 0, W, H / 2);
   g.fillStyle = '#62823a'; g.fillRect(0, H / 2, W, H / 2);
-  speckle(g, W, H, 14000, ['#3f5a24', '#6f8f42', '#587733', '#7e9a4a', '#4a6a2a'], [1, 2.5], r);
+  speckle(g, W, H, 14000 * scale * scale, ['#3f5a24', '#6f8f42', '#587733', '#7e9a4a', '#4a6a2a'], [scale, 2.5 * scale], r);
+  // short blade strokes
+  const cols = ['#3b5521', '#76954a', '#8aa656', '#4c6b2b', '#a39a55'];
+  g.lineWidth = Math.max(1, scale * 0.9);
+  for (let i = 0; i < 9000 * scale * scale; i++) {
+    const x = r() * W, y = r() * H, l = (2 + r() * 4) * scale;
+    g.strokeStyle = cols[(r() * cols.length) | 0];
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - 0.5) * l * 0.6, y - l); g.stroke();
+  }
   return tex(c);
 }
 
@@ -246,6 +391,24 @@ export function rickhouseTexture() {
     }
   }
   return tex(c);
+}
+
+// Standing-seam cladding ribs for the rickhouse walls (matches the 8 px rhythm of rickhouseTexture).
+export function rickhouseNormalTexture() {
+  const W = 512, H = 8;
+  const [c, g] = canvas(W, H);
+  const img = g.createImageData(W, H);
+  for (let x = 0; x < W; x++) {
+    const ph = (x % 8) / 8 * Math.PI * 2;
+    const nx = Math.cos(ph) * 0.55;
+    const inv = 1 / Math.sqrt(nx * nx + 1);
+    for (let y = 0; y < H; y++) {
+      const o = (y * W + x) * 4;
+      img.data[o] = (nx * inv * 0.5 + 0.5) * 255; img.data[o + 1] = 128; img.data[o + 2] = (inv * 0.5 + 0.5) * 255; img.data[o + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return tex(c, { srgb: false });
 }
 
 export function rickhouseSignTexture() {

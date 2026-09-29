@@ -44,12 +44,27 @@ Records (leaderboard, personal best and ghost) are kept in `localStorage` on eac
 | Param | Effect |
 |---|---|
 | `?kiosk=1` | Hides the cursor. The age gate reappears when leaving the results screen, when leaving attract mode, and after 45 s idle on results, so each new player is checked. The gate is never remembered between players. |
-| `?q=low\|mid\|high` | Forces a quality tier. The default is `high` on desktop and `mid` on phones. Resolution also adapts to the frame rate. |
+| `?q=ultra\|high\|mid\|low` | Forces a graphics tier for this visit. Otherwise the player's **Graphics** choice on the title screen is used (Ultra, High, Balanced, Performance), and the default is Ultra on desktop and High on phones. Resolution also adapts to the frame rate, never dropping below the tier's floor. |
 | `?auto=title\|race\|attract\|bike` | Dev and screenshot helpers. `race` lets the autopilot ride. |
 | `?at=<metres>` | With `auto=race`, starts mid-lap at that distance (dev only). |
 | `?fixeddt=0.033` | Fixed timestep for deterministic captures on slow GPUs (dev only). |
 
 To reset the leaderboard on a kiosk, clear site data for the page. A staff reset shortcut can be added if needed.
+
+## Graphics tiers
+
+| | Ultra | High | Balanced | Performance |
+|---|---|---|---|---|
+| Max resolution scale | 2× | 2× | 1.5× | 1× |
+| Shadow map | 4096 | 2048 | 1024 | 1024 |
+| MSAA | 4× | 4× | 2× | off |
+| Trees | 3400, leaf-card canopies | 2600, leaf-card canopies | 1500, solid | 800, solid |
+| 3D grass tufts | 110k | 60k | 22k | none |
+| Sun shafts + lens dirt | yes | yes | yes | no |
+| Rubbered racing line + skid marks | yes | yes | yes | no |
+| Texture resolution | 2× | 2× | 1× | 1× |
+
+The asphalt has colour, normal and roughness maps generated from one height field, so the low sun picks out the aggregate and the rubbered line. Trees and grass sway in the wind and glow when backlit.
 
 ## Files
 
@@ -88,7 +103,7 @@ These were built from public sources and need Campari/Wild Turkey sign-off:
 
 ## Known limitations
 
-- Visuals were checked with software (SwiftShader) rendering in a headless browser. **Frame rate on real phones and kiosk hardware hasn't been measured yet.** Adaptive resolution is built in.
+- Visuals were checked with software (SwiftShader) rendering in a headless browser. **Frame rate on real phones and kiosk hardware hasn't been measured yet**, and Ultra is the heaviest tier. Adaptive resolution is built in, and players can drop to Balanced or Performance from the title screen.
 - The engine sound is synthesised. It is wired up and running but hasn't been listened to or tuned by ear yet.
 - Tilt steering is experimental and needs testing on real iOS and Android devices.
 - There is no music. Add a licensed track if the client wants one.

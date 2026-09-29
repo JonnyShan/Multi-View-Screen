@@ -4,6 +4,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import * as TX from './textures.js';
 
 const FinalShader = {
@@ -22,11 +23,16 @@ const FinalShader = {
     uSun: { value: new THREE.Vector2(-1, -1) },
     uSunOn: { value: 0 },
     uLines: { value: 0 },
+    tRays: { value: null },
+    uRaysOn: { value: 0 },
+    tDirt: { value: null },
+    uDirt: { value: 0.35 },
+    uSharpen: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse;
-    uniform vec2 uRes; uniform float uAspect, uTime, uSpeed, uExposure, uVignette, uGrain, uSat, uFade, uFlash, uSunOn, uLines;
+    uniform sampler2D tDiffuse, tRays, tDirt;
+    uniform vec2 uRes; uniform float uAspect, uTime, uSpeed, uExposure, uVignette, uGrain, uSat, uFade, uFlash, uSunOn, uLines, uRaysOn, uDirt, uSharpen;
     uniform vec2 uSun;
     varying vec2 vUv;
     vec3 RRTAndODTFit(vec3 v){ vec3 a = v*(v+0.0245786)-0.000090537; vec3 b = v*(0.983729*v+0.4329510)+0.238081; return a/b; }
@@ -57,6 +63,23 @@ const FinalShader = {
           col += vec3(texture2D(tDiffuse, focus + o*(1.0+ca)).r, texture2D(tDiffuse, focus + o).g, texture2D(tDiffuse, focus + o*(1.0-ca)).b);
         }
         col /= 7.0;
+      }
+      // Luma sharpening (relative, so it is safe on HDR values and fades out under the speed blur).
+      if (uSharpen > 0.0) {
+        vec2 px = 1.0 / uRes;
+        float lc = lum(texture2D(tDiffuse, uv).rgb);
+        float ln = 0.25 * (lum(texture2D(tDiffuse, uv + vec2(px.x, 0.0)).rgb) + lum(texture2D(tDiffuse, uv - vec2(px.x, 0.0)).rgb)
+          + lum(texture2D(tDiffuse, uv + vec2(0.0, px.y)).rgb) + lum(texture2D(tDiffuse, uv - vec2(0.0, px.y)).rgb));
+        float sh = clamp((lc - ln) / (ln + 0.05), -0.5, 0.5);
+        col *= 1.0 + sh * uSharpen * (1.0 - smoothstep(0.0, 0.02, blur));
+      }
+      // Sun shafts through the trees and stands, and the grime on the lens they light up.
+      if (uRaysOn > 0.0) {
+        vec3 rays = texture2D(tRays, uv).rgb * uRaysOn;
+        col += rays;
+        float d0s = length((uv - uSun) * asp);
+        float glow = lum(rays) * 1.2 + uSunOn * exp(-d0s * 3.0) * 0.5;
+        col += texture2D(tDirt, uv).rgb * vec3(1.0, 0.8, 0.6) * glow * uDirt;
       }
       // Sun flare, occluded by what's actually on screen at the sun.
       if (uSunOn > 0.0) {
@@ -98,6 +121,75 @@ const FinalShader = {
     }`,
 };
 
+// Screen-space crepuscular rays: bright sky around the sun, radially smeared toward it at quarter res.
+const RayMaskShader = {
+  uniforms: { tDiffuse: { value: null }, uSun: { value: new THREE.Vector2() }, uAspect: { value: 1 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 uSun; uniform float uAspect; varying vec2 vUv;
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      float m = smoothstep(1.4, 5.0, l);
+      float d = length((vUv - uSun) * vec2(uAspect, 1.0));
+      m *= smoothstep(0.85, 0.0, d);
+      gl_FragColor = vec4(min(c, vec3(8.0)) * m, 1.0);
+    }`,
+};
+const RayBlurShader = {
+  uniforms: { tDiffuse: { value: null }, uSun: { value: new THREE.Vector2() }, uStep: { value: 1 }, uDecay: { value: 0.955 }, uWeight: { value: 0.06 } },
+  vertexShader: RayMaskShader.vertexShader,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 uSun; uniform float uStep, uDecay, uWeight; varying vec2 vUv;
+    void main(){
+      vec2 delta = (vUv - uSun) * uStep / 28.0;
+      vec2 p = vUv; float w = 1.0; vec3 sum = vec3(0.0);
+      for (int i = 0; i < 28; i++) { sum += texture2D(tDiffuse, p).rgb * w; p -= delta; w *= uDecay; }
+      gl_FragColor = vec4(sum * uWeight, 1.0);
+    }`,
+};
+
+class RaysPass extends Pass {
+  constructor() {
+    super();
+    this.needsSwap = false;
+    const opt = { type: THREE.HalfFloatType, depthBuffer: false };
+    this.a = new THREE.WebGLRenderTarget(1, 1, opt);
+    this.b = new THREE.WebGLRenderTarget(1, 1, opt);
+    this.mask = new THREE.ShaderMaterial(RayMaskShader);
+    this.blur = new THREE.ShaderMaterial(RayBlurShader);
+    this.blur2 = new THREE.ShaderMaterial(RayBlurShader);
+    this.blur2.uniforms = THREE.UniformsUtils.clone(RayBlurShader.uniforms);
+    this.quad = new FullScreenQuad(this.mask);
+    this.sun = new THREE.Vector2();
+    this.on = 0;
+  }
+
+  get texture() { return this.a.texture; }
+
+  setSize(w, h) {
+    const rw = Math.max(1, Math.round(w / 4)), rh = Math.max(1, Math.round(h / 4));
+    this.a.setSize(rw, rh); this.b.setSize(rw, rh);
+    this.mask.uniforms.uAspect.value = w / h;
+  }
+
+  render(renderer, writeBuffer, readBuffer) {
+    if (this.on <= 0) return;
+    this.mask.uniforms.tDiffuse.value = readBuffer.texture;
+    this.mask.uniforms.uSun.value.copy(this.sun);
+    this.quad.material = this.mask;
+    renderer.setRenderTarget(this.a); this.quad.render(renderer);
+    const u1 = this.blur.uniforms;
+    u1.tDiffuse.value = this.a.texture; u1.uSun.value.copy(this.sun); u1.uStep.value = 0.9; u1.uWeight.value = 0.022; u1.uDecay.value = 0.96;
+    this.quad.material = this.blur;
+    renderer.setRenderTarget(this.b); this.quad.render(renderer);
+    const u2 = this.blur2.uniforms;
+    u2.tDiffuse.value = this.b.texture; u2.uSun.value.copy(this.sun); u2.uStep.value = 0.3; u2.uWeight.value = 0.03; u2.uDecay.value = 0.985;
+    this.quad.material = this.blur2;
+    renderer.setRenderTarget(this.a); this.quad.render(renderer);
+  }
+
+  dispose() { this.a.dispose(); this.b.dispose(); this.mask.dispose(); this.blur.dispose(); this.blur2.dispose(); this.quad.dispose(); }
+}
+
 export class Post {
   constructor(renderer, scene, camera, quality) {
     this.renderer = renderer;
@@ -108,11 +200,18 @@ export class Post {
     this.composer = new EffectComposer(renderer, rt);
     this.renderPass = new RenderPass(scene, camera);
     this.composer.addPass(this.renderPass);
+    this.rays = quality.rays ? new RaysPass() : null;
+    if (this.rays) this.composer.addPass(this.rays);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.55, 1.05);
     this.composer.addPass(this.bloom);
     this.final = new ShaderPass(FinalShader);
     this.composer.addPass(this.final);
     this.u = this.final.uniforms;
+    this.u.uSharpen.value = quality.sharpen;
+    if (this.rays) {
+      this.u.tRays.value = this.rays.texture;
+      this.u.tDirt.value = TX.lensDirtTexture();
+    }
     this.setSize(w, h);
   }
 
@@ -123,6 +222,14 @@ export class Post {
     this.composer.setSize(w, h);
     this.u.uRes.value.set(w * this.renderer.getPixelRatio(), h * this.renderer.getPixelRatio());
     this.u.uAspect.value = w / h;
+  }
+
+  // Sun position in UV space and how much of it should drive the shafts (fades as it leaves the frame).
+  setRays(sunUv, on) {
+    if (!this.rays) return;
+    this.rays.sun.copy(sunUv);
+    this.rays.on = on;
+    this.u.uRaysOn.value = on;
   }
 
   render(dt) {

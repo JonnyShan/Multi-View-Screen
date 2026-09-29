@@ -1,7 +1,8 @@
 // Scenery: sky, sun, terrain, Kentucky River palisades, trees, rickhouses, grandstands, gantry.
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
-import { QUALITY, BRAND } from './config.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { QUALITY, BRAND, LANES } from './config.js';
 import * as TX from './textures.js';
 import { SECTIONS } from './track.js';
 
@@ -79,12 +80,59 @@ export class World {
     this.track = track;
     this.animated = [];
     this.sunDir = new THREE.Vector3();
+    // shared by every wind-blown, sun-backlit material (trees, grass)
+    this.foliageU = { uTime: { value: 0 }, uSunView: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Color(1.0, 0.62, 0.3) } };
+    this.grassChunks = [];
     this.#sky();
     this.#lights();
     this.#terrain();
     this.#river();
     this.#structures();
     this.#trees();
+    this.#grass();
+  }
+
+  // Wind sway + light through leaves/blades when backlit by the low sun. Normals never flip on back faces,
+  // so thin double-sided cards shade as one volume.
+  #foliage(mat, { sway = 0.03, trans = 0.7, grass = false } = {}) {
+    const u = this.foliageU;
+    mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, u);
+      if (grass) sh.uniforms.uRange = { value: QUALITY.grassRange };
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', `#include <common>
+          uniform float uTime;${grass ? '\nuniform float uRange;' : ''}`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+          #ifdef USE_INSTANCING
+            vec3 ip = instanceMatrix[3].xyz;
+          #else
+            vec3 ip = vec3(0.0);
+          #endif
+          float ph = ip.x * 0.043 + ip.z * 0.061;
+          float gust = 0.55 + 0.45 * sin(uTime * 0.41 + ip.x * 0.006 + ip.z * 0.004);
+          float bend = ${grass ? 'position.y * position.y * 2.0' : 'clamp(position.y + 0.7, 0.0, 2.0)'};
+          transformed.x += sin(uTime * 1.9 + ph) * ${sway.toFixed(3)} * bend * gust;
+          transformed.z += cos(uTime * 1.4 + ph * 1.7) * ${(sway * 0.7).toFixed(3)} * bend * gust;
+          ${grass ? `float camD = distance(ip, cameraPosition);
+          transformed *= smoothstep(uRange, uRange * 0.55, camD);` : ''}`);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', `#include <common>
+          uniform vec3 uSunView; uniform vec3 uSunCol;`)
+        .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
+          normal = normalize(vNormal);`)
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          float backLit = pow(max(dot(normalize(-vViewPosition), uSunView), 0.0), 5.0);
+          totalEmissiveRadiance += diffuseColor.rgb * uSunCol * backLit * ${trans.toFixed(2)};`);
+    };
+    mat.customProgramCacheKey = () => `foliage-${grass}-${sway}-${trans}`;
+    return mat;
+  }
+
+  // Per-frame: sun direction in view space for the translucency term, and grass chunk culling.
+  updateView(cam) {
+    this.foliageU.uSunView.value.copy(this.sunDir).transformDirection(cam.matrixWorldInverse);
+    const range = QUALITY.grassRange;
+    for (const c of this.grassChunks) c.mesh.visible = c.center.distanceTo(cam.position) < range + c.radius;
   }
 
   #sky() {
@@ -161,7 +209,8 @@ export class World {
     sun.castShadow = true;
     sun.shadow.mapSize.set(QUALITY.shadowMap, QUALITY.shadowMap);
     const c = sun.shadow.camera;
-    c.left = -40; c.right = 40; c.top = 40; c.bottom = -40; c.near = 1; c.far = 400;
+    const span = QUALITY.shadowSpan;
+    c.left = -span; c.right = span; c.top = span; c.bottom = -span; c.near = 1; c.far = 400;
     sun.shadow.bias = -0.0004;
     sun.shadow.normalBias = 0.04;
     this.scene.add(sun, sun.target);
@@ -222,10 +271,11 @@ export class World {
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     const detail = (() => {
-      const c = document.createElement('canvas'); c.width = c.height = 256;
-      const g = c.getContext('2d'); g.fillStyle = '#d8d8d8'; g.fillRect(0, 0, 256, 256);
+      const S = 256 * QUALITY.texScale;
+      const c = document.createElement('canvas'); c.width = c.height = S;
+      const g = c.getContext('2d'); g.fillStyle = '#d8d8d8'; g.fillRect(0, 0, S, S);
       const r = TX.rng(4);
-      for (let i = 0; i < 9000; i++) { const v = 150 + r() * 105 | 0; g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(r() * 256, r() * 256, 1 + r() * 2, 1 + r() * 3); }
+      for (let i = 0; i < 9000 * QUALITY.texScale * QUALITY.texScale; i++) { const v = 150 + r() * 105 | 0; g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(r() * S, r() * S, 1 + r() * 2, 1 + r() * 3); }
       const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(size / 9, size / 9);
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
     })();
@@ -290,32 +340,82 @@ export class World {
     this.scene.add(bridge);
   }
 
+  // Canopy made of crossed leaf cards scattered through a unit sphere; normals point out from the centre.
+  #leafCardGeometry() {
+    const r = TX.rng(8);
+    const cards = [];
+    for (let k = 0; k < 30; k++) {
+      const q = new THREE.PlaneGeometry(1.05, 1.05);
+      q.rotateX(r() * Math.PI); q.rotateY(r() * Math.PI * 2); q.rotateZ(r() * Math.PI);
+      const u = r() * 2 - 1, a = r() * Math.PI * 2, rad = 0.35 + Math.sqrt(r()) * 0.5;
+      const w = Math.sqrt(1 - u * u);
+      q.translate(w * Math.cos(a) * rad, u * rad * 0.8, w * Math.sin(a) * rad);
+      const p = q.attributes.position, n = q.attributes.normal;
+      for (let i = 0; i < p.count; i++) {
+        const v = new THREE.Vector3().fromBufferAttribute(p, i).normalize();
+        n.setXYZ(i, v.x, v.y * 0.8 + 0.2, v.z);
+      }
+      cards.push(q);
+    }
+    const g = mergeGeometries(cards);
+    g.computeBoundingSphere();
+    return g;
+  }
+
+  // Layered, ragged pine.
+  #pineGeometry() {
+    const r = TX.rng(12);
+    const tiers = [];
+    for (let k = 0; k < 5; k++) {
+      const t = k / 4;
+      const c = new THREE.ConeGeometry(1 - t * 0.72, 0.42, 9, 1, true);
+      const p = c.attributes.position;
+      for (let i = 0; i < p.count; i++) if (p.getY(i) < 0) p.setY(i, p.getY(i) - r() * 0.08);
+      c.translate(0, 0.2 + t * 0.62, 0);
+      c.rotateY(r() * 3);
+      tiers.push(c);
+    }
+    const g = mergeGeometries(tiers);
+    g.computeVertexNormals();
+    return g;
+  }
+
   #trees() {
     const r = TX.rng(42);
     const count = QUALITY.trees;
-    const canopyGeo = new THREE.IcosahedronGeometry(1, 1);
+    const leafy = QUALITY.leafCards;
+    const blobGeo = new THREE.IcosahedronGeometry(1, 1);
     // lumpy canopy
-    const p = canopyGeo.attributes.position;
+    const p = blobGeo.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const v = new THREE.Vector3().fromBufferAttribute(p, i);
       const k = 1 + (hash2(Math.round(v.x * 50), Math.round(v.y * 50 + v.z * 30)) - 0.5) * 0.35;
       p.setXYZ(i, v.x * k, v.y * k * 0.9, v.z * k);
     }
-    canopyGeo.computeVertexNormals();
-    const trunkGeo = new THREE.CylinderGeometry(0.12, 0.2, 1, 5);
+    blobGeo.computeVertexNormals();
+    const trunkGeo = new THREE.CylinderGeometry(0.12, 0.2, 1, 6);
     trunkGeo.translate(0, 0.5, 0);
-    const pineGeo = new THREE.ConeGeometry(1, 1, 7);
-    pineGeo.translate(0, 0.5, 0);
+    const pineGeo = leafy ? this.#pineGeometry() : new THREE.ConeGeometry(1, 1, 7).translate(0, 0.5, 0);
 
-    const leafMat = new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true });
+    const leafMat = leafy
+      ? this.#foliage(new THREE.MeshStandardMaterial({
+        map: TX.leafTexture(QUALITY.texScale), alphaTest: 0.5, alphaToCoverage: QUALITY.msaa > 0,
+        side: THREE.DoubleSide, roughness: 0.78,
+      }), { sway: 0.022, trans: 0.9 })
+      : new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true });
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3b2a1e, roughness: 1 });
-    const pineMat = new THREE.MeshStandardMaterial({ color: 0x2c3f25, roughness: 0.95, flatShading: true });
-    const canopy = new THREE.InstancedMesh(canopyGeo, leafMat, count * 2);
+    const pineMat = leafy
+      ? this.#foliage(new THREE.MeshStandardMaterial({ color: 0x2c3f25, roughness: 0.92, side: THREE.DoubleSide }), { sway: 0.012, trans: 0.35 })
+      : new THREE.MeshStandardMaterial({ color: 0x2c3f25, roughness: 0.95, flatShading: true });
+    const canopy = new THREE.InstancedMesh(leafy ? this.#leafCardGeometry() : blobGeo, leafMat, count * 2);
+    // solid, darker core behind the leaf cards so canopies never look see-through
+    const core = leafy ? new THREE.InstancedMesh(blobGeo, new THREE.MeshStandardMaterial({ roughness: 1 }), count * 2) : null;
     const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, count);
     const pines = new THREE.InstancedMesh(pineGeo, pineMat, Math.floor(count * 0.35));
     const autumn = ['#b5471f', '#d08a2c', '#8e2a1c', '#c9a13a', '#9a5a22', '#6f7a2e', '#4f6a2c', '#d9b24a', '#a33a1a']
       .map(c => new THREE.Color(c));
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), t = new THREE.Vector3();
+    const dark = new THREE.Color();
     let nc = 0, nt = 0, np = 0;
     const near = {};
     const avoid = this.#avoidZones();
@@ -342,19 +442,131 @@ export class World {
         trunks.setMatrixAt(nt++, m.compose(t, q, s));
         const col = autumn[(r() * autumn.length) | 0].clone().offsetHSL(0, 0, (r() - 0.5) * 0.08);
         for (let k = 0; k < 2 && nc < canopy.count; k++) {
-          const cs = sc * (0.5 - k * 0.12) * (0.8 + r() * 0.4);
+          const cs = sc * (0.5 - k * 0.12) * (0.8 + r() * 0.4) * (leafy ? 1.12 : 1);
           t.set(x + (r() - 0.5) * sc * 0.4, y + sc * (0.62 + k * 0.28), z + (r() - 0.5) * sc * 0.4);
           s.set(cs, cs * 0.85, cs);
           q.setFromEuler(new THREE.Euler(r(), r() * 6, r()));
           canopy.setMatrixAt(nc, m.compose(t, q, s));
-          canopy.setColorAt(nc++, col);
+          canopy.setColorAt(nc, col);
+          if (core) {
+            core.setMatrixAt(nc, m.compose(t, q, s.multiplyScalar(0.62)));
+            core.setColorAt(nc, dark.copy(col).multiplyScalar(0.42));
+          }
+          nc++;
         }
       }
     }
     canopy.count = nc; trunks.count = nt; pines.count = np;
     canopy.instanceColor.needsUpdate = true;
-    for (const im of [canopy, trunks, pines]) { im.receiveShadow = true; im.frustumCulled = false; this.scene.add(im); }
+    const all = [canopy, trunks, pines];
+    if (core) { core.count = nc; core.instanceColor.needsUpdate = true; all.push(core); }
+    for (const im of all) { im.receiveShadow = true; im.frustumCulled = false; this.scene.add(im); }
     this.canopy = canopy;
+  }
+
+  // One tuft: a few tapered, bent blades. Vertex colour darkens toward the root (cheap AO).
+  #tuftGeometry(r, blades = 7) {
+    const pos = [], col = [], nor = [], idx = [];
+    for (let b = 0; b < blades; b++) {
+      const a = r() * Math.PI * 2, d = r() * 0.13;
+      const bx = Math.cos(a) * d, bz = Math.sin(a) * d;
+      const h = 0.55 + r() * 0.45;
+      const w = 0.018 + r() * 0.012;
+      const yaw = r() * Math.PI * 2, cx = Math.cos(yaw), cz = Math.sin(yaw);
+      const lean = 0.12 + r() * 0.3, lx = Math.cos(a) * lean, lz = Math.sin(a) * lean;
+      const base = pos.length / 3;
+      const segs = 2;
+      for (let k = 0; k <= segs; k++) {
+        const t = k / segs;
+        const px = bx + lx * t * t * h, pz = bz + lz * t * t * h, y = t * h;
+        const ww = w * (1 - t * 0.92);
+        pos.push(px - cx * ww, y, pz - cz * ww, px + cx * ww, y, pz + cz * ww);
+        const g = 0.38 + 0.62 * t;
+        col.push(g, g, g, g, g, g);
+        nor.push(0, 1, 0, 0, 1, 0);
+      }
+      for (let k = 0; k < segs; k++) {
+        const i0 = base + k * 2;
+        idx.push(i0, i0 + 1, i0 + 2, i0 + 1, i0 + 3, i0 + 2);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setIndex(idx);
+    return g;
+  }
+
+  // Grass tufts on the verges and the fields just beyond the barriers, chunked along the lap for culling.
+  #grass() {
+    const total = QUALITY.grass;
+    if (!total) return;
+    const T = this.track, N = T.N;
+    const r = TX.rng(55);
+    const geo = this.#tuftGeometry(r);
+    const mat = this.#foliage(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, side: THREE.DoubleSide }), { grass: true, sway: 0.05, trans: 0.55 });
+    const avoid = this.#avoidZones();
+    const chunkLen = 100, nCh = Math.ceil(T.length / chunkLen);
+    const per = Math.floor(total / nCh);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), e = new THREE.Euler();
+    const near = {};
+    const green = ['#56712d', '#63803a', '#4a6427', '#6f8a40', '#5b7a31'].map(c => new THREE.Color(c));
+    const dry = ['#a48a47', '#8f8a45', '#b39a58', '#7f7a3c'].map(c => new THREE.Color(c));
+    const col = new THREE.Color();
+    for (let c = 0; c < nCh; c++) {
+      const im = new THREE.InstancedMesh(geo, mat, per);
+      let n = 0, tries = 0;
+      while (n < per && tries < per * 5) {
+        tries++;
+        const s = (c + r()) * chunkLen;
+        if (s >= T.length) continue;
+        const i = Math.floor(s / T.ds) % N;
+        const side = r() < 0.5 ? -1 : 1;
+        const wall = side > 0 ? T.wallR[i] : T.wallL[i];
+        const inner = Math.min(LANES.runoff, wall) + 0.3;
+        const verge = r() < 0.62;
+        let lat, y, tall;
+        if (verge) {
+          if (T.gravel[i] && -T.turnSide[i] === side) continue;
+          if (wall - 0.6 <= inner) continue;
+          lat = inner + r() * (wall - 0.6 - inner);
+          tall = 0.32 + r() * 0.2;
+        } else {
+          lat = wall + 2.2 + Math.pow(r(), 1.5) * 50;
+          tall = 0.6 + r() * 0.7;
+        }
+        const u = (s - i * T.ds);
+        const x = T.X[i] + T.TX[i] * u - T.TZ[i] * lat * side;
+        const z = T.Z[i] + T.TZ[i] * u + T.TX[i] * lat * side;
+        T.nearest(x, z, 1, near);
+        if (near.d < (verge ? LANES.runoff + 0.2 : 18)) continue;
+        if (verge) y = T.Y[i] - 0.02;
+        else {
+          if (avoid(x, z)) continue;
+          y = this.heightAt(x, z);
+          if (y < RIVER_Y + 3) continue;
+        }
+        p.set(x, y, z);
+        e.set(0, r() * Math.PI * 2, 0); q.setFromEuler(e);
+        const wsc = 0.8 + r() * 0.7;
+        sc.set(wsc, tall * (0.7 + r() * 0.6), wsc);
+        im.setMatrixAt(n, m.compose(p, q, sc));
+        col.copy(green[(r() * green.length) | 0]);
+        if (!verge) col.lerp(dry[(r() * dry.length) | 0], r() * 0.8);
+        col.offsetHSL(0, 0, (r() - 0.5) * 0.05);
+        im.setColorAt(n, col);
+        n++;
+      }
+      if (!n) continue;
+      im.count = n;
+      im.instanceMatrix.needsUpdate = true;
+      im.instanceColor.needsUpdate = true;
+      im.computeBoundingSphere();
+      im.receiveShadow = true;
+      this.scene.add(im);
+      this.grassChunks.push({ mesh: im, center: im.boundingSphere.center.clone(), radius: im.boundingSphere.radius });
+    }
   }
 
   #avoidZones() {
@@ -571,7 +783,8 @@ export class World {
     }
     box.translate(0, H / 2, 0);
     const t = tex.clone(); t.needsUpdate = true;
-    const wall = new THREE.MeshStandardMaterial({ map: t, roughness: 0.8, metalness: 0.2 });
+    const nrm = (this._rickN || (this._rickN = TX.rickhouseNormalTexture())).clone(); nrm.needsUpdate = true;
+    const wall = new THREE.MeshStandardMaterial({ map: t, normalMap: nrm, normalScale: new THREE.Vector2(1, 1), roughness: 0.6, metalness: 0.35 });
     const body = new THREE.Mesh(box, wall);
     body.castShadow = true; body.receiveShadow = true;
     g.add(body);
@@ -697,6 +910,7 @@ export class World {
   }
 
   update(t) {
+    this.foliageU.uTime.value = t;
     if (this.crowdUniform) this.crowdUniform.value = t;
     if (this.cloudMat) this.cloudMat.uniforms.uTime.value = t;
   }
