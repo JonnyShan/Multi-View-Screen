@@ -55,7 +55,8 @@ class Game {
     this.stateT = 0;
     this.paused = false;
     this.lastInput = performance.now();
-    this.settings = Store.load('settings', { cam: 'chase', assist: 'standard', sound: true, tilt: false });
+    this.settings = Store.load('settings', { cam: 'chase', assist: 'standard', sound: true });
+    delete this.settings.tilt; // tilt steering was removed; ignore an old saved setting
     this.region = Store.load('region', null) || guessRegion();
   }
 
@@ -213,7 +214,6 @@ class Game {
     this.ghost.root.visible = true;
     this.lastSection = null;
     if (!this.autoplay) this.audio.unlock();
-    // tilt calibration happens at lights-out
   }
 
   #finishRace() {
@@ -372,7 +372,6 @@ class Game {
       this.hud.lights(0, true);
       setTimeout(() => this.hud.lights(0, false), 700);
       this.hud.msg('Lights out', '', 900);
-      this.tiltZero = this.tiltRaw || 0;
     }
   }
 
@@ -776,17 +775,6 @@ class Game {
     addEventListener('pointermove', (e) => { if (this.touchBtns.has(e.pointerId)) { const id = which(e.clientX, e.clientY); if (id && id !== 'tB' && this.touchBtns.get(e.pointerId) !== 'tB') this.touchBtns.set(e.pointerId, id); upd(); } });
     const end = (e) => { if (this.touchBtns.delete(e.pointerId)) upd(); };
     addEventListener('pointerup', end); addEventListener('pointercancel', end);
-    // Tilt (gravity-based, experimental)
-    this.tiltRaw = 0;
-    this.onMotion = (e) => {
-      const g = e.accelerationIncludingGravity; if (!g || g.x == null) return;
-      const a = ((screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0) * Math.PI / 180;
-      const sx = g.x * Math.cos(a) + g.y * Math.sin(a);
-      const sy = -g.x * Math.sin(a) + g.y * Math.cos(a);
-      const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
-      this.tiltRaw = Math.atan2(ios ? -sx : sx, Math.abs(sy) + 1e-3) * (ios ? 1 : -1);
-      if (!this.tiltSeen) { this.tiltSeen = true; this.tiltZero = this.tiltRaw; this.#syncToggles(); }
-    };
   }
 
   #pollGamepad() {
@@ -824,9 +812,6 @@ class Game {
       const lt = this.pad.buttons[6] ? this.pad.buttons[6].value : 0;
       const rt = this.pad.buttons[7] ? this.pad.buttons[7].value : 0;
       brake = Math.max(brake, lt, rt * 0, this.pad.buttons[2] && this.pad.buttons[2].pressed ? 1 : 0, this.pad.buttons[1] && this.pad.buttons[1].pressed ? 1 : 0);
-    }
-    if (this.settings.tilt && this.tiltSeen && document.body.classList.contains('is-touch')) {
-      analog = clamp((this.tiltRaw - (this.tiltZero || 0)) / 0.38, -1, 1);
     }
     right = clamp(right, -1, 1);
     this.steer = this.steer || 0;
@@ -911,14 +896,12 @@ class Game {
       u.searchParams.delete('q');
       location.replace(u.toString());
     });
-    $('togTilt').addEventListener('click', () => this.#toggle('tilt'));
     $('togFull').addEventListener('click', () => {
       const d = document;
       if (d.fullscreenElement) d.exitFullscreen && d.exitFullscreen();
       else d.documentElement.requestFullscreen && d.documentElement.requestFullscreen().catch(() => {});
     });
     if (!document.documentElement.requestFullscreen) $('togFull').classList.add('hidden');
-    if (document.body.classList.contains('is-touch') && 'DeviceMotionEvent' in window) $('togTilt').classList.remove('hidden');
     this.#syncToggles();
     // pause + results
     $('pauseBtn').addEventListener('click', () => this.#pause(true));
@@ -982,15 +965,6 @@ class Game {
     if (k === 'cam') s.cam = s.cam === 'chase' ? 'onboard' : 'chase';
     if (k === 'assist') s.assist = s.assist === 'standard' ? 'pro' : 'standard';
     if (k === 'sound') { s.sound = !s.sound; this.audio.setEnabled(s.sound); }
-    if (k === 'tilt') {
-      s.tilt = !s.tilt;
-      if (s.tilt) {
-        const DM = window.DeviceMotionEvent;
-        const go = () => addEventListener('devicemotion', this.onMotion);
-        if (DM && typeof DM.requestPermission === 'function') DM.requestPermission().then(r => { if (r === 'granted') go(); else { s.tilt = false; this.#syncToggles(); } }).catch(() => { s.tilt = false; this.#syncToggles(); });
-        else go();
-      } else removeEventListener('devicemotion', this.onMotion);
-    }
     Store.save('settings', s);
     this.#syncToggles();
     this.audio.click();
@@ -1002,9 +976,6 @@ class Game {
     $('togAssist').querySelector('b').textContent = s.assist === 'standard' ? 'Standard' : 'Pro';
     $('togSound').querySelector('b').textContent = s.sound ? 'On' : 'Off';
     $('togGfx').querySelector('b').textContent = { ultra: 'Ultra', high: 'High', mid: 'Balanced', low: 'Performance' }[QUALITY.tier];
-    $('togTilt').querySelector('b').textContent = s.tilt ? 'On' : 'Off';
-    // hide the lean buttons only once the phone is actually sending motion data
-    document.body.classList.toggle('tilt', !!s.tilt && !!this.tiltSeen);
     this.audio && this.audio.setEnabled(s.sound);
   }
 

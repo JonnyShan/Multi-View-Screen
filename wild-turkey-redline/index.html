@@ -188,7 +188,6 @@ body.is-touch .touch{display:block}
 #tL{left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(26px + var(--safe-b));width:96px;height:96px}
 #tR{left:calc(132px + env(safe-area-inset-left,0px));bottom:calc(26px + var(--safe-b));width:96px;height:96px}
 #tB{right:calc(22px + env(safe-area-inset-right,0px));bottom:calc(26px + var(--safe-b));width:128px;height:128px;font-weight:800;font-style:italic;font-size:22px;letter-spacing:.1em;color:var(--cream)}
-body.tilt #tL,body.tilt #tR{display:none}
 
 /* ---------- results ---------- */
 #results{z-index:25;align-items:center;justify-content:center;gap:28px;padding:24px;background:linear-gradient(90deg,rgba(10,7,6,.86),rgba(10,7,6,.55))}
@@ -315,7 +314,6 @@ body.is-touch.landscape .hud-bc{bottom:calc(24px + var(--safe-b))}
       <button class="tog" id="togAssist">Assist<b>Standard</b></button>
       <button class="tog" id="togSound">Sound<b>On</b></button>
       <button class="tog" id="togGfx">Graphics<b>Ultra</b></button>
-      <button class="tog hidden" id="togTilt">Tilt<b>Off</b></button>
       <button class="tog tog-icon" id="togFull" aria-label="Fullscreen" title="Fullscreen"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1.5 5.5v-4h4M10.5 1.5h4v4M14.5 10.5v4h-4M5.5 14.5h-4v-4"/></svg></button>
     </div>
     <div class="targets" id="targets"></div>
@@ -330,7 +328,7 @@ body.is-touch.landscape .hud-bc{bottom:calc(24px + var(--safe-b))}
     <div class="kicker">Rider briefing</div>
     <h3>How to ride</h3>
     <div class="how-grid">
-      <div><h4>Lean</h4><p>The throttle is automatic. Lean into corners to hold your line.</p><div class="keys"><kbd>&larr;</kbd><kbd>&rarr;</kbd><kbd>A</kbd><kbd>D</kbd><kbd>Stick</kbd><kbd>Tilt</kbd></div></div>
+      <div><h4>Lean</h4><p>The throttle is automatic. Hold left or right to lean into a corner. Let go and the bike stands up and runs straight.</p><div class="keys"><kbd>&larr;</kbd><kbd>&rarr;</kbd><kbd>A</kbd><kbd>D</kbd><kbd>Stick</kbd></div></div>
       <div><h4>Brake</h4><p>Brake hard before the corner. Braking mid-corner costs grip.</p><div class="keys"><kbd>&darr;</kbd><kbd>S</kbd><kbd>Space</kbd><kbd>LT</kbd></div></div>
       <div><h4>Line</h4><p>Go wide on entry, clip the apex, then use every centimetre on the way out. Grass and gravel slow you down.</p><div class="keys"><kbd>C</kbd> camera <kbd>Esc</kbd> pause</div></div>
     </div>

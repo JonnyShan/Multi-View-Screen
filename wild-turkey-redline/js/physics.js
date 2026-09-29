@@ -18,7 +18,7 @@ const F = {}, SF = {};
 
 export function step(st, input, track, dt, opts = {}) {
   const T = TUNE;
-  const assist = opts.assist ?? T.assist;
+  const assist = input.raw ? 0 : (opts.assist ?? T.assist);
   const locked = opts.locked; // held on the grid
   st.events.length = 0;
   const f = track.frame(st.s, F);
@@ -26,27 +26,33 @@ export function step(st, input, track, dt, opts = {}) {
   const v = st.v;
   const vs = Math.max(v, 0.5);
 
-  // --- Lean
+  // --- Lean: the rider's input sets it; let go and the bike stands up.
+  // Assist only helps while you steer into a corner: the lean eases toward the one that carves this corner
+  // with the bike pointed along the track, creeping to the inside the harder you push.
   const kEff = f.k / Math.max(0.2, 1 - f.k * st.x);
-  const leanReq = Math.atan(vs * vs * kEff / T.g);
   const gripLean = Math.atan(Math.tan(T.maxLean) * sf.grip);
   const hiSpeed = smoothstep(3, 16, v);
-  let target = (assist * leanReq + input.steer * T.maxLean) * hiSpeed;
+  const manual = input.steer * T.maxLean;
+  const push = Math.abs(input.steer);
+  const aim = Math.atan((vs * vs * kEff - 1.8 * vs * (Math.sin(st.psi) - 0.035 * input.steer)) / T.g);
+  const into = input.steer * kEff > 0 ? 1 : 0;
+  const help = clamp(assist / 0.8, 0, 1) * into * smoothstep(0.0015, 0.006, Math.abs(kEff)) * Math.min(1, push / 0.35);
+  let target = (manual + (aim - manual) * help) * hiSpeed;
   target = clamp(target, -gripLean, gripLean);
   const rate = T.leanRateLow + (T.leanRateHigh - T.leanRateLow) * clamp(v / 90, 0, 1);
   const dl = clamp((target - st.lean) * Math.min(1, dt * 9), -rate * dt, rate * dt);
   st.lean += dl;
 
-  // --- Lateral (relative to the track)
-  const aLat = T.g * Math.tan(st.lean);
-  const aReq = vs * vs * kEff * hiSpeed;
-  st.vx += (aLat - aReq - T.latDamp * st.vx) * dt;
-  // low-speed steering (paddling off the line)
-  const lowW = 1 - hiSpeed;
-  if (lowW > 0) st.vx += (input.steer * Math.min(v * 0.5, 3) - st.vx) * Math.min(1, dt * 6) * lowW;
-  if (locked) st.vx = 0;
+  // --- Heading relative to the track. Lean turns the bike (yaw rate g·tanθ / v; at walking pace the bars do
+  // it); the track bends under it at k·v. Upright, the bike keeps its heading: straight on, wide of a corner.
+  const yaw = hiSpeed * T.g * Math.tan(st.lean) / vs + (1 - hiSpeed) * input.steer * Math.min(v * 0.25, 0.8);
+  st.psi += (yaw - kEff * v * Math.cos(st.psi)) * dt;
+  // assist on straights: hands off, the bike lines up with the road (corners still run wide)
+  if (push < 0.05) st.psi *= 1 - Math.min(1, dt * 1.4 * clamp(assist / 0.8, 0, 1) * (1 - smoothstep(0.0008, 0.002, Math.abs(kEff))));
+  st.psi = clamp(st.psi, -1.1, 1.1);
+  if (locked) st.psi = 0;
+  st.vx = v * Math.sin(st.psi);
   st.x += st.vx * dt;
-  st.psi = Math.atan2(st.vx, vs);
   const tyre = Math.abs(Math.tan(st.lean)) / Math.tan(T.maxLean);
   st.tyre = tyre;
 
@@ -75,7 +81,8 @@ export function step(st, input, track, dt, opts = {}) {
     const into = st.x > limR ? st.vx : -st.vx;
     st.x = clamp(st.x, limL, limR);
     if (into > 0) {
-      st.vx = -st.vx * 0.35;
+      st.psi = -st.psi * 0.35;
+      st.vx = st.v * Math.sin(st.psi);
       const hit = clamp(into / 12, 0.08, 0.6);
       st.v *= 1 - hit;
       st.events.push({ type: 'wall', power: hit });
@@ -155,17 +162,18 @@ export class Autopilot {
     return arr[i] + (arr[(i + 1) % t.N] - arr[i]) * u;
   }
 
-  input(st, assist = TUNE.assist) {
+  // Steers by lean alone (raw: no assist): corner lean + PD on the racing line.
+  input(st) {
     const look = st.s + Math.max(8, st.v * 0.35);
     const xt = this.sample(this.line, look);
     const vt = this.sample(this.vmax, st.s + st.v * 0.25);
     const f = this.track.frame(st.s, {});
     const vs = Math.max(st.v, 0.5);
-    const leanReq = Math.atan(vs * vs * f.k / TUNE.g);
-    const ff = leanReq * (1 - assist) / TUNE.maxLean;
-    const steer = clamp(ff + (xt - st.x) * 0.16 - st.vx * 0.3, -1, 1);
+    const kEff = f.k / Math.max(0.2, 1 - f.k * st.x);
+    const aDes = vs * vs * kEff + (xt - st.x) * 1.5 - st.vx * 2.8;
+    const steer = clamp(Math.atan(aDes / TUNE.g) / TUNE.maxLean, -1, 1);
     const brake = st.v > vt + 0.8 ? clamp((st.v - vt) / 4, 0.4, 1) : 0;
-    return { steer, brake };
+    return { steer, brake, raw: true };
   }
 }
 

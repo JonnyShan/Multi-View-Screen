@@ -52,8 +52,7 @@ export const TUNE = {
   drag: 0.00082,                      // 1/m  -> top speed ~ 103 m/s (370 km/h)
   rolling: 0.25,
   brakeDecel: 13.0,
-  latDamp: 2.6,                       // lateral velocity damping (arcade "stick")
-  assist: 0.82,                       // share of the corner's required lean applied automatically
+  assist: 0.82,                       // steering help (Standard); 0.35 = Pro. Only acts while steering into a corner
   gears: [88, 138, 184, 228, 276, 345], // km/h at redline per gear
   redline: 17500,
   idle: 3800,
