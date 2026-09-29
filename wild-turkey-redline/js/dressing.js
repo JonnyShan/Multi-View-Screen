@@ -604,12 +604,14 @@ class Dressing {
     const aniso = r && r.capabilities ? Math.min(QUALITY.tier === 'ultra' || QUALITY.tier === 'high' ? 16 : 8, r.capabilities.getMaxAnisotropy()) : 8;
     this.A = buildAtlas(aniso);
     this.kit = new Kit(this.A);          // static props (cast + receive shadow)
-    this.low = new Kit(this.A);          // barrier-height props: receive only, no long shadow
+    this.low = new Kit(this.A);          // tyre walls: realtime shadow only (a 1 m wall throws an 11 m shadow at 5 deg sun)
+    this.flat = new Kit(this.A);         // hoardings, pit lane / paddock surfaces: receive only
     this.glow = new Kit(this.A);         // unlit / emissive faces
     this.flags = [];
     this.banks = [];
     this.space = new Space(track, world, scene);
     this.rng = TX.rng(2024);
+    this.placed = [];
     this._fr = {};
     this.#worldObstacles();
 
@@ -632,7 +634,7 @@ class Dressing {
   idx(s) { return Math.floor(this.T.wrapS(s) / this.T.ds) % this.T.N; }
   wall(s, side) { const i = this.idx(s); return side > 0 ? this.T.wallR[i] : this.T.wallL[i]; }
   isAir(i, side) { const T = this.T; return T.gravel[i] && -T.turnSide[i] === side && (side > 0 ? T.wallR[i] : T.wallL[i]) > 18; }
-  key(s) { return Math.floor(this.T.wrapS(s) / CHUNK); }
+  key(s, len = CHUNK) { return Math.floor(this.T.wrapS(s) / len); }
   pt(s, lat, up = 0, out = new THREE.Vector3()) {
     const f = this.T.frame(s, this._fr);
     return out.set(f.x + f.rx * lat, f.y + up, f.z + f.rz * lat);
@@ -718,7 +720,6 @@ class Dressing {
       new THREE.Vector2(0.12, 0.93), new THREE.Vector2(0.14, 1.0), new THREE.Vector2(0.29, 1.01),
       new THREE.Vector2(0.32, 0.95), new THREE.Vector2(0.32, 0.05),
     ], 6);
-    let stackCount = 0;
     const sw = this.A.SW, R = this.A.R;
     const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), d = new THREE.Vector3();
     let panel = 0;
@@ -728,20 +729,19 @@ class Dressing {
         const s0 = i0 * ds, s1 = (i1 + 1) * ds;
         // stacks
         if (stacks) {
-          const key = this.key(s0);
+          const key = this.key(s0, CHUNK * 2);
           for (let s = s0 + 0.35; s < s1; s += 0.66) {
             const w = this.wall(s, side);
             const p = this.pt(s, side * (w - 0.4), -0.01);
             if (this.space.trackD(p.x, p.z) < w - 1.4) continue;
             _m.makeRotationY(s * 1.7).setPosition(p.x, p.y, p.z);
             this.low.add(key, lathe, _m, COL.tyre, sw.rubber);
-            stackCount++;
           }
         }
         // belt, 4 m panels split into two quads so it follows the curve
         for (let s = s0; s < s1 - 0.5; s += 4) {
           const reg = R[`belt${seq[panel++ % seq.length]}`];
-          const key = this.key(s);
+          const key = this.key(s0, CHUNK * 2);
           for (let h = 0; h < 2; h++) {
             const sa = s + h * 2, sb = Math.min(s + h * 2 + 2, s1);
             if (sb <= sa) continue;
@@ -775,7 +775,7 @@ class Dressing {
       let s = 4 + rr() * 10;
       while (s < L - 8) {
         const runLen = 30 + rr() * 80, pause = 6 + rr() * 26;
-        const A = (rr() * 8) | 0, B = rr() < 0.4 ? A : (rr() * 8) | 0;
+        const A = (rr() * 8) | 0, B = rr() < 0.2 ? A : (A + 1 + ((rr() * 7) | 0)) % 8;
         let n = 0;
         for (let p = s; p < s + runLen && p < L - len - 2; p += len + gap) {
           let ok = true;
@@ -795,10 +795,10 @@ class Dressing {
           } else {
             this.pt(p + len, wb, y0, a); this.pt(p, wa, y0, b); this.pt(p, wa, y1, c); this.pt(p + len, wb, y1, d);
           }
-          this.low.quad(key, a, b, c, d, COL.white, reg);
+          this.flat.quad(0, a, b, c, d, COL.white, reg);
           // dark back face
           const out = this.#out(p + len / 2, side).multiplyScalar(0.04);
-          this.low.quad(key, b.add(out), a.add(out), d.add(out), c.add(out), COL.darkSteel, sw.matte);
+          this.flat.quad(0, b.add(out), a.add(out), d.add(out), c.add(out), COL.darkSteel, sw.matte);
         }
         s += runLen + pause;
       }
@@ -885,12 +885,12 @@ class Dressing {
         const ea = Math.min(lb, lA(s)), eb = Math.min(lb, lA(sb));
         if (ea <= la + 0.05 && eb <= la + 0.05) continue;
         ground(sb, la, 0.03, a); ground(s, la, 0.03, b); ground(s, Math.max(ea, la + 0.05), 0.03, c); ground(sb, Math.max(eb, la + 0.05), 0.03, d);
-        this.low.quad(key, a, b, c, d, COL.asphalt, [tile[0], tile[1], tile[0] + (tile[2] - tile[0]) * (lb - la) / 4.8, tile[3]]);
+        this.flat.quad(0, a, b, c, d, COL.asphalt, [tile[0], tile[1], tile[0] + (tile[2] - tile[0]) * (lb - la) / 4.8, tile[3]]);
       }
       // painted lines: pit wall edge and fast-lane line
       for (const [l, wdt] of s > -80 && s < 136 ? [[lat0 + 0.15, 0.14], [lat0 + 4.2, 0.12]] : [[lat0 + 0.15, 0.14]]) {
         ground(sb, l, 0.045, a); ground(s, l, 0.045, b); ground(s, l + wdt, 0.045, c); ground(sb, l + wdt, 0.045, d);
-        this.low.quad(key, a, b, c, d, COL.cream, sw.paint);
+        this.flat.quad(0, a, b, c, d, COL.cream, sw.paint);
       }
     }
     // Pit wall: low concrete wall behind the barrier, team stands with monitors, crews in front of garages.
@@ -945,10 +945,11 @@ class Dressing {
       for (const side of [pref, -pref]) {
         for (const ds of [0, 12, -12, 24, -24, 36]) {
           const s = s0 + ds, r = 2.4;
-          const lat = side * (this.wall(s, side) + CLEAR + r);
+          const lat = side * (this.wall(s, side) + CLEAR + r + 0.3);
           const st = this.site(s, lat, r);
           if (!this.space.ok(st.x, st.z, r)) continue;
           this.#marshalPost(st, num++);
+          this.placed.push(`M${Math.round(s)}${side > 0 ? 'R' : 'L'}`);
           this.space.add(st.x, st.z, r + 0.5, K_MINE);
           this.space.reserve(st.x, st.z, 3);
           placed = true;
@@ -1017,10 +1018,11 @@ class Dressing {
       for (const side of [pref, -pref]) {
         for (const ds of [0, 10, -10, 20, -20, 32]) {
           const s = s0 + ds, r = 2.2;
-          const lat = side * (this.wall(s, side) + CLEAR + r);
+          const lat = side * (this.wall(s, side) + CLEAR + r + 0.6);
           const st = this.site(s, lat, r, 0.55);
           if (!this.space.ok(st.x, st.z, r + 0.3)) continue;
           this.#tvTower(st, s0 * 7);
+          this.placed.push(`TV${Math.round(s)}${side > 0 ? 'R' : 'L'}`);
           this.space.add(st.x, st.z, r + 0.8, K_MINE);
           this.space.reserve(st.x, st.z, 3.2);
           done = true;
@@ -1094,7 +1096,8 @@ class Dressing {
     const mat = crowdMaterial(this.U);
     this.crowdMat = mat;
     const berm = { p: [], c: [], u: [], i: [] };
-    const prof = [[-0.4, -0.3], [0, 0.02], [1.2, 0.18], [3.4, 0.75], [6.2, 1.5], [9.2, 2.1], [11.2, 2.25], [13.2, 1.5], [15.4, 0.3], [16.6, -0.4]];
+    // cross-section of the grass bank behind the fence: (metres beyond the barrier line + 1.6, height)
+    const prof = [[-0.4, -0.3], [0, 0.02], [1.2, 0.2], [3.5, 0.95], [6.5, 2.15], [9.5, 3.3], [11.5, 3.65], [13, 3.25], [14.8, 1.25], [16, -0.4]];
     const H = (l) => {
       for (let k = 1; k < prof.length; k++) if (l <= prof[k][0]) {
         const [l0, h0] = prof[k - 1], [l1, h1] = prof[k];
@@ -1117,7 +1120,7 @@ class Dressing {
       for (let s = s0; s <= s1; s += 2) {
         const w = this.wall(s, side);
         let ok = true;
-        for (const l of [0.5, 4, 8, 12, 15]) {
+        for (const l of [0.5, 4, 8, 11.8]) {
           const p = this.pt(s, side * (w + 1.6 + l));
           if (sp.trackD(p.x, p.z) < w + 1.2 + l * 0.8) { ok = false; break; }
           if (sp.boxHit(p.x, p.z, 1.5) || sp.hit(p.x, p.z, 1.2, (1 << K_MINE) | (1 << K_WORLD) | (1 << K_SOLID))) { ok = false; break; }
@@ -1139,7 +1142,7 @@ class Dressing {
       for (const o of st) {
         if (!o.ok) continue;
         const clump = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(o.s * 0.061 + side * 3.1) * Math.sin(o.s * 0.023 + 1.3));
-        for (let l = 1.3; l < 10.4; l += 1.25) {
+        for (let l = 1.2; l < 11.9; l += 1.2) {
           for (let n = 0; n < 2; n++) {
             if (rr() > dens * clump * 1.1) continue;
             const s = o.s + n + rr() * 0.8, ll = l + (rr() - 0.5) * 0.6;
@@ -1172,6 +1175,7 @@ class Dressing {
       im.instanceColor.needsUpdate = true;
       im.computeBoundingSphere();
       im.castShadow = TIER <= 1;
+      im.userData.noLongShadow = true; // sub-texel in the baked circuit shadow map: would only add speckle
       im.receiveShadow = true;
       im.name = 'dressing-crowd';
       this.group.add(im);
@@ -1191,6 +1195,20 @@ class Dressing {
           const sub = F.sub(pp.x + 0.6, pp.y, pp.z, 0);
           sub.post(0, -0.2, 2.25, 0, 0.025, COL.white, 'metal', 4);
           sub.part(GEO.cone(8), 0, 2.2, 0, 1.2, 0.42, 1.2, [COL.red, COL.cream, COL.yellow, COL.white, COL.blue][(rr() * 5) | 0], this.A.SW.fabric);
+        }
+      }
+      // tall banners along the top of the bank
+      if (TIER <= 2) {
+        const Fb = new Frame(this.kit, kitKey, new THREE.Matrix4());
+        let next = s0 + 10 + rr() * 8;
+        for (const o of st) {
+          if (!o.ok || o.s < next || fade(o.s) < 0.8) continue;
+          next = o.s + pick(20, 24, 34) + rr() * 8;
+          const p = this.pt(o.s, side * (o.w + 1.6 + 12.2));
+          const y = this.W.heightAt(p.x, p.z) + H(12.2) - 0.2;
+          const sub = Fb.sub(p.x, y, p.z, 0);
+          sub.post(0, -0.4, 7.4, 0, 0.06, COL.steel, 'metal', 6);
+          this.flag(p.x, y + 4.4, p.z, 1.15, 2.9, [0, 1, 3, 5][(rr() * 4) | 0], 1, (rr() - 0.5) * 0.3);
         }
       }
       // claim the bank for later props, and reserve its footprint for the broadcast cameras (per 24 m)
@@ -1354,7 +1372,7 @@ class Dressing {
       const test = at(al + 4, lt + 4);
       if (sp.hit(test.x, test.z, 2, (1 << K_TRUNK) | (1 << K_SOLID))) continue;
       P(al + 8, lt, a); P(al, lt, b); P(al, lt + 8, c); P(al + 8, lt + 8, d);
-      this.low.quad('pad', a, b, c, d, COL.asphalt, tile);
+      this.flat.quad(0, a, b, c, d, COL.asphalt, tile);
     }
     // parked service vehicles behind a few marshal posts
     this.#serviceVehicles();
@@ -1495,7 +1513,7 @@ class Dressing {
       map: A.tex, vertexColors: true, roughnessMap: A.ormTex, metalnessMap: A.ormTex, roughness: 1, metalness: 1, envMapIntensity: 0.9,
     });
     let draws = 0;
-    for (const [kit, cast, longShadow] of [[this.kit, true, true], [this.low, true, false]]) {
+    for (const [kit, cast, longShadow, tag] of [[this.kit, true, true, 'props'], [this.low, true, false, 'tyres'], [this.flat, false, false, 'flat']]) {
       for (const key of kit.chunks.keys()) {
         const g = kit.geometry(key);
         if (!g) continue;
@@ -1503,7 +1521,7 @@ class Dressing {
         mesh.castShadow = cast;
         mesh.receiveShadow = true;
         if (!longShadow) mesh.userData.noLongShadow = true; // barrier-height props would throw 10 m+ shadows
-        mesh.name = `dressing-${kit === this.kit ? 'props' : 'barrier'}-${key}`;
+        mesh.name = `dressing-${tag}-${key}`;
         this.group.add(mesh);
         draws++;
       }
@@ -1542,8 +1560,9 @@ class Dressing {
     this.scene.add(this.group);
     this.stats = {
       drawCalls: draws,
-      tris: Math.round(this.kit.tris + this.low.tris + this.glow.tris + (this.flagTris || 0) + (this.crowdTris || 0) + (this.bermTris || 0)),
-      props: Math.round(this.kit.tris + this.low.tris), kitTris: Math.round(this.kit.tris), lowTris: Math.round(this.low.tris), tyreLen: Math.round(this.tyreLen), crowd: this.crowdCount || 0, flags: this.flags.length,
+      tris: Math.round(this.kit.tris + this.low.tris + this.flat.tris + this.glow.tris + (this.flagTris || 0) + (this.crowdTris || 0) + (this.bermTris || 0)),
+      props: Math.round(this.kit.tris + this.low.tris + this.flat.tris), kitTris: Math.round(this.kit.tris), tyreTris: Math.round(this.low.tris), tyreLen: Math.round(this.tyreLen), crowd: this.crowdCount || 0, flags: this.flags.length,
+      placed: this.placed.join(' '),
       banks: this.banks.map(b => `${b.s0}:${b.people}/${b.ok}of${b.stations}`).join(' '),
     };
   }
