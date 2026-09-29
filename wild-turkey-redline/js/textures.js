@@ -497,6 +497,56 @@ export function decalTexture(kind) {
   return tex(c, { repeat: false });
 }
 
+// Livery atlas for decals projected onto the generated bike and rider (transparent, correct-reading).
+// rect(name) gives the cell's UV offset + size; aspect(name) its height / width.
+export function decalAtlas() {
+  const W = 2048, H = 1024, P = 24;
+  const [c, g] = canvas(W, H);
+  g.clearRect(0, 0, W, H);
+  const cells = { word: [0, 0, 1024, 256], num: [1024, 0, 512, 512], plate: [1536, 0, 512, 512], wordInk: [0, 256, 1024, 256] };
+  const word = ([x, y, w, h], fill) => {
+    g.save();
+    let size = h * 0.62;
+    const set = () => { g.font = `700 ${size}px ${SLAB}`; if ('letterSpacing' in g) g.letterSpacing = `${size * 0.06}px`; };
+    set();
+    const tw = g.measureText(BRAND.wordmark).width;
+    if (tw > w - 2 * P - 20) { size *= (w - 2 * P - 20) / tw; set(); }
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+    g.lineWidth = size * 0.14; g.strokeStyle = fill === BRAND.ink ? BRAND.cream : BRAND.ink;
+    g.strokeText(BRAND.wordmark, x + w / 2, y + h * 0.54);
+    g.fillStyle = fill; g.fillText(BRAND.wordmark, x + w / 2, y + h * 0.54);
+    g.restore();
+  };
+  word(cells.word, BRAND.cream);
+  word(cells.wordInk, BRAND.ink);
+  { // race number: cream, ink keyline, gold drop
+    const [x, y, w, h] = cells.num;
+    g.save();
+    g.font = `800 italic ${h * 0.8}px ${COND}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+    const cx = x + w / 2, cy = y + h * 0.53;
+    g.lineWidth = h * 0.07; g.strokeStyle = BRAND.ink;
+    g.fillStyle = BRAND.gold; g.strokeText(BRAND.riderNumber, cx + h * 0.03, cy + h * 0.03); g.fillText(BRAND.riderNumber, cx + h * 0.03, cy + h * 0.03);
+    g.strokeText(BRAND.riderNumber, cx, cy);
+    g.fillStyle = BRAND.cream; g.fillText(BRAND.riderNumber, cx, cy);
+    g.restore();
+  }
+  { // number plate: cream oval, ink number
+    const [x, y, w, h] = cells.plate;
+    g.save();
+    g.fillStyle = BRAND.cream; g.strokeStyle = BRAND.ink; g.lineWidth = h * 0.03;
+    g.beginPath(); g.ellipse(x + w / 2, y + h / 2, w / 2 - P, h * 0.36, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.font = `800 italic ${h * 0.56}px ${COND}`; g.fillStyle = BRAND.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(BRAND.riderNumber, x + w / 2, y + h * 0.53);
+    g.restore();
+  }
+  const t = tex(c, { repeat: false });
+  return {
+    tex: t,
+    rect: (n) => { const [x, y, w, h] = cells[n]; return new THREE.Vector4(x / W, 1 - (y + h) / H, w / W, h / H); },
+    aspect: (n) => cells[n][3] / cells[n][2],
+  };
+}
+
 export function helmetTexture() {
   const W = 512, H = 256;
   const [c, g] = canvas(W, H);

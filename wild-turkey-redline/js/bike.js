@@ -25,6 +25,70 @@ const AI = {
   hipDy: -0.1, hipDz: 0,
   exhaustTip: V(0, 0.32, -1.05),
 };
+// Livery projected onto the generated models by addDecals(). Bike decals are in bike space, rider decals in the
+// rider model's space (metres, facing +z, rider's left = +x). c = centre, o = the way the decal faces,
+// w = width (height follows the atlas cell), d = depth of the projection box, rot = degrees anticlockwise as seen.
+const BIKE_DECALS = [
+  { cell: 'num', c: V(0.18, 0.68, 0.45), o: V(1, 0, 0), w: 0.18, d: 0.36 },
+  { cell: 'num', c: V(-0.18, 0.68, 0.45), o: V(-1, 0, 0), w: 0.18, d: 0.36 },
+  { cell: 'word', c: V(0.15, 0.335, 0.2), o: V(1, 0, 0), w: 0.4, d: 0.3, rot: -9 },
+  { cell: 'word', c: V(-0.15, 0.335, 0.2), o: V(-1, 0, 0), w: 0.4, d: 0.3, rot: 9 },
+  { cell: 'num', c: V(0, 0.93, -0.66), o: V(0, 1, 0), w: 0.1, d: 0.2 },
+];
+const RIDER_DECALS = [
+  { cell: 'num', c: V(0, 1.2, -0.12), o: V(0, 0, -1), w: 0.2, d: 0.25 },
+  { cell: 'word', c: V(0, 1.06, -0.12), o: V(0, 0, -1), w: 0.24, d: 0.25 },
+  { cell: 'word', c: V(0, 1.3, 0.12), o: V(0, 0, 1), w: 0.22, d: 0.25 },
+  { cell: 'num', c: V(0, 1.64, -0.12), o: V(0, 0, -1), w: 0.08, d: 0.2 },
+];
+
+// Box-projected decals in a material's own vertex space (bind pose for skinned meshes, so they ride along with
+// the skin). `toSpace` maps geometry space into the space the decals are written in. Each decal paints the
+// surfaces facing its `o` inside its box, and turns the paint there into satin vinyl.
+function addDecals(mat, decals, toSpace = new THREE.Matrix4()) {
+  const atlas = cached('decalAtlas', () => TX.decalAtlas());
+  const inv = toSpace.clone().invert(), M = [], R = [], O = [];
+  for (const d of decals) {
+    const o = d.o.clone().normalize(), f = o.clone().negate();
+    const up0 = Math.abs(o.y) > 0.9 ? V(0, 0, 1) : V(0, 1, 0);
+    let u = new THREE.Vector3().crossVectors(f, up0).normalize(), v = new THREE.Vector3().crossVectors(u, f);
+    if (d.rot) {
+      const a = d.rot * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+      [u, v] = [u.clone().multiplyScalar(c).addScaledVector(v, sn), u.clone().multiplyScalar(-sn).addScaledVector(v, c)];
+    }
+    const h = d.w * atlas.aspect(d.cell);
+    const box = new THREE.Matrix4().makeBasis(u.multiplyScalar(d.w), v.multiplyScalar(h), f.multiplyScalar(d.d)).setPosition(d.c);
+    M.push(box.invert().multiply(toSpace));
+    R.push(atlas.rect(d.cell));
+    O.push(o.transformDirection(inv));
+  }
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, { uDecal: { value: atlas.tex }, uDM: { value: M }, uDR: { value: R }, uDO: { value: O } });
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vDP; varying vec3 vDN;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvDP = position; vDN = normal;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+        #define DECALS ${decals.length}
+        uniform sampler2D uDecal; uniform mat4 uDM[DECALS]; uniform vec4 uDR[DECALS]; uniform vec3 uDO[DECALS];
+        varying vec3 vDP; varying vec3 vDN;`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        float dA = 0.0;
+        vec3 dN = normalize(vDN);
+        for (int i = 0; i < DECALS; i++) {
+          vec3 q = (uDM[i] * vec4(vDP, 1.0)).xyz;
+          vec4 d = texture2D(uDecal, uDR[i].xy + clamp(q.xy + 0.5, 0.0, 1.0) * uDR[i].zw);
+          float m = step(max(max(abs(q.x), abs(q.y)), abs(q.z)), 0.5) * smoothstep(0.12, 0.35, dot(dN, uDO[i])) * d.a;
+          diffuseColor.rgb = mix(diffuseColor.rgb, d.rgb, m);
+          dA = max(dA, m);
+        }`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.35, dA);')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = mix(metalnessFactor, 0.0, dA);');
+  };
+  mat.customProgramCacheKey = () => `decals${decals.length}`;
+  return mat;
+}
+
 export function setBikeAsset(scene) { AI_BIKE = scene ? { scene, split: null } : null; }
 let AI_RIDER = null;
 export function setRiderAsset(scene) { AI_RIDER = scene || null; }
@@ -723,8 +787,10 @@ export class BikeModel {
     for (const o of [...this.body.children]) this.body.remove(o);
     const S = AI.scale;
     const place = (o) => { o.rotation.y = Math.PI / 2; o.scale.setScalar(S); return o; };
-    const body = place(new THREE.Mesh(sp.body, sp.mat));
+    const body = place(new THREE.Mesh(sp.body, sp.mat.clone()));
     body.position.set(0, -AI.yGround * S, AI.xMid * S - 0.01);
+    body.updateMatrix();
+    addDecals(body.material, BIKE_DECALS, body.matrix);
     this.body.add(body);
     AI.wheels.forEach((w, i) => {
       const hub = new THREE.Group();
@@ -1416,6 +1482,7 @@ class AIRider {
         const m = o.material = o.material.clone();
         m.emissiveMap = null; m.emissive && m.emissive.set(0);
         m.roughness = 0.55; m.metalness = 0.05;
+        addDecals(m, RIDER_DECALS); // geometry is already in model-space metres
         this.mesh = o;
       }
     });
