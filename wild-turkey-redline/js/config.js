@@ -53,6 +53,7 @@ export const TUNE = {
   rolling: 0.25,
   brakeDecel: 13.0,
   assist: 0.82,                       // steering help (Standard); 0.35 = Pro. Only acts while steering into a corner
+  turn: 1.1,                          // player's bike turns 10% tighter for the same lean (the autopilot, and so the medal pace, uses 1)
   gears: [88, 138, 184, 228, 276, 345], // km/h at redline per gear
   redline: 17500,
   idle: 3800,

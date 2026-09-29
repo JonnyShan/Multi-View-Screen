@@ -34,7 +34,8 @@ export function step(st, input, track, dt, opts = {}) {
   const hiSpeed = smoothstep(3, 16, v);
   const manual = input.steer * T.maxLean;
   const push = Math.abs(input.steer);
-  const aim = Math.atan((vs * vs * kEff - 1.8 * vs * (Math.sin(st.psi) - 0.035 * input.steer)) / T.g);
+  const turn = input.raw ? 1 : T.turn;
+  const aim = Math.atan((vs * vs * kEff - 1.8 * vs * (Math.sin(st.psi) - 0.035 * input.steer)) / (T.g * turn));
   const into = input.steer * kEff > 0 ? 1 : 0;
   const help = clamp(assist / 0.8, 0, 1) * into * smoothstep(0.0015, 0.006, Math.abs(kEff)) * Math.min(1, push / 0.35);
   let target = (manual + (aim - manual) * help) * hiSpeed;
@@ -45,7 +46,7 @@ export function step(st, input, track, dt, opts = {}) {
 
   // --- Heading relative to the track. Lean turns the bike (yaw rate g·tanθ / v; at walking pace the bars do
   // it); the track bends under it at k·v. Upright, the bike keeps its heading: straight on, wide of a corner.
-  const yaw = hiSpeed * T.g * Math.tan(st.lean) / vs + (1 - hiSpeed) * input.steer * Math.min(v * 0.25, 0.8);
+  const yaw = turn * (hiSpeed * T.g * Math.tan(st.lean) / vs + (1 - hiSpeed) * input.steer * Math.min(v * 0.25, 0.8));
   st.psi += (yaw - kEff * v * Math.cos(st.psi)) * dt;
   // assist on straights: hands off, the bike lines up with the road (corners still run wide)
   if (push < 0.05) st.psi *= 1 - Math.min(1, dt * 1.4 * clamp(assist / 0.8, 0, 1) * (1 - smoothstep(0.0008, 0.002, Math.abs(kEff))));
