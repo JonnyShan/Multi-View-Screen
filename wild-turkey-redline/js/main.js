@@ -440,7 +440,7 @@ class Game {
     const road = st.surface !== 'grass' && st.surface !== 'gravel';
     this.bike.cue = {
       look: corner * (1 - ss(0.35, 0.7, la)),
-      dangle: road ? corner * ss(0.35, 0.75, st.brake) * ss(18, 30, st.v) * (1 - ss(0.2, 0.45, la)) : 0,
+      dangle: road ? corner * ss(0.35, 0.75, st.brake) * ss(18, 30, st.v) * (1 - ss(0.3, 0.55, la)) : 0,
     };
     this.bike.update(dt, st);
     const g = this.#ghostUpdate(this.raceT);
