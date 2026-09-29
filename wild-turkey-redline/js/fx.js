@@ -1,7 +1,6 @@
 // Post-processing (bloom + cinematic final pass) and particle effects.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
@@ -190,18 +189,206 @@ class RaysPass extends Pass {
   dispose() { this.a.dispose(); this.b.dispose(); this.mask.dispose(); this.blur.dispose(); this.blur2.dispose(); this.quad.dispose(); }
 }
 
+// ---------------------------------------------------------------------------
+// Scene pass: renders into its own MSAA HDR target with a depth texture, so later passes can use depth
+// without sampling a buffer they are writing to. Adds half-res screen-space ambient occlusion.
+const QUAD_VS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+const VIEWPOS_GLSL = `
+  uniform sampler2D tDepth; uniform mat4 uProjInv;
+  vec3 viewPos(vec2 uv){ float d = texture2D(tDepth, uv).x; vec4 v = uProjInv * vec4(vec3(uv, d) * 2.0 - 1.0, 1.0); return v.xyz / v.w; }`;
+
+const AOShader = {
+  uniforms: {
+    tDepth: { value: null }, uProjInv: { value: new THREE.Matrix4() }, uProj: { value: new THREE.Matrix4() },
+    uTexel: { value: new THREE.Vector2() }, uRadius: { value: 1.1 }, uIntensity: { value: 1.2 }, uMaxDist: { value: 160 },
+  },
+  vertexShader: QUAD_VS,
+  fragmentShader: `${VIEWPOS_GLSL}
+    uniform mat4 uProj; uniform vec2 uTexel; uniform float uRadius, uIntensity, uMaxDist; varying vec2 vUv;
+    void main(){
+      float d = texture2D(tDepth, vUv).x;
+      if (d >= 0.99999) { gl_FragColor = vec4(1.0); return; }
+      vec3 p = viewPos(vUv);
+      if (-p.z > uMaxDist) { gl_FragColor = vec4(1.0); return; }
+      // normal from the flatter of the two neighbour differences (avoids halos at silhouettes)
+      vec3 px0 = viewPos(vUv - vec2(uTexel.x, 0.0)), px1 = viewPos(vUv + vec2(uTexel.x, 0.0));
+      vec3 py0 = viewPos(vUv - vec2(0.0, uTexel.y)), py1 = viewPos(vUv + vec2(0.0, uTexel.y));
+      vec3 dx = abs(px1.z - p.z) < abs(p.z - px0.z) ? px1 - p : p - px0;
+      vec3 dy = abs(py1.z - p.z) < abs(p.z - py0.z) ? py1 - p : p - py0;
+      vec3 n = normalize(cross(dx, dy));
+      float rnd = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831;
+      vec2 ruv = vec2(uProj[0][0], uProj[1][1]) * 0.5 * uRadius / -p.z;
+      ruv = min(ruv, vec2(0.12));
+      float r2 = uRadius * uRadius, ao = 0.0;
+      for (int i = 0; i < 12; i++) {
+        float a = (float(i) + 0.5) / 12.0;
+        float ang = a * 43.98 + rnd;
+        vec2 off = vec2(cos(ang), sin(ang)) * a * ruv;
+        vec3 v = viewPos(vUv + off) - p;
+        float vv = dot(v, v), vn = dot(v, n);
+        float f = max(r2 - vv, 0.0);
+        ao += f * f * f * max((vn - 0.02 * -p.z * 0.01 - 0.01) / (0.01 + vv), 0.0);
+      }
+      ao /= r2 * r2 * r2;
+      ao = clamp(1.0 - ao * (5.0 / 12.0) * uIntensity, 0.0, 1.0);
+      ao = mix(ao, 1.0, smoothstep(uMaxDist * 0.6, uMaxDist, -p.z));
+      gl_FragColor = vec4(vec3(ao), 1.0);
+    }`,
+};
+
+const AOBlurShader = {
+  uniforms: { tAO: { value: null }, tDepth: { value: null }, uProjInv: { value: new THREE.Matrix4() }, uDir: { value: new THREE.Vector2() } },
+  vertexShader: QUAD_VS,
+  fragmentShader: `${VIEWPOS_GLSL}
+    uniform sampler2D tAO; uniform vec2 uDir; varying vec2 vUv;
+    void main(){
+      float z0 = viewPos(vUv).z;
+      float sum = 0.0, wsum = 0.0;
+      for (int i = -3; i <= 3; i++) {
+        vec2 uv = vUv + uDir * float(i);
+        float z = viewPos(uv).z;
+        float w = exp(-float(i * i) / 8.0) * (1.0 / (1.0 + abs(z - z0) * 8.0 / max(1.0, -z0 * 0.05)));
+        sum += texture2D(tAO, uv).r * w; wsum += w;
+      }
+      gl_FragColor = vec4(vec3(sum / wsum), 1.0);
+    }`,
+};
+
+const CompositeShader = {
+  uniforms: { tColor: { value: null }, tAO: { value: null }, uAO: { value: 0 } },
+  vertexShader: QUAD_VS,
+  fragmentShader: `uniform sampler2D tColor, tAO; uniform float uAO; varying vec2 vUv;
+    void main(){
+      vec4 c = texture2D(tColor, vUv);
+      float ao = uAO > 0.0 ? mix(1.0, texture2D(tAO, vUv).r, uAO) : 1.0;
+      gl_FragColor = vec4(c.rgb * ao, 1.0);
+    }`,
+};
+
+class ScenePass extends Pass {
+  constructor(scene, camera, quality) {
+    super();
+    this.needsSwap = false;
+    this.scene = scene;
+    this.camera = camera;
+    this.depthTexture = new THREE.DepthTexture(1, 1);
+    this.rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: quality.msaa, depthTexture: this.depthTexture });
+    this.aoOn = !!quality.ao;
+    this.aoStrength = 0.85;
+    if (this.aoOn) {
+      this.aoA = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false });
+      this.aoB = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false });
+      this.ao = new THREE.ShaderMaterial(AOShader);
+      this.blurH = new THREE.ShaderMaterial(AOBlurShader);
+      this.blurV = new THREE.ShaderMaterial({ ...AOBlurShader, uniforms: THREE.UniformsUtils.clone(AOBlurShader.uniforms) });
+      for (const m of [this.ao, this.blurH, this.blurV]) m.depthTest = m.depthWrite = false;
+    }
+    this.comp = new THREE.ShaderMaterial(CompositeShader);
+    this.comp.depthTest = this.comp.depthWrite = false;
+    this.quad = new FullScreenQuad(this.comp);
+  }
+
+  setSize(w, h) {
+    this.rt.setSize(w, h);
+    if (this.aoOn) {
+      const aw = Math.max(1, Math.round(w / 2)), ah = Math.max(1, Math.round(h / 2));
+      this.aoA.setSize(aw, ah); this.aoB.setSize(aw, ah);
+      this.ao.uniforms.uTexel.value.set(1 / aw, 1 / ah);
+      this.blurH.uniforms.uDir.value.set(1 / aw, 0);
+      this.blurV.uniforms.uDir.value.set(0, 1 / ah);
+    }
+  }
+
+  render(renderer, writeBuffer, readBuffer) {
+    renderer.setRenderTarget(this.rt);
+    renderer.clear();
+    renderer.render(this.scene, this.camera);
+    const useAO = this.aoOn && this.aoStrength > 0;
+    if (useAO) {
+      const cam = this.camera;
+      const u = this.ao.uniforms;
+      u.tDepth.value = this.depthTexture;
+      u.uProjInv.value.copy(cam.projectionMatrixInverse);
+      u.uProj.value.copy(cam.projectionMatrix);
+      this.quad.material = this.ao;
+      renderer.setRenderTarget(this.aoA); this.quad.render(renderer);
+      for (const [m, src, dst] of [[this.blurH, this.aoA, this.aoB], [this.blurV, this.aoB, this.aoA]]) {
+        m.uniforms.tAO.value = src.texture; m.uniforms.tDepth.value = this.depthTexture;
+        m.uniforms.uProjInv.value.copy(cam.projectionMatrixInverse);
+        this.quad.material = m;
+        renderer.setRenderTarget(dst); this.quad.render(renderer);
+      }
+    }
+    const c = this.comp.uniforms;
+    c.tColor.value = this.rt.texture;
+    c.tAO.value = useAO ? this.aoA.texture : null;
+    c.uAO.value = useAO ? this.aoStrength : 0;
+    this.quad.material = this.comp;
+    renderer.setRenderTarget(this.renderToScreen ? null : readBuffer);
+    this.quad.render(renderer);
+  }
+}
+
+// Depth of field for the cinematic shots: single-pass golden-angle gather weighted by circle of confusion.
+const DofShader = {
+  uniforms: {
+    tDiffuse: { value: null }, tDepth: { value: null }, uProjInv: { value: new THREE.Matrix4() },
+    uFocus: { value: 10 }, uRange: { value: 2 }, uMaxPx: { value: 14 }, uTexel: { value: new THREE.Vector2() }, uAmount: { value: 0 },
+  },
+  vertexShader: QUAD_VS,
+  fragmentShader: `${VIEWPOS_GLSL}
+    uniform sampler2D tDiffuse; uniform float uFocus, uRange, uMaxPx, uAmount; uniform vec2 uTexel; varying vec2 vUv;
+    float cocZ(float z){ return clamp((abs(z - uFocus) - uRange) / max(z, 0.5) * uFocus * 0.4, 0.0, 1.0) * uAmount; }
+    void main(){
+      float z0 = -viewPos(vUv).z;
+      float c0 = cocZ(z0);
+      vec3 sum = texture2D(tDiffuse, vUv).rgb; float wsum = 1.0;
+      for (int i = 1; i < 28; i++) {
+        float t = float(i) / 28.0;
+        float r = sqrt(t) * uMaxPx;
+        float a = float(i) * 2.39996;
+        vec2 uv = vUv + vec2(cos(a), sin(a)) * r * uTexel;
+        float zs = -viewPos(uv).z;
+        float cs = cocZ(zs);
+        // a farther sample may not blur over a nearer, sharper pixel
+        if (zs > z0) cs = min(cs, c0 + 0.02);
+        float w = smoothstep(r - 1.5, r + 0.5, cs * uMaxPx);
+        sum += min(texture2D(tDiffuse, uv).rgb, vec3(12.0)) * w; wsum += w;
+      }
+      gl_FragColor = vec4(sum / wsum, 1.0);
+    }`,
+};
+
+class DofPass extends ShaderPass {
+  constructor(scenePass) {
+    super(DofShader);
+    this.scenePass = scenePass;
+    this.enabled = false;
+    this.material.depthTest = this.material.depthWrite = false;
+  }
+
+  setSize(w, h) { this.uniforms.uTexel.value.set(1 / w, 1 / h); this.uniforms.uMaxPx.value = Math.round(h / 60); }
+
+  render(renderer, writeBuffer, readBuffer, dt, mask) {
+    this.uniforms.tDepth.value = this.scenePass.depthTexture;
+    this.uniforms.uProjInv.value.copy(this.scenePass.camera.projectionMatrixInverse);
+    super.render(renderer, writeBuffer, readBuffer, dt, mask);
+  }
+}
+
 export class Post {
   constructor(renderer, scene, camera, quality) {
     this.renderer = renderer;
     const w = innerWidth, h = innerHeight;
-    const rt = new THREE.WebGLRenderTarget(w * renderer.getPixelRatio(), h * renderer.getPixelRatio(), {
-      type: THREE.HalfFloatType, samples: quality.msaa,
-    });
+    // The scene is rendered (with MSAA) by ScenePass; the composer's own buffers only see full-screen passes.
+    const rt = new THREE.WebGLRenderTarget(w * renderer.getPixelRatio(), h * renderer.getPixelRatio(), { type: THREE.HalfFloatType });
     this.composer = new EffectComposer(renderer, rt);
-    this.renderPass = new RenderPass(scene, camera);
+    this.renderPass = new ScenePass(scene, camera, quality);
     this.composer.addPass(this.renderPass);
     this.rays = quality.rays ? new RaysPass() : null;
     if (this.rays) this.composer.addPass(this.rays);
+    this.dof = quality.dof ? new DofPass(this.renderPass) : null;
+    if (this.dof) this.composer.addPass(this.dof);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.55, 1.05);
     this.composer.addPass(this.bloom);
     this.final = new ShaderPass(FinalShader);
@@ -216,6 +403,14 @@ export class Post {
   }
 
   setCamera(cam) { this.renderPass.camera = cam; }
+
+  // Depth of field: amount 0 disables the pass; focus is the distance (m) that stays sharp.
+  setDof(amount, focus = 10, range = 1.5) {
+    if (!this.dof) return;
+    this.dof.enabled = amount > 0.01;
+    const u = this.dof.uniforms;
+    u.uAmount.value = amount; u.uFocus.value = focus; u.uRange.value = range;
+  }
 
   setSize(w, h) {
     this.composer.setPixelRatio(this.renderer.getPixelRatio());
@@ -293,7 +488,7 @@ export class Particles {
       if (this.additive) { this.col[k] *= 0.985; this.col[k + 1] *= 0.955; this.col[k + 2] *= 0.9; }
       this.sizeArr[i] = this.additive ? this.sizeArr[i] : this.sizeArr[i] * (1 + dt * 1.5);
       if (this.life[i] <= 0) this.sizeArr[i] = 0;
-      else if (f < 0.2 && this.additive) this.sizeArr[i] *= 0.9;
+      else if (f < 0.25) this.sizeArr[i] *= this.additive ? 0.9 : 0.94;
     }
     const g = this.points.geometry;
     g.attributes.position.needsUpdate = true; g.attributes.color.needsUpdate = true; g.attributes.size.needsUpdate = true;

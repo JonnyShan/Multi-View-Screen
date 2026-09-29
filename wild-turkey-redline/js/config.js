@@ -85,6 +85,9 @@ export const QUALITY = (() => {
     grass: pick(110000, 60000, 22000, 0),   // 3D grass tufts along the verges
     grassRange: pick(150, 110, 70, 0),      // draw distance for grass (m)
     rays: T <= 2,                           // screen-space sun shafts + lens dirt
+    ao: T <= 1,                             // screen-space ambient occlusion
+    dof: T <= 2,                            // depth of field on the cinematic shots
+    bikeReflections: T === 0 ? 128 : 0,     // live cube-map reflections on the bike's paint and visor (face size)
     sharpen: pick(0.35, 0.3, 0.2, 0),
     rubber: T <= 2,                         // rubbered-in racing line + skid marks
     texScale: pick(2, 2, 1, 1),             // procedural texture resolution multiplier

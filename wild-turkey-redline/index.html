@@ -422,8 +422,8 @@ body.is-touch.landscape .hud-bc{bottom:calc(24px + var(--safe-b))}
 <script>
   window.__boot = setTimeout(function () {
     var f = document.getElementById('fatal');
-    if (!window.__ready) { f.style.display = 'flex'; f.textContent = 'Red Line needs a modern browser with WebGL 2. Please try the latest Chrome, Safari or Edge.'; }
-  }, 20000);
+    if (!window.__ready) { f.style.display = 'flex'; f.dataset.watchdog = '1'; f.textContent = 'Red Line needs a modern browser with WebGL 2. Please try the latest Chrome, Safari or Edge.'; }
+  }, 45000);
   window.addEventListener('error', function (e) { console.error(e.error || e.message); });
 </script>
 <script type="importmap">

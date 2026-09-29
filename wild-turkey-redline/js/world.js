@@ -86,6 +86,7 @@ export class World {
     this.#sky();
     this.#lights();
     this.#terrain();
+    this.#distantHills();
     this.#river();
     this.#structures();
     this.#trees();
@@ -293,6 +294,40 @@ export class World {
       return a + (b - a) * tx + (c - a) * tz + (a - b - c + d) * tx * tz;
     };
     this.trackDist = dArr;
+  }
+
+  // Rolling Kentucky ridgelines beyond the terrain edge: layered silhouettes that the fog turns blue with distance.
+  #distantHills() {
+    const segA = 320, radii = [2000, 2300, 2700, 3200, 3800, 4500];
+    const cx = -30, cz = 300;
+    const pos = [], col = [], idx = [];
+    const near = new THREE.Color('#34492a'), far = new THREE.Color('#4a5a52');
+    for (let ri = 0; ri < radii.length; ri++) {
+      const r = radii[ri], t = ri / (radii.length - 1);
+      for (let a = 0; a <= segA; a++) {
+        const ang = a / segA * Math.PI * 2;
+        const nx = Math.cos(ang), nz = Math.sin(ang);
+        const ridge = fbm(nx * 3.1 + ri * 1.7, nz * 3.1 + ri * 0.9, 4);
+        const bumps = fbm(nx * 40 + ri, nz * 40, 2) * 10;   // tree line on the crest
+        const h = ri === 0 ? -20 : 25 + Math.pow(ridge, 1.6) * (90 + 160 * t) + bumps;
+        pos.push(cx + nx * r, h, cz + nz * r);
+        const c = near.clone().lerp(far, t).multiplyScalar(0.85 + ridge * 0.3);
+        col.push(c.r, c.g, c.b);
+      }
+    }
+    const W = segA + 1;
+    for (let ri = 0; ri < radii.length - 1; ri++) for (let a = 0; a < segA; a++) {
+      const i0 = ri * W + a, i1 = i0 + 1, i2 = i0 + W, i3 = i2 + 1;
+      idx.push(i0, i2, i1, i1, i2, i3);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true }));
+    mesh.frustumCulled = false;
+    this.scene.add(mesh);
   }
 
   #river() {

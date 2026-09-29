@@ -25,6 +25,7 @@ const HOUSE = ['WTK', 'KRC', 'RDL', 'OAK', 'ASH', 'BLU', 'KNT', 'LWB', 'RVR', 'C
 
 const V3 = () => new THREE.Vector3();
 const _v = V3(), _v2 = V3(), _f = {};
+const SMOKE = new THREE.Color(1, 1, 1);
 
 class Game {
   constructor(renderer) {
@@ -55,6 +56,7 @@ class Game {
     this.#exhaustFlame();
     this.sparks = new Particles(this.scene, 600, { additive: true, size: 0.06 });
     this.dust = new Particles(this.scene, 220, { additive: false, size: 0.8, texture: TX.radialTexture('rgba(170,140,100,0.5)', 'rgba(170,140,100,0)') });
+    this.smoke = new Particles(this.scene, 260, { additive: false, size: 0.5, texture: TX.radialTexture('rgba(236,232,226,0.32)', 'rgba(236,232,226,0)') });
     progress(0.84, 'Setting the pace'); await frame();
     this.autopilot = new Autopilot(this.track);
     if (QUALITY.rubber) this.scene.add(buildRubber(this.track, this.autopilot));
@@ -62,6 +64,7 @@ class Game {
     const p = this.pace.time;
     this.medals = { gold: Math.floor(p * 0.99 * 10) / 10, silver: Math.floor(p * 1.05 * 10) / 10, bronze: Math.floor(p * 1.12 * 10) / 10 };
     this.post = new Post(this.renderer, this.scene, this.camera, QUALITY);
+    this.#setupReflections();
     this.hud = new Hud(this.track);
     this.audio = new Audio();
     this.#loadRecords();
@@ -76,6 +79,9 @@ class Game {
     addEventListener('resize', () => this.#resize());
     progress(1, 'Ready');
     window.__ready = true;
+    // a slow device may have tripped the load watchdog in index.html; the game did load, so clear it
+    clearTimeout(window.__boot);
+    if ($('fatal').dataset.watchdog) $('fatal').style.display = 'none';
     this.#setState(Store.sessionGet('gate') === '1' && !KIOSK ? 'title' : 'gate');
     $('loader').classList.remove('show');
     this.last = performance.now();
@@ -227,6 +233,7 @@ class Game {
     else if (s === 'finish') this.#updateFinish(dt);
     this.sparks.update(dt, -9.8, 0.4);
     this.dust.update(dt, 0.6, 1.5);
+    this.smoke.update(dt, 0.5, 1.6);
     if (s !== 'intro') this.post.u.uFade.value = Math.max(0, this.post.u.uFade.value - dt * 3);
 
     // idle → attract (menus) / reset (kiosk results)
@@ -599,6 +606,14 @@ class Game {
       const fx = Math.sin(this.bike.yaw), fz = Math.cos(this.bike.yaw);
       for (let i = 0; i < 14; i++) this.sparks.emit(p, _v2.set(fx * st.v * 0.35 + (Math.random() - 0.5) * 4, Math.random() * 1.5, fz * st.v * 0.35 + (Math.random() - 0.5) * 4), 0.3 + Math.random() * 0.4, new THREE.Color(5, 3.2, 1.3), 0.045, fy + 0.02);
     }
+    // tyre smoke: the rear skipping under hard braking, and wheelspin off the line
+    const launch = st.gear === 0 && st.throttle > 0.5 && st.v > 1 && st.v < 18;
+    if (((st.brake > 0.55 && st.v > 22 && lean < 0.5) || launch) && Math.random() < (launch ? 0.9 : 0.5)) {
+      const p = this.bike.body.localToWorld(_v.set((Math.random() - 0.5) * 0.12, 0.06, -0.78));
+      const fx = Math.sin(this.bike.yaw), fz = Math.cos(this.bike.yaw);
+      this.smoke.emit(p, _v2.set(fx * st.v * 0.35 + (Math.random() - 0.5) * 1.5, 0.3 + Math.random() * 0.8, fz * st.v * 0.35 + (Math.random() - 0.5) * 1.5),
+        1.1 + Math.random() * 0.9, SMOKE, 0.35 + Math.random() * 0.3, bp.y + 0.05);
+    }
     // off-track dust
     if ((st.surface === 'grass' || st.surface === 'gravel') && st.v > 4) {
       const p = this.bike.body.localToWorld(_v.set(0, 0.1, -0.8));
@@ -620,11 +635,55 @@ class Game {
     this.post.setRays(u.uSun.value, raysOn);
   }
 
+  // Live reflections for the bike: a small cube map around it, one face re-rendered per frame, so the paint and
+  // visor mirror the trees, stands and sky it is passing instead of a generic sky.
+  #setupReflections() {
+    const size = QUALITY.bikeReflections;
+    if (!size) return;
+    const rt = new THREE.WebGLCubeRenderTarget(size, { type: THREE.HalfFloatType });
+    this.cubeCam = new THREE.CubeCamera(0.5, 1200, rt);
+    this.cubeCam.coordinateSystem = this.renderer.coordinateSystem;
+    this.cubeCam.updateCoordinateSystem(); // faces are rendered one at a time below, not via update()
+    this.cubeRT = rt;
+    this.cubeFace = 0;
+    this.bike.root.traverse(o => {
+      if (!o.isMesh) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (m.isMeshStandardMaterial) m.envMap = rt.texture;
+    });
+  }
+
+  #updateReflections() {
+    if (!this.cubeCam) return;
+    const cc = this.cubeCam;
+    if (this.cubeFace === 0) { cc.position.copy(this.bike.root.position); cc.position.y += 0.8; cc.updateMatrixWorld(); }
+    const hide = [this.bike.root, this.ghost.root, this.sparks.points, this.dust.points, this.smoke.points, ...this.world.grassChunks.map(c => c.mesh)];
+    const vis = hide.map(o => o.visible);
+    hide.forEach(o => { o.visible = false; });
+    const r = this.renderer, prev = r.getRenderTarget();
+    const face = cc.children[this.cubeFace];
+    r.setRenderTarget(this.cubeRT, this.cubeFace);
+    r.render(this.scene, face);
+    r.setRenderTarget(prev);
+    hide.forEach((o, i) => { o.visible = vis[i]; });
+    this.cubeFace = (this.cubeFace + 1) % 6;
+    if (this.cubeFace === 0) this.cubeRT.texture.needsPMREMUpdate = true;
+  }
+
   #render(dt) {
+    this.#updateReflections();
     this.world.followShadow(this.bike.root.position);
     const cam = this.post.renderPass.camera;
     cam.updateMatrixWorld();
     this.world.updateView(cam);
+    // Depth of field on the cinematic shots, focused on the bike.
+    if (this.post.dof) {
+      const s = this.state;
+      const want = ['gate', 'denied', 'title', 'intro', 'attract', 'finish', 'results'].includes(s) ? 1 : 0;
+      this._dof = damp(this._dof || 0, want, 3, dt);
+      const bp = this.bike.root.position;
+      const focus = cam.position.distanceTo(_v.set(bp.x, bp.y + 0.8, bp.z));
+      this.post.setDof(this._dof, focus, Math.max(1.2, focus * 0.12));
+    }
     this.post.render(dt);
   }
 
@@ -653,6 +712,7 @@ class Game {
     this.post.setSize(w, h);
     this.sparks.resize(this.renderer.getPixelRatio());
     this.dust.resize(this.renderer.getPixelRatio());
+    this.smoke.resize(this.renderer.getPixelRatio());
     document.body.classList.toggle('landscape', w > h);
   }
 

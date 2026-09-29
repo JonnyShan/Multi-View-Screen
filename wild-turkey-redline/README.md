@@ -61,10 +61,15 @@ To reset the leaderboard on a kiosk, clear site data for the page. A staff reset
 | Trees | 3400, leaf-card canopies | 2600, leaf-card canopies | 1500, solid | 800, solid |
 | 3D grass tufts | 110k | 60k | 22k | none |
 | Sun shafts + lens dirt | yes | yes | yes | no |
+| Ambient occlusion (half-res SSAO) | yes | yes | no | no |
+| Depth of field on title, intro, replays | yes | yes | yes | no |
+| Live reflections on the bike | yes | no | no | no |
 | Rubbered racing line + skid marks | yes | yes | yes | no |
 | Texture resolution | 2× | 2× | 1× | 1× |
 
-The asphalt has colour, normal and roughness maps generated from one height field, so the low sun picks out the aggregate and the rubbered line. Trees and grass sway in the wind and glow when backlit.
+The asphalt has colour, normal and roughness maps generated from one height field, so the low sun picks out the aggregate and the rubbered line. Trees and grass sway in the wind and glow when backlit. Layered ridgelines on the horizon fade into the haze, and the rear tyre smokes under hard braking and off the line.
+
+The scene is rendered once into an HDR target with MSAA and a depth texture (`ScenePass` in `js/fx.js`); ambient occlusion, depth of field, sun shafts, bloom and the final grade all run from that.
 
 ## Files
 
