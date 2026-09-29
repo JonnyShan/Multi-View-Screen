@@ -116,7 +116,7 @@ export function step(st, input, track, dt, opts = {}) {
   st.shiftT += dt;
   const kick = st.shiftT < 0.5 && st.throttle > 0.6 && leanAbs < 0.35 ? Math.sin(Math.PI * st.shiftT / 0.5) * (st.gear <= 3 ? 1 : 0.6) : 0;
   st.pitch += ((wheelie || stoppie || 0) - 0.07 * kick - st.pitch) * Math.min(1, dt * 6);
-  const tuckT = (st.v > 38 && !braking && leanAbs < 0.4 ? 1 : 0) - 0.45 * kick;
+  const tuckT = Math.max(0, (st.v > 38 && !braking && leanAbs < 0.4 ? 1 : 0) - 0.45 * kick);
   st.tuck += (tuckT - st.tuck) * Math.min(1, dt * 4);
   st.discHeat = st.discHeat * Math.exp(-dt * 0.7) + st.brake * v * dt * 0.012;
   st.discHeat = Math.min(st.discHeat, 1);
