@@ -213,7 +213,17 @@ class Game {
     this.hud.lights(0, false);
     this.ghost.root.visible = true;
     this.lastSection = null;
-    if (!this.autoplay) this.audio.unlock();
+    this.gasHint = false;
+    this.lastCall = {};
+    if (!this.autoplay) { this.audio.unlock(); this.#say('intro'); }
+  }
+
+  // Announcer, with a per-line cooldown so crashes and run-offs don't nag
+  #say(key, prio = 1, cooldown = 0) {
+    if (this.autoplay) return;
+    const now = performance.now() / 1000;
+    if (cooldown && now - (this.lastCall[key] || -1e9) < cooldown) return;
+    if (this.audio.say(key, prio)) this.lastCall[key] = now;
   }
 
   #finishRace() {
@@ -239,6 +249,8 @@ class Game {
       this.#setGhost();
     }
     this.hud.msg(pb ? 'Personal best' : 'Lap complete', Store.fmtTime(t), 2600);
+    const m = this.medals;
+    this.#say(t <= m.gold ? 'gold' : prevBest == null ? 'first' : pb ? 'pb' : t <= m.silver ? 'silver' : t <= m.bronze ? 'bronze' : 'none', 3);
   }
 
   // ------------------------------------------------------------------ main loop
@@ -358,7 +370,7 @@ class Game {
     this.world.setStartLights(out ? 0 : this.litN);
     this.hud.lights(out ? 0 : this.litN, true);
     const inp = this.#readInput(dt);
-    inp.rev = this.litN >= 3;
+    inp.rev = this.litN >= 3 || inp.throttle > 0;
     if (!(this.autoplay && PARAMS.get('at'))) step(st, inp, this.track, dt, { locked: true, assist: this.#assist() });
     this.#placeBike(this.bike, st);
     this.bike.update(dt, st);
@@ -372,6 +384,7 @@ class Game {
       this.hud.lights(0, true);
       setTimeout(() => this.hud.lights(0, false), 700);
       this.hud.msg('Lights out', '', 900);
+      this.#say('go', 3);
     }
   }
 
@@ -406,6 +419,10 @@ class Game {
     const sec = T.sectionAt(st.s);
     if (sec && sec !== this.lastSection) { this.hud.callout(`T${sec.num} · ${sec.name}`); }
     this.lastSection = sec;
+    if (!this.gasHint && this.raceT > 1.6 && st.v < 3 && !inp.throttle) {
+      this.gasHint = true;
+      this.hud.msg(matchMedia('(pointer: coarse)').matches ? 'Hold GAS to go' : 'Hold \u2191 to go', '', 1800, 'warn');
+    }
     // brake coaching (Standard assist): approaching too fast and not braking
     const vt = this.autopilot.sample(this.autopilot.vmax, st.s + st.v * 0.9);
     this.hud.brakeHint(this.settings.assist === 'standard' && st.v > vt + 7 && inp.brake < 0.1 && st.v > 30);
@@ -443,7 +460,7 @@ class Game {
     const bs = this.bestSectors;
     const cls = bs && time < bs[i] ? 'purple' : time < gTime ? 'green' : 'yellow';
     this.hud.setSector(i, cls, time - gTime);
-    if (i < 2) this.hud.msg(Store.fmtDelta(time - gTime), `Sector ${i + 1}`, 1300, cls === 'yellow' ? 'warn' : '');
+    if (i < 2) { this.hud.msg(Store.fmtDelta(time - gTime), `Sector ${i + 1}`, 1300, cls === 'yellow' ? 'warn' : ''); this.#say(cls, 2); }
   }
 
   #onEvent(e, st) {
@@ -451,11 +468,12 @@ class Game {
     if (e.type === 'downshift') { this.audio.pop(0.8); this.flame = 0.05; }
     if (e.type === 'wall') {
       this.audio.thud(e.power * 1.6);
+      if (this.state === 'race' && e.power > 0.25) this.#say('wall', 2, 8);
       this.shake = Math.max(this.shake || 0, e.power * 1.2);
       const p = this.#bikeWorld(st, 0.4);
       for (let i = 0; i < 40; i++) this.sparks.emit(p, _v.set((Math.random() - 0.5) * 8, Math.random() * 5, (Math.random() - 0.5) * 8), 0.6 + Math.random() * 0.5, new THREE.Color(4, 2.2, 0.8), 0.07, p.y - 0.4);
     }
-    if (e.type === 'offtrack' && this.state === 'race') this.hud.msg('Track limits', '', 900, 'warn');
+    if (e.type === 'offtrack' && this.state === 'race') { this.hud.msg('Track limits', '', 900, 'warn'); this.#say('off', 1, 12); }
   }
 
   #crowdNear(s) {
@@ -770,9 +788,11 @@ class Game {
     // Touch buttons (multi-touch, slide between left/right)
     const touch = $('touch');
     const which = (x, y) => { const el = document.elementFromPoint(x, y); const b = el && el.closest('.tbtn'); return b ? b.id : null; };
-    const upd = () => { for (const id of ['tL', 'tR', 'tB']) $(id).classList.toggle('on', [...this.touchBtns.values()].includes(id)); };
+    const upd = () => { for (const id of ['tL', 'tR', 'tB', 'tG']) $(id).classList.toggle('on', [...this.touchBtns.values()].includes(id)); };
+    // a thumb can slide between the two lean buttons, or between gas and brake, but not across sides
+    const side = (id) => (id === 'tG' || id === 'tB' ? 'r' : 'l');
     touch.addEventListener('pointerdown', (e) => { const id = which(e.clientX, e.clientY); if (id) { this.touchBtns.set(e.pointerId, id); e.preventDefault(); upd(); } });
-    addEventListener('pointermove', (e) => { if (this.touchBtns.has(e.pointerId)) { const id = which(e.clientX, e.clientY); if (id && id !== 'tB' && this.touchBtns.get(e.pointerId) !== 'tB') this.touchBtns.set(e.pointerId, id); upd(); } });
+    addEventListener('pointermove', (e) => { if (this.touchBtns.has(e.pointerId)) { const id = which(e.clientX, e.clientY); if (id && side(id) === side(this.touchBtns.get(e.pointerId))) this.touchBtns.set(e.pointerId, id); upd(); } });
     const end = (e) => { if (this.touchBtns.delete(e.pointerId)) upd(); };
     addEventListener('pointerup', end); addEventListener('pointercancel', end);
   }
@@ -801,17 +821,21 @@ class Game {
     const k = this.keys;
     let right = (k.has('ArrowRight') || k.has('KeyD') ? 1 : 0) - (k.has('ArrowLeft') || k.has('KeyA') ? 1 : 0);
     let brake = k.has('ArrowDown') || k.has('KeyS') || k.has('Space') ? 1 : 0;
+    let gas = k.has('ArrowUp') || k.has('KeyW') ? 1 : 0;
     const tb = [...this.touchBtns.values()];
     if (tb.includes('tR')) right += 1;
     if (tb.includes('tL')) right -= 1;
     if (tb.includes('tB')) brake = 1;
+    if (tb.includes('tG')) gas = 1;
     let analog = null;
     if (this.pad) {
       const ax = this.pad.axes[0] || 0;
       if (Math.abs(ax) > 0.08) analog = Math.sign(ax) * (Math.abs(ax) - 0.08) / 0.92;
       const lt = this.pad.buttons[6] ? this.pad.buttons[6].value : 0;
       const rt = this.pad.buttons[7] ? this.pad.buttons[7].value : 0;
-      brake = Math.max(brake, lt, rt * 0, this.pad.buttons[2] && this.pad.buttons[2].pressed ? 1 : 0, this.pad.buttons[1] && this.pad.buttons[1].pressed ? 1 : 0);
+      const btn = (i) => (this.pad.buttons[i] && this.pad.buttons[i].pressed ? 1 : 0);
+      brake = Math.max(brake, lt, btn(2), btn(1));
+      gas = Math.max(gas, rt, btn(0), btn(12), (this.pad.axes[1] || 0) < -0.4 ? 1 : 0);
     }
     right = clamp(right, -1, 1);
     this.steer = this.steer || 0;
@@ -820,7 +844,7 @@ class Game {
       const rate = right === 0 ? 7 : (Math.sign(right) !== Math.sign(this.steer) && this.steer !== 0 ? 9 : 4.5);
       this.steer += clamp(right - this.steer, -rate * dt, rate * dt);
     }
-    return { steer: this.steer, brake };
+    return { steer: this.steer, brake, throttle: gas };
   }
 
   #onKey(e) {

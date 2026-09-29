@@ -59,12 +59,14 @@ export function step(st, input, track, dt, opts = {}) {
   // --- Longitudinal
   const braking = input.brake > 0.05;
   st.brake += ((braking ? input.brake : 0) - st.brake) * Math.min(1, dt * 10);
-  st.throttle += ((locked || braking ? 0 : 1) - st.throttle) * Math.min(1, dt * 8);
+  st.throttle += ((locked || braking ? 0 : (input.throttle ?? 1)) - st.throttle) * Math.min(1, dt * 8); // player holds gas; autopilot runs flat out
   const circle = Math.sqrt(Math.max(0, 1 - tyre * tyre * 0.92));
   const traction = T.tractionAccel * sf.grip * circle;
   const engine = Math.min(traction, T.powerPerMass / Math.max(v, 1));
   let a = st.throttle * engine - T.drag * v * v - (v > 0.5 ? T.rolling : 0) - T.g * f.slope;
   if (sf.drag > 0) a -= sf.drag * (0.35 + v / 40) * smoothstep(0, 5, v);
+  // engine braking when the player rolls off the gas (autopilot input has no throttle, so its pace is unchanged)
+  if (input.throttle != null && !braking && v > 1) a -= (1 - st.throttle) * (0.6 + v * 0.025);
   a -= st.brake * T.brakeDecel * Math.min(1, sf.grip * 1.1) * Math.max(0.2, Math.sqrt(Math.max(0, 1 - tyre * tyre * 0.85)));
   if (locked) a = 0;
   st.a = a;

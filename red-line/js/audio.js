@@ -1,29 +1,101 @@
 // Web Audio synth: V4 race engine, quickshifter, decel pops, wind, tyres, kerbs, crowd, UI.
+// Plus a race announcer: short pre-recorded lines in assets/voice/<key>-<n>.mp3.
+const VOICE = { intro: 2, go: 2, purple: 2, green: 2, yellow: 2, wall: 2, off: 1, first: 1, gold: 1, pb: 2, silver: 1, bronze: 1, none: 1 };
+// 0.1 s of silent 8 kHz mono WAV, for the older-iOS silent-switch workaround below.
+const SILENT_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACA' + 'gICA'.repeat(266) + 'gA==';
+
 export class Audio {
   constructor() {
     this.ctx = null;
     this.enabled = true;
     this.volume = 0.8;
+    this.voice = null;
+    this.lastLine = {};
   }
 
   unlock() {
+    this.#unmuteIOS();
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ctx = this.ctx = new AC();
+    // out (volume + mute) <- master (engine, effects, crowd; ducked under the announcer) and voice
+    this.out = ctx.createGain();
+    this.out.gain.value = this.enabled ? this.volume : 0;
     this.master = ctx.createGain();
-    this.master.gain.value = this.enabled ? this.volume : 0;
+    this.voiceBus = ctx.createGain();
+    this.voiceBus.gain.value = 1.15;
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.2;
-    this.master.connect(comp).connect(ctx.destination);
+    this.master.connect(this.out);
+    this.voiceBus.connect(this.out);
+    this.out.connect(comp).connect(ctx.destination);
     this.noise = this.#noiseBuffer(2);
     this.#engine();
     this.#beds();
+    this.#loadVoice();
   }
 
   setEnabled(on) {
     this.enabled = on;
-    if (this.master) this.master.gain.setTargetAtTime(on ? this.volume : 0, this.ctx.currentTime, 0.05);
+    if (this.out) this.out.gain.setTargetAtTime(on ? this.volume : 0, this.ctx.currentTime, 0.05);
+  }
+
+  // iPhones silence Web Audio while the ring/silent switch is on. Asking for a "playback" audio session
+  // (Safari 16.4+) makes the game play like a video does; older iOS needs a silent media element playing.
+  #unmuteIOS() {
+    try { if (navigator.audioSession) { navigator.audioSession.type = 'playback'; return; } } catch { /* read-only */ }
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (!ios) return;
+    if (!this.silentEl) {
+      const el = this.silentEl = document.createElement('audio');
+      el.setAttribute('x-webkit-airplay', 'deny');
+      el.loop = true; el.playsInline = true; el.src = SILENT_WAV;
+      document.addEventListener('visibilitychange', () => { if (document.hidden) el.pause(); });
+    }
+    if (this.silentEl.paused) this.silentEl.play().catch(() => {});
+  }
+
+  async #loadVoice() {
+    const ctx = this.ctx, voice = {};
+    await Promise.all(Object.entries(VOICE).map(([k, n]) => Promise.all(Array.from({ length: n }, async (_, i) => {
+      try {
+        const res = await fetch(`assets/voice/${k}-${i + 1}.mp3`);
+        if (!res.ok) return;
+        const data = await res.arrayBuffer();
+        const buf = await new Promise((ok, no) => ctx.decodeAudioData(data, ok, no));
+        (voice[k] = voice[k] || []).push(buf);
+      } catch { /* a missing line just stays quiet */ }
+    }))));
+    this.voice = voice;
+    if (this.pending && ctx.currentTime < this.pending.until) this.say(this.pending.key, this.pending.prio);
+    this.pending = null;
+  }
+
+  // Announcer line. A higher-priority call cuts in; an equal or lower one is dropped while a line plays.
+  say(key, prio = 1) {
+    const c = this.ctx;
+    if (!c || !this.enabled) return false;
+    const t = c.currentTime;
+    if (!this.voice) { this.pending = { key, prio, until: t + 1.5 }; return false; }
+    const set = this.voice[key];
+    if (!set || !set.length) return false;
+    if (this.talkUntil && t < this.talkUntil && prio <= this.talkPrio) return false;
+    if (this.talkSrc) try { this.talkSrc.stop(); } catch { /* already ended */ }
+    let i = Math.floor(Math.random() * set.length);
+    if (set.length > 1 && i === this.lastLine[key]) i = (i + 1) % set.length;
+    this.lastLine[key] = i;
+    const s = c.createBufferSource();
+    s.buffer = set[i];
+    s.connect(this.voiceBus);
+    s.start(t + 0.02);
+    this.talkSrc = s; this.talkPrio = prio; this.talkUntil = t + 0.02 + set[i].duration;
+    // duck the engine, wind and crowd under the voice
+    const g = this.master.gain;
+    g.cancelScheduledValues(t);
+    g.setTargetAtTime(0.45, t, 0.04);
+    g.setTargetAtTime(1, this.talkUntil, 0.3);
+    return true;
   }
 
   #noiseBuffer(sec) {
