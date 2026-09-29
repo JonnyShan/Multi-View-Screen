@@ -685,6 +685,7 @@ class Game {
       const sy = -g.x * Math.sin(a) + g.y * Math.cos(a);
       const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
       this.tiltRaw = Math.atan2(ios ? -sx : sx, Math.abs(sy) + 1e-3) * (ios ? 1 : -1);
+      if (!this.tiltSeen) { this.tiltSeen = true; this.tiltZero = this.tiltRaw; this.#syncToggles(); }
     };
   }
 
@@ -724,7 +725,7 @@ class Game {
       const rt = this.pad.buttons[7] ? this.pad.buttons[7].value : 0;
       brake = Math.max(brake, lt, rt * 0, this.pad.buttons[2] && this.pad.buttons[2].pressed ? 1 : 0, this.pad.buttons[1] && this.pad.buttons[1].pressed ? 1 : 0);
     }
-    if (this.settings.tilt && document.body.classList.contains('is-touch')) {
+    if (this.settings.tilt && this.tiltSeen && document.body.classList.contains('is-touch')) {
       analog = clamp((this.tiltRaw - (this.tiltZero || 0)) / 0.38, -1, 1);
     }
     right = clamp(right, -1, 1);
@@ -892,7 +893,8 @@ class Game {
     $('togAssist').querySelector('b').textContent = s.assist === 'standard' ? 'Standard' : 'Pro';
     $('togSound').querySelector('b').textContent = s.sound ? 'On' : 'Off';
     $('togTilt').querySelector('b').textContent = s.tilt ? 'On' : 'Off';
-    document.body.classList.toggle('tilt', !!s.tilt);
+    // hide the lean buttons only once the phone is actually sending motion data
+    document.body.classList.toggle('tilt', !!s.tilt && !!this.tiltSeen);
     this.audio && this.audio.setEnabled(s.sound);
   }
 
