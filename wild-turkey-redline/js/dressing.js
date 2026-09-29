@@ -1630,6 +1630,9 @@ class Dressing {
   update(t) { this.U.uTime.value = t; }
 }
 
+// Call once right after `new World(...)` (before world.bakeLongShadows, so the props are in the baked shadow map),
+// then update(t) every frame with the same clock as world.update. Adds its footprints to world.placedBoxes.
+// Returns { group, update(t), stats } — stats holds draw call / triangle counts for this quality tier.
 export function buildDressing(scene, track, world) {
   const d = new Dressing(scene, track, world);
   return { group: d.group, update: (t) => d.update(t), stats: d.stats };
