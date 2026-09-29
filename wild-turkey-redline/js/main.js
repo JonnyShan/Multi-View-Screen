@@ -17,6 +17,7 @@ import { track } from './analytics.js';
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
+const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const dampAngle = (a, b, k, dt) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * (1 - Math.exp(-k * dt)); };
 const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 const START_S = -18;
@@ -178,6 +179,8 @@ class Game {
     // Kiosk: every new player passes the age gate (after results or an attract loop).
     if (AGE_GATE && KIOSK && s === 'title' && (prev === 'results' || prev === 'attract')) s = 'gate';
     this.state = s; this.stateT = 0;
+    if (this.bike) this.bike.cue = null;
+    this.fovS = null;
     const show = (id, on) => $(id).classList.toggle('show', on);
     show('gate', s === 'gate');
     show('denied', s === 'denied');
@@ -254,6 +257,7 @@ class Game {
     const pb = prevBest == null || t < prevBest;
     this.result.pb = pb;
     this.result.prevBest = prevBest;
+    this.celebrate = pb || t <= this.medals.gold;
     const bs = this.bestSectors || [Infinity, Infinity, Infinity];
     this.result.sectorCls = splits.map((v, i) => v < bs[i] ? 'purple' : ((this.ghostSplits && v < this.ghostSplits[i]) ? 'green' : 'yellow'));
     this.bestSectors = splits.map((v, i) => Math.min(v, bs[i]));
@@ -430,6 +434,14 @@ class Game {
     }
     this._acc = acc;
     this.#placeBike(this.bike, st);
+    // rider cues: look to the next corner, and swing the inside leg out while braking for it (not once leaned over)
+    const kA = this.#cornerAhead(st.s), la = Math.abs(st.lean);
+    const corner = Math.sign(kA) * ss(0.006, 0.02, Math.abs(kA));
+    const road = st.surface !== 'grass' && st.surface !== 'gravel';
+    this.bike.cue = {
+      look: corner * (1 - ss(0.35, 0.7, la)),
+      dangle: road ? corner * ss(0.35, 0.75, st.brake) * ss(18, 30, st.v) * (1 - ss(0.2, 0.45, la)) : 0,
+    };
     this.bike.update(dt, st);
     const g = this.#ghostUpdate(this.raceT);
     this.#emitFx(st, dt);
@@ -462,6 +474,8 @@ class Game {
     }
     this._acc = acc;
     this.#placeBike(this.bike, st);
+    const T = this.stateT;
+    this.bike.cue = { cel: this.celebrate && Math.abs(st.lean) < 0.25 ? ss(0.35, 0.8, T) * (1 - ss(2.5, 3.1, T)) : 0 };
     this.bike.update(dt, st);
     this.#ghostUpdate(this.raceT + this.stateT);
     this.#emitFx(st, dt);
@@ -487,7 +501,10 @@ class Game {
   }
 
   #onEvent(e, st) {
-    if (e.type === 'upshift') { this.audio.upshift(); this.flame = 0.06; }
+    if (e.type === 'upshift') {
+      this.audio.upshift(); this.flame = 0.06;
+      if (this.state === 'race') { this.camKick = 1; this.shake = Math.max(this.shake || 0, 0.15); }
+    }
     if (e.type === 'downshift') { this.audio.pop(0.8); this.flame = 0.05; }
     if (e.type === 'wall') {
       this.audio.thud(e.power * 1.6);
@@ -582,8 +599,23 @@ class Game {
     const t = performance.now() / 1000;
     cam.rotateX(Math.sin(t * 43) * amp + Math.sin(t * 71) * amp * 0.5);
     cam.rotateY(Math.cos(t * 37) * amp * 0.6);
-    cam.fov = damp(cam.fov, fovBase, 5, dt);
+    // FOV follows speed; each upshift punches it out a couple of degrees and lets it settle
+    this.fovS = damp(this.fovS ?? cam.fov, fovBase, 5, dt);
+    this.camKick = Math.max(0, (this.camKick || 0) - dt * 3.5);
+    cam.fov = this.fovS + 2.4 * this.camKick * this.camKick;
     cam.updateProjectionMatrix();
+  }
+
+  // Signed curvature of the next real corner 10-80 m ahead (same sign as the lean it needs).
+  #cornerAhead(s) {
+    const f = this._fa || (this._fa = {});
+    let best = 0;
+    for (let d = 10; d <= 80; d += 5) {
+      const k = this.track.frame(s + d, f).k;
+      if (Math.abs(k) > Math.abs(best)) best = k;
+      else if (Math.abs(best) > 0.012) break; // past the apex of the first real corner
+    }
+    return best;
   }
 
   // Shift the rendered frame (fractions of the screen) without changing the camera's aim.

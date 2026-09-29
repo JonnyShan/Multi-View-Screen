@@ -1379,9 +1379,13 @@ export class BikeModel {
     const B = this.B, P = this._ps || (this._ps = {
       hip: V(), Yp: V(), Zp: V(), Xp: V(), lumbar: V(), Yc: V(), Zc: V(), Xc: V(), c7: V(), Yn: V(), Zn: V(),
       mid: V(), end: V(), sh: V(), wr: V(), pole: V(), nz: V(), Yu: V(), Yf: V(), t: V(), hj: V(), Yft: V(), Zft: V(), ank: V(), kp: V(), kp2: V(), Yt: V(), Ys: V(),
+      cw: V(), dg: V(),
     });
     const h = clamp(hang, -1, 1), ah = Math.abs(h);
-    const up = clamp(1 - tuck + brake * 0.6, 0, 1);
+    // extras from update(): look = head turned to the next corner, dng = inside leg out on the brakes (signed like
+    // hang), cel = finish-line celebration (sits up, left fist in the air)
+    const look = this.look || 0, dng = this.dng || 0, cel = this.cel || 0;
+    const up = Math.max(clamp(1 - tuck + brake * 0.6, 0, 1), cel);
     // hips slide across the seat to the inside; pelvis, chest and head progressively yaw/roll into the corner
     const fit = this.fit || { dy: 0, dz: 0 };
     const hip = P.hip.set(-h * 0.17, 0.985 + fit.dy - ah * 0.03, -0.3 + fit.dz - up * 0.015);
@@ -1398,13 +1402,13 @@ export class BikeModel {
     P.Xc.setFromMatrixColumn(this.#setBone(B.chest, lumbar, P.Yc, P.Zc), 0);
     const c7 = P.c7.copy(lumbar).addScaledVector(P.Yc, 0.34);
     const na = lerp(0.3, 1.05, up);
-    _q.setFromEuler(_e.set(0, -h * 0.4, h * 0.08));
+    _q.setFromEuler(_e.set(0, -h * 0.4 - look * 0.25, h * 0.08));
     P.Yn.set(0, Math.sin(na), Math.cos(na)).applyQuaternion(_q); P.Zn.set(0, -Math.cos(na), Math.sin(na)).applyQuaternion(_q);
     this.#setBone(B.neck, c7, P.Yn, P.Zn);
     this.helmet.position.copy(c7).addScaledVector(P.Yn, 0.15);
     An.lumbar.copy(lumbar); An.Yc.copy(P.Yc); An.c7.copy(c7); An.Yn.copy(P.Yn);
-    An.Yh.copy(P.Yn).add(_v1.set(-h * 0.25, 1.2, 0)).normalize(); // head lifts to look up the road, dips into the turn
-    this.helmet.rotation.set(-0.12 + up * 0.22, -h * 0.35, -lean * 0.45);
+    An.Yh.copy(P.Yn).add(_v1.set(-h * 0.25 - look * 0.45, 1.2, 0)).normalize(); // head lifts to look up the road, turns to the apex
+    this.helmet.rotation.set(-0.12 + up * 0.22, -h * 0.35 - look * 0.45, -lean * 0.45);
 
     const { mid, end, t } = P;
     for (let k = 0; k < 2; k++) {
@@ -1415,6 +1419,12 @@ export class BikeModel {
       const grip = this.grip[s];
       P.wr.copy(grip).add(t.set(-sg * 0.004, 0.024, -0.058));
       const pole = P.pole.set(sg * (1 + outside * 0.4), -0.75 - inside * 0.45 + outside * 0.12, -0.12 + inside * 0.25 - outside * 0.1).normalize();
+      const fist = k === 0 ? cel : 0;
+      if (fist > 0.001) {
+        // left hand off the bar and punched at the sky, pumping
+        P.wr.lerp(P.cw.copy(sh).add(t.set(0.13, 0.5 + Math.sin((this.t || 0) * 8) * 0.045, 0.08)), fist);
+        pole.lerp(t.set(1, 0, -0.6), fist).normalize();
+      }
       ik(sh, P.wr, 0.28, 0.26, pole, mid, end);
       An.arm[s].wr.copy(P.wr); An.arm[s].pole.copy(pole);
       P.Yu.subVectors(mid, sh).normalize(); P.Yf.subVectors(end, mid).normalize();
@@ -1422,7 +1432,9 @@ export class BikeModel {
       this.#setBone(B['upper_' + s], sh, P.Yu, P.nz);
       this.#setBone(B['elbow_' + s], mid, t.addVectors(P.Yu, P.Yf), P.nz);
       this.#setBone(B['fore_' + s], mid, P.Yf, P.nz);
-      this.#setBone(B['hand_' + s], end, t.copy(grip).add(_v1.set(0, -0.01, 0.022)).sub(end), _v2.set(sg * 0.35, 1, 0.25));
+      t.copy(grip).add(_v1.set(0, -0.01, 0.022)).sub(end).normalize();
+      if (fist > 0.001) t.lerp(P.Yf, fist);
+      this.#setBone(B['hand_' + s], end, t, _v2.set(sg * 0.35, 1, 0.25));
       // --- leg: hip -> ankle IK with the ball of the boot on the peg; inside knee swings out when hanging off
       const hj = P.hj.copy(hip).addScaledVector(P.Xp, sg * 0.095);
       const Yft = P.Yft.set(sg * (0.1 + inside * 0.25), -0.32, 1).normalize();
@@ -1430,6 +1442,14 @@ export class BikeModel {
       const Zft = P.Zft.copy(_v1).addScaledVector(Yft, -_v1.dot(Yft)).normalize();
       const ankle = P.ank.copy(this.pegs[s]).addScaledVector(Yft, -0.1).addScaledVector(Zft, 0.09);
       const kp = P.kp.set(sg * (0.35 + outside * 0.7), 0.3, 1).lerp(P.kp2.set(sg, -0.12, 0.95), ss(0.05, 1, inside)).normalize();
+      const dangle = ss(0, 1, Math.max(0, -sg * dng));
+      if (dangle > 0.001) {
+        // braking for a corner: inside boot off the peg, leg swung out and forward, knee bent, toes down
+        ankle.lerp(P.dg.set(sg * 0.46, 0.46, this.pegs[s].z + 0.36), dangle);
+        kp.lerp(P.kp2.set(sg, 0.35, 0.5), dangle).normalize();
+        Yft.lerp(t.set(sg * 0.5, -0.6, 0.6).normalize(), dangle).normalize();
+        Zft.copy(_v1.set(0, 1, 0.3)).addScaledVector(Yft, -_v1.dot(Yft)).normalize();
+      }
       ik(hj, ankle, 0.42, 0.42, kp, mid, end);
       An.leg[s].ankle.copy(ankle); An.leg[s].pole.copy(kp); An.leg[s].foot.copy(Yft);
       P.Yt.subVectors(mid, hj).normalize(); P.Ys.subVectors(end, mid).normalize();
@@ -1444,15 +1464,34 @@ export class BikeModel {
   }
 
   // Called per frame with the physics state.
+  // this.cue (set by the game each frame, optional): { look, dangle, cel } targets for the rider, see pose().
   update(dt, st) {
+    const c = this.cue || {};
+    this.t = (this.t || 0) + dt;
     this.wheelSpin += (st.v / 0.3) * dt;
     this.frontWheel.userData.spin.rotation.x = this.wheelSpin;
     this.rearWheel.userData.spin.rotation.x = this.wheelSpin;
     this.leanG.rotation.z = st.lean;
-    const p = st.pitch || 0;
+    // Weight transfer (visual only): the bike pitches onto its nose under braking and squats back under power, on a
+    // lightly damped spring so it bobs once as the load shifts. The model's forks and tyres are one piece, so this
+    // pitches the whole bike rather than compressing the forks.
+    const vf = ss(8, 30, st.v);
+    const target = (st.pitch || 0) + (0.022 * (st.brake || 0) - 0.014 * clamp((st.a || 0) / 8, 0, 1) * (st.throttle || 0)) * vf;
+    if (this.pv == null || dt > 0.5) { this.pv = target; this.pw = 0; }
+    for (let n = Math.max(1, Math.ceil(dt * 90)), i = 0, hs = Math.min(dt, 0.5) / n; i < n; i++) {
+      this.pw += (140 * (target - this.pv) - 13 * this.pw) * hs;
+      this.pv += this.pw * hs;
+    }
+    const p = this.pv;
     if (p < 0) { this.pitchG.position.set(0, 0, -0.72); this.body.position.set(0, 0, 0.72); }
     else { this.pitchG.position.set(0, 0, 0.7); this.body.position.set(0, 0, -0.7); }
-    this.pitchG.rotation.x = p;
+    // hard braking at speed: the rear goes light and wags about the front tyre
+    const wag = ss(0.55, 0.9, st.brake || 0) * ss(25, 45, st.v) * 0.026 * Math.sin(this.t * 8.3) * (0.65 + 0.35 * Math.sin(this.t * 2.9));
+    this.pitchG.rotation.set(p, wag, 0);
+    const ease = (cur, to, up, down) => cur + (to - cur) * Math.min(1, dt * (Math.abs(to) > Math.abs(cur) ? up : down));
+    this.look = ease(this.look || 0, c.look || 0, 4, 3);
+    this.dng = ease(this.dng || 0, c.dangle || 0, 5, 3);
+    this.cel = ease(this.cel || 0, c.cel || 0, 5, 4);
     const hang = Math.max(-1, Math.min(1, st.lean / 0.9));
     this.pose(hang, st.lean, st.tuck, st.brake);
     this.m.disc.emissiveIntensity = Math.min(3, st.discHeat * 3);
