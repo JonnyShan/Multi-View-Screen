@@ -29,6 +29,25 @@ const V3 = () => new THREE.Vector3();
 const _v = V3(), _v2 = V3(), _f = {};
 const SMOKE = new THREE.Color(1, 1, 1);
 
+// A .glb loads directly. A .json pack ({ gltf, bin: base64 geometry }) is for hosts that won't serve .glb or
+// fetch data: URIs; it is rewrapped as a GLB in memory and its textures load as sibling .jpg files.
+async function loadModel(loader, url) {
+  if (!url.endsWith('.json')) return loader.loadAsync(url);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const { gltf, bin } = await res.json();
+  const raw = atob(bin), body = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) body[i] = raw.charCodeAt(i);
+  const head = new TextEncoder().encode(JSON.stringify(gltf));
+  const jl = (head.length + 3) & ~3, bl = (body.length + 3) & ~3;
+  const glb = new Uint8Array(28 + jl + bl), dv = new DataView(glb.buffer);
+  dv.setUint32(0, 0x46546C67, true); dv.setUint32(4, 2, true); dv.setUint32(8, glb.length, true);
+  dv.setUint32(12, jl, true); dv.setUint32(16, 0x4E4F534A, true);
+  glb.fill(0x20, 20, 20 + jl); glb.set(head, 20);
+  dv.setUint32(20 + jl, bl, true); dv.setUint32(24 + jl, 0x004E4942, true); glb.set(body, 28 + jl);
+  return loader.parseAsync(glb.buffer, url.slice(0, url.lastIndexOf('/') + 1));
+}
+
 class Game {
   constructor(renderer) {
     this.renderer = renderer;
@@ -53,7 +72,11 @@ class Game {
     progress(0.72, 'Rolling out the bike'); await frame();
     if (QUALITY.tier !== 'low' && PARAMS.get('bike') !== 'code') {
       const loader = new GLTFLoader();
-      const [bikeG, riderG] = await Promise.all(['assets/bike-ai.glb', 'assets/rider-ai.glb'].map(u => loader.loadAsync(u).catch(() => null)));
+      const [bikeG, riderG] = await Promise.all(['assets/bike-ai.glb', 'assets/rider-ai.glb'].map(u => loadModel(loader, u).catch(e => {
+        console.error('Model failed to load, using the built-in one:', u, e);
+        (window.__assetErr ||= []).push(`${u}: ${e && e.message}`);
+        return null;
+      })));
       if (bikeG) setBikeAsset(bikeG.scene);
       if (riderG && PARAMS.get('rider') !== 'code') setRiderAsset(riderG.scene);
     }
