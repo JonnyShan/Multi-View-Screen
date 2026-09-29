@@ -91,6 +91,13 @@ body.kiosk{cursor:none}
 .medal-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:1px}
 .m-gold{background:#E5B858}.m-silver{background:#C8CDD3}.m-bronze{background:#B9784A}
 #press{position:absolute;left:50%;bottom:calc(64px + var(--safe-b));transform:translateX(-50%);font-weight:800;font-style:italic;font-size:26px;letter-spacing:.3em;animation:blink 1.6s ease-in-out infinite;display:none}
+/* pack shot: stands on the dark asphalt at bottom right, warm key light behind, reflection on the ground */
+.product{position:absolute;right:max(6vw,28px);bottom:calc(52px + var(--safe-b));height:min(52vh,600px);margin:0;display:none;pointer-events:none;transition:opacity .5s}
+.product.on{display:block}
+.product img{display:block;height:100%;width:auto;filter:drop-shadow(0 26px 34px rgba(0,0,0,.6));-webkit-box-reflect:below 1px linear-gradient(transparent 76%,rgba(255,255,255,.2))}
+.product::before{content:"";position:absolute;left:50%;top:6%;width:300%;height:92%;transform:translateX(-50%);background:radial-gradient(closest-side,rgba(217,169,91,.2),rgba(217,169,91,.06) 55%,rgba(217,169,91,0));z-index:-1}
+.product::after{content:"";position:absolute;left:50%;bottom:-3%;width:150%;height:9%;transform:translateX(-50%);background:radial-gradient(closest-side,rgba(0,0,0,.7),rgba(0,0,0,0));z-index:-1}
+#title.attract .product{opacity:0}
 #title.attract{background:none}
 #title.attract .tleft{opacity:0;pointer-events:none}
 #title.attract #press{display:block}
@@ -225,6 +232,7 @@ body.cine .lbx{height:9vh}
   #title{align-items:flex-end;padding:0 22px calc(56px + var(--safe-b));background:linear-gradient(0deg,rgba(10,7,6,.92) 0%,rgba(10,7,6,.55) 55%,rgba(10,7,6,0) 80%)}
   .tleft .game-title{font-size:92px}
   .menu .btn{min-width:0;width:100%}
+  .product{height:min(40vh,560px);bottom:calc(64px + var(--safe-b))}
   .how-grid{grid-template-columns:1fr}
   .hud-tl{left:12px;padding:8px 16px 10px 16px;min-width:0}
   .laptime{font-size:32px}
@@ -238,6 +246,9 @@ body.cine .lbx{height:9vh}
   .spd b{font-size:52px}
   #results{flex-direction:column;justify-content:flex-start;overflow:auto;padding-top:40px}
   #legal{font-size:9.5px;letter-spacing:.06em;white-space:normal;width:calc(100vw - 24px);text-align:center;line-height:1.35}
+}
+@media (max-aspect-ratio: 1/1) and (max-width: 720px){
+  .product{top:calc(14px + var(--safe-t));bottom:auto;right:14px;height:27vh}
 }
 @media (max-height: 520px){
   .hud-bc{bottom:calc(18px + var(--safe-b))}
@@ -309,6 +320,7 @@ body.is-touch.landscape .hud-bc{bottom:calc(24px + var(--safe-b))}
     </div>
     <div class="targets" id="targets"></div>
   </div>
+  <figure class="product" id="product"><img id="productImg" alt="" decoding="async"></figure>
   <div class="attract-brand"><div class="wm">Wild Turkey</div><div class="game-title"><span class="r">Red</span> Line</div></div>
   <div id="press">Press start</div>
 </section>

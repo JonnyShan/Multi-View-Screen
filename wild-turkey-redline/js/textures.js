@@ -286,6 +286,21 @@ export function fenceTexture() {
   return tex(c, { srgb: true });
 }
 
+// Brand logo lockup (white on transparent mask, see BRAND.logo), tinted per board. drawLogo() draws it
+// centred at (x, y), h px tall, squeezed horizontally by sx; it returns false when no logo is loaded.
+let LOGO = null;
+export function setLogo(img) { LOGO = img; }
+export function drawLogo(g, x, y, h, color = BRAND.cream, sx = 1) {
+  if (!LOGO) return false;
+  const w = h * LOGO.width / LOGO.height;
+  const [c, t] = canvas(Math.ceil(w), Math.ceil(h));
+  t.drawImage(LOGO, 0, 0, w, h);
+  t.globalCompositeOperation = 'source-in';
+  t.fillStyle = color; t.fillRect(0, 0, w, h);
+  g.drawImage(c, x - w * sx / 2, y - h / 2, w * sx, h);
+  return true;
+}
+
 function wordmark(g, x, y, size, color = BRAND.cream, spacing = 0.12) {
   g.save();
   g.font = `700 ${size}px ${SLAB}`;
@@ -315,7 +330,7 @@ export function airfenceTexture() {
     g.fillStyle = grd; g.fillRect(x, 0, 64, H);
   }
   g.fillStyle = BRAND.cream; g.fillRect(0, H - 14, W, 6);
-  wordmark(g, W * 0.3, H * 0.44, 58, BRAND.cream);
+  if (!drawLogo(g, W * 0.3, H * 0.47, 104, BRAND.cream)) wordmark(g, W * 0.3, H * 0.44, 58, BRAND.cream);
   g.save();
   g.font = `800 italic 52px ${COND}`; g.fillStyle = BRAND.gold; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText('KENTUCKY STRAIGHT BOURBON', W * 0.76, H * 0.46);
@@ -328,10 +343,16 @@ export function billboardTexture(variant = 0) {
   const [c, g] = canvas(W, H);
   if (variant === 0) {
     g.fillStyle = BRAND.ink; g.fillRect(0, 0, W, H);
-    wordmark(g, W / 2, H * 0.42, 112, BRAND.cream, 0.1);
-    redLine(g, W / 2, H * 0.66, W * 0.62, 7);
-    g.font = `600 36px ${SLAB}`; g.fillStyle = BRAND.gold; g.textAlign = 'center';
-    g.fillText('KENTUCKY STRAIGHT BOURBON WHISKEY', W / 2, H * 0.84);
+    if (drawLogo(g, W / 2, H * 0.5, H * 0.8, BRAND.cream)) {
+      const lw = H * 0.8 * 1.52 / 2 + 44;
+      g.fillStyle = BRAND.gold; g.fillRect(56, H / 2 - 2, W / 2 - lw - 56, 4); g.fillRect(W / 2 + lw, H / 2 - 2, W / 2 - lw - 56, 4);
+      redLine(g, W / 2, H - 22, W, 8);
+    } else {
+      wordmark(g, W / 2, H * 0.42, 112, BRAND.cream, 0.1);
+      redLine(g, W / 2, H * 0.66, W * 0.62, 7);
+      g.font = `600 36px ${SLAB}`; g.fillStyle = BRAND.gold; g.textAlign = 'center';
+      g.fillText('KENTUCKY STRAIGHT BOURBON WHISKEY', W / 2, H * 0.84);
+    }
   } else if (variant === 1) {
     g.fillStyle = BRAND.red; g.fillRect(0, 0, W, H);
     g.font = `800 italic 130px ${COND}`; g.fillStyle = BRAND.cream; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -360,9 +381,21 @@ export function gantryTexture() {
   const [c, g] = canvas(W, H);
   g.fillStyle = BRAND.ink; g.fillRect(0, 0, W, H);
   g.fillStyle = BRAND.red; g.fillRect(0, H - 22, W, 22);
-  wordmark(g, W * 0.27, H * 0.45, 120, BRAND.cream, 0.1);
+  // brand (logo, or the wordmark) + game name as one group, centred and scaled to sit inside the posts
+  const cy = H * 0.45, gap = 110, size = 120, logoH = H * 0.8;
+  let leftW;
+  if (LOGO) leftW = logoH * LOGO.width / LOGO.height;
+  else { g.font = `700 ${size}px ${SLAB}`; if ('letterSpacing' in g) g.letterSpacing = `${size * 0.1}px`; leftW = g.measureText(BRAND.wordmark).width; }
+  if ('letterSpacing' in g) g.letterSpacing = '0px';
+  g.font = `800 italic 170px ${COND}`;
+  const rightW = g.measureText(BRAND.game).width, total = leftW + gap + rightW;
+  const k = Math.min(1, W * 0.84 / total);
+  g.save();
+  g.translate((W - total * k) / 2, cy * (1 - k)); g.scale(k, k);
+  if (!drawLogo(g, leftW / 2, cy, logoH, BRAND.cream)) wordmark(g, leftW / 2, cy, size, BRAND.cream, 0.1);
   g.font = `800 italic 170px ${COND}`; g.fillStyle = BRAND.redHot; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('RED LINE', W * 0.72, H * 0.47);
+  g.fillText(BRAND.game, leftW + gap + rightW / 2, cy + 2);
+  g.restore();
   return tex(c, { repeat: false });
 }
 
@@ -415,7 +448,7 @@ export function rickhouseSignTexture() {
   const W = 1024, H = 160;
   const [c, g] = canvas(W, H);
   g.clearRect(0, 0, W, H);
-  wordmark(g, W / 2, H / 2, 118, '#efe6d2', 0.14);
+  if (!drawLogo(g, W / 2, H / 2, H * 0.96, '#efe6d2')) wordmark(g, W / 2, H / 2, 118, '#efe6d2', 0.14);
   return tex(c, { repeat: false });
 }
 

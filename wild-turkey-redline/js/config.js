@@ -17,6 +17,13 @@ export const BRAND = {
   mode: 'Time Attack',
   riderNumber: '54',
 
+  // Title-screen pack shot, bottom right (PNG with transparency, bottle upright, tightly cropped).
+  // Hidden if the file is missing.
+  product: { img: 'assets/brand/bottle.png', alt: 'Wild Turkey Kentucky Straight Bourbon Whiskey' },
+  // Logo lockup for trackside boards and the start/finish gantry: white artwork on transparent, tinted per board.
+  // Missing file = the text wordmark instead.
+  logo: 'assets/brand/logo.png',
+
   // Responsible-marketing copy. Region-specific line is picked from AGE_RULES below.
   responsible: 'Never drink and ride.',
 };
@@ -96,3 +103,6 @@ export const QUALITY = (() => {
 
 export const PARAMS = new URLSearchParams(location.search);
 export const KIOSK = PARAMS.get('kiosk') === '1';
+// Date-of-birth age gate before the title screen. Off for the demo; switch on (or add ?gate=1) before any
+// public or client-facing release: alcohol marketing codes generally require one.
+export const AGE_GATE = PARAMS.get('gate') === '1';

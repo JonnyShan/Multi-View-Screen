@@ -1,6 +1,6 @@
 // Wild Turkey RED LINE: boot, game states, cameras, input, timing, leaderboard.
 import * as THREE from 'three';
-import { BRAND, AGE_RULES, DEFAULT_REGION, TUNE, QUALITY, QUALITY_TIERS, KIOSK, PARAMS } from './config.js';
+import { BRAND, AGE_RULES, DEFAULT_REGION, TUNE, QUALITY, QUALITY_TIERS, KIOSK, AGE_GATE, PARAMS } from './config.js';
 import * as TX from './textures.js';
 import { Track, buildTrackMeshes, buildRubber, SECTORS } from './track.js';
 import { World } from './world.js';
@@ -114,7 +114,7 @@ class Game {
     // a slow device may have tripped the load watchdog in index.html; the game did load, so clear it
     clearTimeout(window.__boot);
     if ($('fatal').dataset.watchdog) $('fatal').style.display = 'none';
-    this.#setState(Store.sessionGet('gate') === '1' && !KIOSK ? 'title' : 'gate');
+    this.#setState(!AGE_GATE || (Store.sessionGet('gate') === '1' && !KIOSK) ? 'title' : 'gate');
     $('loader').classList.remove('show');
     this.last = performance.now();
     requestAnimationFrame(this.loop);
@@ -170,7 +170,7 @@ class Game {
   #setState(s) {
     const prev = this.state;
     // Kiosk: every new player passes the age gate (after results or an attract loop).
-    if (KIOSK && s === 'title' && (prev === 'results' || prev === 'attract')) s = 'gate';
+    if (AGE_GATE && KIOSK && s === 'title' && (prev === 'results' || prev === 'attract')) s = 'gate';
     this.state = s; this.stateT = 0;
     const show = (id, on) => $(id).classList.toggle('show', on);
     show('gate', s === 'gate');
@@ -273,7 +273,7 @@ class Game {
     const idle = this.idle = (this.lastInput !== this._li ? 0 : (this.idle || 0) + dt);
     this._li = this.lastInput;
     if (s === 'title' && idle > 22 && this.photo == null && !$('how').classList.contains('show') && !$('board').classList.contains('show')) this.#setState('attract');
-    if (s === 'results' && KIOSK && idle > 45) this.#setState('gate');
+    if (s === 'results' && KIOSK && idle > 45) this.#setState(AGE_GATE ? 'gate' : 'title');
     if (s === 'denied' && KIOSK && this.stateT > 8) this.#setState('gate');
   }
 
@@ -1137,9 +1137,21 @@ function guessRegion() {
 async function boot() {
   const bar = $('loadbar'), txt = $('loadtxt');
   const progress = (p, t) => { bar.style.width = (p * 100).toFixed(0) + '%'; if (t) txt.textContent = t; };
+  const pack = $('product');
+  if (pack && BRAND.product) { // title pack shot: shown only once the image has loaded
+    const img = $('productImg');
+    img.onload = () => pack.classList.add('on');
+    img.alt = BRAND.product.alt;
+    img.src = BRAND.product.img;
+  }
   progress(0.03, 'Loading fonts');
   const fonts = ['700 40px "Zilla Slab"', '600 40px "Zilla Slab"', 'italic 800 40px "Barlow Condensed"', 'italic 600 40px "Barlow Condensed"', '700 40px "Barlow Condensed"'];
   await Promise.race([Promise.all(fonts.map(f => document.fonts.load(f))), new Promise(r => setTimeout(r, 4000))]);
+  if (BRAND.logo) {
+    const logo = new Image();
+    logo.src = BRAND.logo;
+    await Promise.race([logo.decode().then(() => TX.setLogo(logo), () => {}), new Promise(r => setTimeout(r, 3000))]);
+  }
   let renderer;
   try {
     renderer = new THREE.WebGLRenderer({ canvas: $('gl'), antialias: false, powerPreference: 'high-performance', stencil: false });

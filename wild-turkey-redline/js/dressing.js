@@ -115,6 +115,7 @@ function buildAtlas(maxAniso) {
     const items = [[BRAND.wordmark, `700 64px ${SLAB}`, BRAND.cream], [BRAND.game, `italic 800 96px ${COND}`, BRAND.redHot],
       [BRAND.circuit.toUpperCase(), `600 50px ${SLAB}`, BRAND.gold]];
     [0, 1, 2, 1].forEach((k, n) => {
+      if (k === 0 && TX.drawLogo(g, 300, y + 62, 104, BRAND.cream, 16 / 22)) return;
       text(items[k][0], [300, 780, 1330, 1800][n], y + 62, items[k][1], items[k][2], { maxW: n === 2 ? 560 : 420, spacing: k === 0 ? 8 : 2 });
     });
     reg('bridge', 0, y, 2048, 128, 0.45);
@@ -129,6 +130,7 @@ function buildAtlas(maxAniso) {
       g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(x, y + 42, 512, 2); g.fillRect(x, y + 86, 512, 2);
       g.fillStyle = 'rgba(20,20,20,0.7)';
       for (let b = 12; b < 512; b += 32) for (const by of [10, 64, 118]) { g.beginPath(); g.arc(x + b, y + by, 3, 0, Math.PI * 2); g.fill(); }
+      if (label === BRAND.wordmark && TX.drawLogo(g, x + 256, y + 64, 108, fg)) label = null;
       if (label) text(label, x + 256, y + 66, font, fg, { maxW: 470, spacing: 4 });
       // grime toward the bottom
       const grd = g.createLinearGradient(0, y, 0, y + 128);
