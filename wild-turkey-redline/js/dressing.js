@@ -441,15 +441,14 @@ class Frame {
 // Low-poly figure, feet at local origin, facing +z.
 function person(F, suit, { legs = null, cap = null, skin = COL.skin, arm = 0, boots = COL.ink } = {}) {
   const L = legs || suit;
-  F.box(-0.09, 0.44, 0, 0.15, 0.8, 0.18, L, 'fabric');
-  F.box(0.09, 0.44, 0, 0.15, 0.8, 0.18, L, 'fabric');
-  F.box(0, 0.05, 0.03, 0.36, 0.1, 0.27, boots, 'rubber');
+  F.box(0, 0.44, 0, 0.34, 0.88, 0.19, L, 'fabric');
+  F.box(0, 0.04, 0.03, 0.36, 0.08, 0.26, boots, 'rubber');
   F.box(0, 1.14, 0, 0.42, 0.6, 0.24, suit, 'fabric');
   F.box(-0.27, 1.15, 0, 0.11, 0.56, 0.13, suit, 'fabric');
   if (arm) F.box(0.3, 1.62, 0.12, 0.11, 0.56, 0.13, suit, 'fabric', 0, -0.35, 0.25);
   else F.box(0.27, 1.15, 0, 0.11, 0.56, 0.13, suit, 'fabric');
-  F.part(GEO.ico, 0, 1.58, 0, 0.115, 0.13, 0.115, skin, F.kit.A.SW.matte);
-  if (cap) { F.box(0, 1.69, 0.0, 0.25, 0.08, 0.25, cap, 'fabric'); F.box(0, 1.665, 0.17, 0.22, 0.025, 0.12, cap, 'fabric'); }
+  F.part(GEO.oct, 0, 1.58, 0, 0.12, 0.14, 0.12, skin, F.kit.A.SW.matte, 0, 0.4, 0);
+  if (cap) F.box(0, 1.68, 0.05, 0.24, 0.07, 0.34, cap, 'fabric');
 }
 
 // Crowd figure for instancing. tint: 1 = shirt (instance colour), 0.3 = trousers, -1 = skin (per-instance tone);
@@ -493,6 +492,12 @@ function crowdMaterial(U) {
         vec2 cd = transformed.xy - vec2(0.28, 1.42);
         transformed.xy = vec2(0.28, 1.42) + vec2(cc * cd.x - cs * cd.y, cs * cd.x + cc * cd.y);
         transformed.y += max(0.0, sin(uTime * (3.0 + cph * 4.0) + cph * 30.0)) * 0.13 * step(0.9, fract(cph * 7.13));`);
+  };
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (sh, r) => {
+    prev(sh, r);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      totalEmissiveRadiance += diffuseColor.rgb * 0.2;`);
   };
   mat.customProgramCacheKey = () => 'dressing-crowd';
   return mat;
@@ -623,6 +628,7 @@ class Dressing {
     this.#marshalPosts();
     this.#tvTowers();
     this.#spectatorBanks();
+    this.#fanZones();
     this.#flagClusters();
     this.#roofFlags();
     this.#paddock();
@@ -672,7 +678,8 @@ class Dressing {
   flag(x, y, z, w, h, cell, portrait, yawJitter = 0) {
     this.flags.push({ x, y, z, w, h, cell, portrait, yaw: this.windYaw + yawJitter });
   }
-  get windYaw() { return Math.atan2(0.62, 0.78); } // flags stream toward +x / -z (east-south-east)
+  // Flags stream toward north-north-west: across the main straight and Rickhouse Row, so riders see them broadside.
+  get windYaw() { return Math.atan2(-0.98, -0.2); }
 
   // Things the world placed without reserving a footprint: billboards, the final-corner stand, horse fences.
   #worldObstacles() {
@@ -717,9 +724,8 @@ class Dressing {
     this.tyreLen = [-1, 1].reduce((a, sd) => a + mask[sd].reduce((x, v) => x + v, 0) * ds, 0);
     const stacks = TIER <= 1;
     const lathe = new THREE.LatheGeometry([
-      new THREE.Vector2(0.12, 0.93), new THREE.Vector2(0.14, 1.0), new THREE.Vector2(0.29, 1.01),
-      new THREE.Vector2(0.32, 0.95), new THREE.Vector2(0.32, 0.05),
-    ], 6);
+      new THREE.Vector2(0.14, 0.98), new THREE.Vector2(0.29, 1.01), new THREE.Vector2(0.325, 0.94), new THREE.Vector2(0.325, 0.05),
+    ], 5);
     const sw = this.A.SW, R = this.A.R;
     const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), d = new THREE.Vector3();
     let panel = 0;
@@ -788,7 +794,6 @@ class Dressing {
           }
           if (!ok) continue;
           const reg = R[`h${n++ % 2 ? B : A}`];
-          const key = this.key(p);
           const wa = this.wall(p, side) + 0.72, wb = this.wall(p + len, side) + 0.72;
           if (side < 0) {
             this.pt(p, -wa, y0, a); this.pt(p + len, -wb, y0, b); this.pt(p + len, -wb, y1, c); this.pt(p, -wa, y1, d);
@@ -867,7 +872,7 @@ class Dressing {
 
   // ------------------------------------------------------------------ pit lane surface, pit wall stands, crew
   #pitLane() {
-    const T = this.T, sw = this.A.SW, R = this.A.R;
+    const sw = this.A.SW, R = this.A.R;
     const s0 = -104, s1 = 162, lat0 = LANES.wall + 1.2, lat1 = 35.8;
     const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), d = new THREE.Vector3();
     const ground = (s, lat, up, out) => {
@@ -877,7 +882,6 @@ class Dressing {
     };
     const tile = R.asphalt;
     for (let s = s0; s < s1; s += 8) {
-      const key = this.key(s);
       const sb = Math.min(s + 8, s1);
       const lA = (q) => q < -70 ? lat1 - Math.min(1, (-70 - q) / 34) * (lat1 - lat0 - 3.5) : q > 130 ? lat1 - Math.min(1, (q - 130) / 32) * (lat1 - lat0 - 3.5) : lat1;
       for (let l = lat0; l < lat1 - 0.01; l += 4.8) {
@@ -1080,7 +1084,6 @@ class Dressing {
 
   // ------------------------------------------------------------------ spectator banks
   #spectatorBanks() {
-    const T = this.T;
     const all = [
       { s0: 2690, s1: 2968, side: 1 },   // Home Sweep infield (title backdrop)
       { s0: 300, s1: 505, side: -1 },    // braking zone for the Lawrenceburg Hairpin
@@ -1090,7 +1093,7 @@ class Dressing {
       { s0: 2190, s1: 2420, side: 1 },   // Bluegrass Bend
     ];
     const banks = all.slice(0, pick(6, 5, 3, 2));
-    const dens = pick(0.37, 0.3, 0.22, 0.14);
+    const dens = pick(0.31, 0.27, 0.2, 0.13);
     const lite = TIER >= 2;
     const geoBase = crowdGeometry(this.A, lite);
     const mat = crowdMaterial(this.U);
@@ -1105,7 +1108,7 @@ class Dressing {
       }
       return prof[prof.length - 1][1];
     };
-    const grass = [C('#5b7433'), C('#6a8339'), C('#7d8a45'), C('#8f8a55')];
+    const grass = [new THREE.Color(0.95, 1.0, 0.9), new THREE.Color(1.12, 1.12, 0.95), null, new THREE.Color(1.45, 1.25, 0.85)];
     const pal = [COL.red, COL.red, COL.redHot, COL.burgundy, COL.cream, COL.white, COL.white, COL.ink, COL.orange, COL.blue,
       COL.yellow, C('#3d6b45'), COL.grey, C('#2e4a7a'), C('#d9d4c8'), C('#7a3b1e'), COL.gold];
     const rr = TX.rng(4242);
@@ -1144,7 +1147,7 @@ class Dressing {
         const clump = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(o.s * 0.061 + side * 3.1) * Math.sin(o.s * 0.023 + 1.3));
         for (let l = 1.2; l < 11.9; l += 1.2) {
           for (let n = 0; n < 2; n++) {
-            if (rr() > dens * clump * 1.1) continue;
+            if (rr() > dens * clump * (l < 4 ? 1.5 : 1.05)) continue;
             const s = o.s + n + rr() * 0.8, ll = l + (rr() - 0.5) * 0.6;
             const f = fade(s);
             if (f <= 0.15) continue;
@@ -1366,13 +1369,13 @@ class Dressing {
     }
     // paddock surface: asphalt apron under the trucks
     const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), d = new THREE.Vector3();
-    const tile = this.A.R.asphalt;
+    const tile = this.A.R.asphalt, hard = C('#8c8474'); // dusty hard standing
     for (let al = -100; al < 104; al += 8) for (let lt = 64; lt < 106; lt += 8) {
       const P = (u, v, out) => { const q = at(u, v); return out.set(q.x, this.W.heightAt(q.x, q.z) + 0.04, q.z); };
       const test = at(al + 4, lt + 4);
       if (sp.hit(test.x, test.z, 2, (1 << K_TRUNK) | (1 << K_SOLID))) continue;
       P(al + 8, lt, a); P(al, lt, b); P(al, lt + 8, c); P(al + 8, lt + 8, d);
-      this.flat.quad(0, a, b, c, d, COL.asphalt, tile);
+      this.flat.quad(0, a, b, c, d, hard, tile);
     }
     // parked service vehicles behind a few marshal posts
     this.#serviceVehicles();
@@ -1422,14 +1425,70 @@ class Dressing {
     }
   }
 
-  #pagoda(F, rr, size) {
+  #pagoda(F, rr, size, roof = COL.white) {
     const R = this.A.R, h = 2.5, hw = size / 2;
     for (const x of [-hw, hw]) for (const z of [-hw, hw]) F.post(x, 0, h, z, 0.05, COL.white, 'metal', 5);
-    F.part(GEO.pyr, 0, h + 0.75, 0, hw * 1.43, 1.5, hw * 1.43, COL.white, this.A.SW.fabric);
+    F.part(GEO.pyr, 0, h + 0.75, 0, hw * 1.43, 1.5, hw * 1.43, roof, this.A.SW.fabric);
     for (let k = 0; k < 4; k++) F.panel(Math.sin(k * Math.PI / 2) * (hw + 0.01), h - 0.15, Math.cos(k * Math.PI / 2) * (hw + 0.01), size, 0.3, R.valance, COL.white, k * Math.PI / 2);
     F.box(0, 0.75, 0, size * 0.55, 0.05, 0.8, COL.white, 'plastic');
     const pal = [COL.red, COL.cream, COL.ink, COL.blue, COL.white];
     for (let k = 0; k < 2; k++) if (rr() < 0.7) person(F.sub((rr() - 0.5) * size * 0.8, 0, (rr() - 0.5) * size * 0.8, rr() * 6), pal[(rr() * 5) | 0], { legs: COL.denim });
+  }
+
+  // Hospitality marquees and fan campsites (dome tents, gazebos, fans, flags) behind the fence.
+  #fanZones() {
+    const zones = [
+      { s0: 318, s1: 520, side: 1, kind: 'marquee' },    // inside of the main straight braking zone
+      { s0: 1300, s1: 1540, side: 1, kind: 'camp' },     // Rickhouse Row infield
+      { s0: 2440, s1: 2680, side: -1, kind: 'camp' },    // outside of the Home Sweep
+      { s0: 1080, s1: 1240, side: -1, kind: 'camp' },    // Palisades
+    ].slice(0, pick(4, 3, 2, 1));
+    const tentCols = [COL.red, COL.blue, COL.orange, COL.green, COL.yellow, C('#7d8b92'), COL.cream, C('#5a3f8c')];
+    const shirt = [COL.red, COL.redHot, COL.cream, COL.white, COL.ink, COL.blue, COL.orange, COL.yellow, COL.burgundy, C('#3d6b45')];
+    const sp = this.space;
+    for (const z of zones) {
+      const rr = TX.rng(Math.round(z.s0 * 3 + z.side + 7));
+      const camp = z.kind === 'camp';
+      const key = this.key(z.s0);
+      const rows = camp ? [3.2, 8.2, 13.5, 19] : [5.2, 12.5];
+      let n = 0;
+      for (let s = z.s0; s < z.s1; s += camp ? 4.6 : 8.5) {
+        for (const l of rows) {
+          if (rr() < (camp ? pick(0.5, 0.55, 0.6) : 0.15)) continue;
+          const ss = s + (rr() - 0.5) * 2, w = this.wall(ss, z.side);
+          const lat = z.side * (w + CLEAR + l + (rr() - 0.5) * 1.4);
+          const st = this.site(ss, lat, 2);
+          const r = camp ? 1.7 : 3.1;
+          if (!sp.ok(st.x, st.z, r)) continue;
+          const F = new Frame(this.kit, key, st.m.clone().multiply(new THREE.Matrix4().makeRotationY(camp ? rr() * 6.28 : (rr() - 0.5) * 0.3)));
+          if (camp) {
+            const big = rr() < 0.25;
+            F.part(GEO.dome, 0, -0.05, 0, big ? 1.8 : 1.25, big ? 1.35 : 1.05, big ? 1.5 : 1.05, tentCols[(rr() * tentCols.length) | 0], this.A.SW.fabric);
+            F.box(0, 0.35, big ? 1.42 : 1.0, 0.55, 0.6, 0.06, COL.black, 'fabric', 0, -0.35);
+            if (rr() < 0.35) {
+              F.post(-1.4, 0, 3.4, 0.4, 0.025, COL.steel, 'metal', 4);
+              const top = new THREE.Vector3(-1.4, 3.4, 0.4).applyMatrix4(F.base);
+              this.flag(top.x, top.y - 0.75, top.z, 1.15, 0.75, [0, 2, 4, 6, 7, 5][(rr() * 6) | 0], 0, (rr() - 0.5) * 0.5);
+            }
+            if (rr() < 0.4) F.box(1.6, 0.22, 0.4, 0.5, 0.45, 0.4, [COL.blue, COL.red, COL.white][(rr() * 3) | 0], 'plastic');
+          } else {
+            this.#pagoda(F, rr, rr() < 0.4 ? 6 : 4, [COL.white, COL.red, COL.cream, COL.white][n % 4]);
+          }
+          // fans standing about
+          const fans = camp ? (rr() < 0.45 ? 1 : 0) : 2 + ((rr() * 2) | 0);
+          for (let k = 0; k < fans && TIER <= 2; k++) {
+            const a = rr() * 6.28, d = r + 0.5 + rr() * 1.2;
+            person(F.sub(Math.cos(a) * d, 0, Math.sin(a) * d, rr() * 6.28), shirt[(rr() * shirt.length) | 0], { legs: rr() < 0.7 ? COL.denim : COL.ink, cap: rr() < 0.3 ? COL.red : null, arm: rr() < 0.15 ? 1 : 0 });
+          }
+          sp.add(st.x, st.z, r + 0.6, K_MINE);
+          n++;
+        }
+      }
+      if (n) {
+        for (let s = z.s0; s < z.s1; s += 24) { const p = this.pt(s + 12, z.side * (this.wall(s, z.side) + 12)); sp.reserve(p.x, p.z, 12); }
+        this.placed.push(`${z.kind}${z.s0}:${n}`);
+      }
+    }
   }
 
   #serviceVehicles() {
@@ -1535,7 +1594,7 @@ class Dressing {
     }
     // flags
     if (this.flags.length) {
-      const geo = new THREE.PlaneGeometry(1, 1, TIER <= 1 ? 10 : 6, 3).translate(0.5, 0.5, 0);
+      const geo = new THREE.PlaneGeometry(1, 1, TIER <= 1 ? 8 : 5, 2).translate(0.5, 0.5, 0);
       const n = this.flags.length;
       const attr = new Float32Array(n * 3);
       const im = new THREE.InstancedMesh(geo, flagMaterial(this.U, buildFlagAtlas(8)), n);
@@ -1562,6 +1621,7 @@ class Dressing {
       drawCalls: draws,
       tris: Math.round(this.kit.tris + this.low.tris + this.flat.tris + this.glow.tris + (this.flagTris || 0) + (this.crowdTris || 0) + (this.bermTris || 0)),
       props: Math.round(this.kit.tris + this.low.tris + this.flat.tris), kitTris: Math.round(this.kit.tris), tyreTris: Math.round(this.low.tris), tyreLen: Math.round(this.tyreLen), crowd: this.crowdCount || 0, flags: this.flags.length,
+      reserved: this.space.boxes.length - this.space.worldBoxes,
       placed: this.placed.join(' '),
       banks: this.banks.map(b => `${b.s0}:${b.people}/${b.ok}of${b.stations}`).join(' '),
     };

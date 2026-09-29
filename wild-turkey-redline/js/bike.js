@@ -68,7 +68,8 @@ function tyreTex() {
     const vm = vOf(side * (Math.PI / 2 + TYRE.d * 0.5));
     const yc = Y(vm), th = Math.abs(Y(vOf(side * (Math.PI / 2 + TYRE.d * 0.85))) - Y(vOf(side * (Math.PI / 2 + TYRE.d * 0.15))));
     g.save();
-    g.translate(side < 0 ? W * 0.17 : 0, yc);   // the -x sidewall is a 180 deg rotation of the +x one, so both read correctly
+    // letter tops face the tread on both sidewalls (v runs inward on the +x side, outward on the -x side)
+    if (side > 0) { g.translate(W, yc); g.scale(-1, -1); } else g.translate(W * 0.17, yc);
     g.font = `700 ${th * 0.62}px ${COND}`; g.textAlign = 'center'; g.textBaseline = 'middle';
     for (let k = 0; k < 3; k++) {
       const x = (k + 0.5) / 3 * W;
@@ -130,15 +131,19 @@ function helmetTex() {
   g.fillStyle = BRAND.gold; g.fillRect(0, Y(0.7 * PI) - 4, W, 4);
   // eye port (under the visor)
   g.fillStyle = '#0b0a0a';
-  g.beginPath(); g.roundRect(X(0.25 - 0.178), Y(0.365 * PI), X(0.356), Y(0.2 * PI), 26); g.fill();
+  {
+    const x0 = X(0.25 - 0.178), y0 = Y(0.365 * PI), w = X(0.356), h = Y(0.2 * PI), r = 26;
+    g.beginPath(); g.moveTo(x0 + r, y0); g.arcTo(x0 + w, y0, x0 + w, y0 + h, r); g.arcTo(x0 + w, y0 + h, x0, y0 + h, r);
+    g.arcTo(x0, y0 + h, x0, y0, r); g.arcTo(x0, y0, x0 + w, y0, r); g.closePath(); g.fill();
+  }
   // chin vent + brow vents + rear exhaust slots
   g.fillStyle = '#111';
   for (let k = -2; k <= 2; k++) g.fillRect(X(0.25 + k * 0.012) - 3, Y(0.62 * PI), 6, Y(0.05 * PI));
   for (const s of [-1, 1]) g.fillRect(X(0.25 + s * 0.03) - 8, Y(0.2 * PI), 16, Y(0.06 * PI));
   for (let k = -1; k <= 1; k++) g.fillRect(X(0.75 + k * 0.022) - 4, Y(0.42 * PI), 8, Y(0.08 * PI));
   // rider number on both sides (u=0.5 left, u=0/1 right); reads correctly from either side
-  g.font = `800 italic ${H * 0.16}px ${COND}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  for (const u of [0.5, 0, 1]) {
+  g.font = `800 italic ${H * 0.13}px ${COND}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (const u of [0.565, -0.065, 0.935]) {
     g.fillStyle = BRAND.ink; g.fillText(BRAND.riderNumber, X(u), Y(0.5 * PI));
   }
   return canvasTex(c);
@@ -321,7 +326,7 @@ function riderAtlas(pass) {
   region('knuckle', (R) => { R.fill('carbon'); R.box(0.2, 0.2, 0.3, 0.8, 'hot'); });
   region('ankle', (R) => { R.fill('metal'); });
   region('thumb', (R) => { R.fill('ink'); });
-  region('heel', (R) => { R.fill('metal'); });
+  region('heel', (R) => { R.fill('carbon'); R.box(0, 0.4, 1, 0.6, 'hot'); });
   return canvasTex(c, { srgb: pass === 'col' });
 }
 
@@ -550,14 +555,16 @@ function shellRings(x, y, z, rx, ry, rz, w, n = 2, count = 9) {
   }
   return out;
 }
+const _ikd = new THREE.Vector3(), _ikp = new THREE.Vector3();
+// Two-bone IK: mid joint bends toward `pole`; bone lengths stay fixed (end stops short if out of reach).
 function ik(root, target, l1, l2, pole, outMid, outEnd) {
-  const d = new THREE.Vector3().subVectors(target, root);
+  const d = _ikd.subVectors(target, root);
   let len = d.length();
   d.divideScalar(len || 1);
   len = clamp(len, Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3);
   const x = (l1 * l1 - l2 * l2 + len * len) / (2 * len);
   const h = Math.sqrt(Math.max(0, l1 * l1 - x * x));
-  const p = pole.clone().addScaledVector(d, -pole.dot(d)).normalize();
+  const p = _ikp.copy(pole).addScaledVector(d, -pole.dot(d)).normalize();
   outMid.copy(root).addScaledVector(d, x).addScaledVector(p, h);
   outEnd.copy(root).addScaledVector(d, len);
 }
@@ -631,7 +638,8 @@ export function makeMaterials() {
   };
 }
 
-const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
+const wheelCache = new Map();
+const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3();
 const _X = new THREE.Vector3(), _Y = new THREE.Vector3(), _Z = new THREE.Vector3();
 const _q = new THREE.Quaternion(), _e = new THREE.Euler();
 
@@ -718,9 +726,9 @@ export class BikeModel {
     // dash + top clamp are seen through the screen / from the onboard camera
     this.#geo(boxAt(0.13, 0.065, 0.022, V(0, 0.935, 0.52), -0.95), m.ink);
     // --- Tail light (LED bar in a black housing)
-    const led = new THREE.CapsuleGeometry(0.009, 0.1, 3, 8); led.rotateZ(Math.PI / 2); led.rotateX(-0.35); led.translate(0, 0.99, -1.0);
+    const led = new THREE.CapsuleGeometry(0.008, 0.11, 3, 8); led.rotateZ(Math.PI / 2); led.scale(1, 1, 0.6); led.translate(0, 0.952, -1.012);
     this.#geo(led, m.tail);
-    this.#geo(boxAt(0.13, 0.03, 0.03, V(0, 0.995, -0.985), -0.35), m.ink);
+    this.#geo(boxAt(0.15, 0.026, 0.05, V(0, 0.955, -0.985), 0.15), m.ink);
     // --- Aero: stacked box wings either side of the nose
     for (const sx of [-1, 1]) {
       const foil = shapeOf([[0.075, 0.0], [0.05, 0.009], [0.0, 0.012], [-0.05, 0.006], [-0.07, 0.0], [-0.05, -0.003], [0.0, -0.004], [0.05, -0.003]]);
@@ -757,7 +765,15 @@ export class BikeModel {
   }
 
   #noseDecal() {
-    const f = this.fairing;
+    // raycast only against the nose triangles (the fairing is non-indexed)
+    const src = this.fairing.geometry.attributes.position, keep = [];
+    for (let i = 0; i < src.count; i += 3) {
+      let ok = true;
+      for (let k = 0; k < 3 && ok; k++) ok = src.getZ(i + k) > 0.84 && src.getY(i + k) > 0.66;
+      if (ok) for (let k = 0; k < 3; k++) keep.push(src.getX(i + k), src.getY(i + k), src.getZ(i + k));
+    }
+    const ng = new THREE.BufferGeometry(); ng.setAttribute('position', new THREE.Float32BufferAttribute(keep, 3));
+    const f = new THREE.Mesh(ng, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
     f.updateMatrixWorld(true);
     const rc = new THREE.Raycaster();
     const n = V(0, 0.64, 0.77).normalize();        // nose surface normal (forward-up)
@@ -770,7 +786,7 @@ export class BikeModel {
       const u = i / NX, v = j / NY;
       o.copy(ctr).addScaledVector(XA, (u - 0.5) * W).addScaledVector(t, (v - 0.5) * H).addScaledVector(n, 0.2);
       rc.set(o, n.clone().negate());
-      const hit = rc.intersectObject(f, false)[0];
+      const hit = rc.intersectObject(f, false).find(h => h.face && h.face.normal.dot(n) > 0) || null;
       const p = hit ? hit.point : o.clone().addScaledVector(n, -0.2);
       p.addScaledVector(n, 0.0015);
       pos.push(p.x, p.y, p.z); uv.push(u, v);
@@ -988,10 +1004,19 @@ export class BikeModel {
   }
 
   #wheel(front) {
-    const m = this.m;
     const g = new THREE.Group();
     const spin = new THREE.Group();
     g.add(spin);
+    // geometry is identical for every bike (player + ghost): build once per wheel, share it
+    const key = front ? 'front' : 'rear';
+    if (!wheelCache.has(key)) wheelCache.set(key, BikeModel.#wheelGeo(front));
+    for (const [name, geo] of wheelCache.get(key)) spin.add(new THREE.Mesh(geo, this.m[name]));
+    g.userData.spin = spin;
+    return g;
+  }
+
+  static #wheelGeo(front) {
+    const m = { rubber: 'rubber', rim: 'rim', alu: 'alu', disc: 'disc' };
     const parts = new Map();
     const put = (mat, geo) => { if (!parts.has(mat)) parts.set(mat, []); parts.get(mat).push(clean(geo)); };
     // slick tyre (true section profile)
@@ -1046,9 +1071,7 @@ export class BikeModel {
       put(m.alu, slabX(sp, 0.006, 0.112, 0, 1));
       put(m.alu, latheX([[0.03, 0.08], [0.05, 0.085], [0.05, 0.108], [0.03, 0.112]], 16));   // sprocket carrier
     }
-    for (const [mat, list] of parts) spin.add(new THREE.Mesh(mergeGeometries(list, false), mat));
-    g.userData.spin = spin;
-    return g;
+    return [...parts].map(([name, list]) => [name, mergeGeometries(list, false)]);
   }
 
   // ---------------------------------------------------------------- rider (skinned leathers + helmet)
@@ -1125,7 +1148,7 @@ export class BikeModel {
         [0.1, 0.05, 0.038, 0.073, -0.016], [0.15, 0.047, 0.03, 0.062, -0.021], [0.19, 0.038, 0.022, 0.05, -0.024], [0.215, 0.024, 0.014, 0.034, -0.026], [0.228, 0.0, 0.0, 0.0, -0.028]];
       lim.push(loft(profile(footKeys, [-0.095, -0.088, -0.07, -0.045, -0.02, 0.01, 0.04, 0.07, 0.1, 0.13, 0.16, 0.185, 0.205, 0.218, 0.228], () => [[Ft, 1]], 2.6), 20, { rect: RECT.foot, mirror: mir }));
       lim.push(loft(shellRings(-0.047, 0.16, -0.05, 0.01, 0.036, 0.018, [[Ft, 1]], 2.2), 10, { rect: RECT.toe, mirror: mir }));
-      lim.push(loft(shellRings(0.0, -0.075, -0.03, 0.036, 0.022, 0.05, [[Ft, 1]], 2.2), 10, { rect: RECT.heel, mirror: mir }));
+      lim.push(loft(shellRings(0.0, -0.07, -0.035, 0.032, 0.02, 0.04, [[Ft, 1]], 2.2), 10, { rect: RECT.heel, mirror: mir }));
     }
     const limbGeo = mergeGeometries(lim.map(g => g.toNonIndexed()), false);
     const upper = new THREE.SkinnedMesh(upperGeo, m.leather);
@@ -1158,18 +1181,18 @@ export class BikeModel {
     const trim = [];
     const surf = (dir, lift = 0) => { d.copy(dir).normalize(); helmetPt(d, o); return o.clone().add(V(0, 0, 0)).addScaledVector(d, lift); };
     // rear spoiler: aerofoil lip across the back of the shell
-    const sp = shapeOf([[0.0, 0.0], [-0.03, 0.028], [-0.075, 0.034], [-0.085, 0.024], [-0.05, 0.012], [-0.02, -0.006]]);
-    const spg = new THREE.ExtrudeGeometry(sp, { depth: 0.13, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.004, bevelSegments: 2, curveSegments: 4 });
-    spg.translate(0, 0, -0.065); spg.rotateY(-Math.PI / 2);   // shape x -> z (forward), extrude -> x
-    const sb = surf(V(0, 0.55, -0.83));
-    spg.translate(0, sb.y - 0.004, sb.z + 0.018);
-    trim.push(spg);
+    const sp = shapeOf([[0.012, -0.004], [-0.015, 0.014], [-0.05, 0.02], [-0.066, 0.014], [-0.045, 0.002], [-0.012, -0.012]]);
+    const spg = new THREE.ExtrudeGeometry(sp, { depth: 0.11, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.004, bevelSegments: 2, curveSegments: 4 });
+    spg.translate(0, 0, -0.055); spg.rotateY(-Math.PI / 2);   // shape x -> z (forward), extrude -> x
+    const sb = surf(V(0, 0.5, -0.87));
+    spg.translate(0, sb.y, sb.z + 0.012);
+    trim.push(smoothNormals(spg, 45));
     for (const sx of [-1, 1]) {
-      const fin = shapeOf([[0.0, 0.0], [-0.06, 0.03], [-0.09, 0.035], [-0.07, 0.012]]);
-      trim.push(slabX(fin, 0.006, sx * 0.068, 0.002).translate(0, sb.y - 0.015, sb.z + 0.02));
+      const fin = shapeOf([[0.0, -0.01], [-0.045, 0.012], [-0.068, 0.018], [-0.05, 0.0]]);
+      trim.push(slabX(fin, 0.005, sx * 0.058, 0.002).translate(0, sb.y - 0.004, sb.z + 0.012));
       // visor pivot pods
       const pv = surf(V(sx * 0.97, 0.05, 0.22));
-      trim.push(cylBetween(pv.clone().addScaledVector(XA, -sx * 0.006), pv.clone().addScaledVector(XA, sx * 0.008), 0.019, 0.017, 14));
+      trim.push(cylBetween(pv.clone().addScaledVector(XA, -sx * 0.006), pv.clone().addScaledVector(XA, sx * 0.007), 0.015, 0.013, 14));
       // brow intake scoops
       const sc = new THREE.SphereGeometry(1, 10, 6, 0, TAU, 0, Math.PI / 2);
       sc.scale(0.011, 0.006, 0.03); sc.rotateX(0.5); const sp2 = surf(V(sx * 0.2, 0.8, 0.56)); sc.translate(sp2.x, sp2.y - 0.002, sp2.z);
@@ -1194,62 +1217,62 @@ export class BikeModel {
 
   // hang: -1..1 (+ = hanging off to the right), tuck: 0..1, brake: 0..1 (sit up)
   pose(hang, lean, tuck, brake = 0) {
-    const B = this.B;
+    const B = this.B, P = this._ps || (this._ps = {
+      hip: V(), Yp: V(), Zp: V(), Xp: V(), lumbar: V(), Yc: V(), Zc: V(), Xc: V(), c7: V(), Yn: V(), Zn: V(),
+      mid: V(), end: V(), sh: V(), wr: V(), pole: V(), nz: V(), Yu: V(), Yf: V(), t: V(), hj: V(), Yft: V(), Zft: V(), ank: V(), kp: V(), kp2: V(), Yt: V(), Ys: V(),
+    });
     const h = clamp(hang, -1, 1), ah = Math.abs(h);
     const up = clamp(1 - tuck + brake * 0.6, 0, 1);
-    // hips slide across the seat to the inside; body yaws/rolls into the corner
-    const hip = V(-h * 0.17, 0.985 - ah * 0.03, -0.3 - up * 0.015);
-    const qP = new THREE.Quaternion().setFromEuler(_e.set(0, -h * 0.18, h * 0.14));
+    // hips slide across the seat to the inside; pelvis, chest and head progressively yaw/roll into the corner
+    const hip = P.hip.set(-h * 0.17, 0.985 - ah * 0.03, -0.3 - up * 0.015);
     const pa = lerp(0.95, 1.12, up);
-    const Yp = V(0, Math.sin(pa), Math.cos(pa)).applyQuaternion(qP), Zp = V(0, -Math.cos(pa), Math.sin(pa)).applyQuaternion(qP);
-    const mp = this.#setBone(B.pelvis, hip, Yp, Zp);
-    const Xp = V().setFromMatrixColumn(mp, 0);
-    const lumbar = hip.clone().addScaledVector(Yp, 0.18);
-    const qC = new THREE.Quaternion().setFromEuler(_e.set(0, -h * 0.28, h * 0.26));
+    _q.setFromEuler(_e.set(0, -h * 0.18, h * 0.14));
+    P.Yp.set(0, Math.sin(pa), Math.cos(pa)).applyQuaternion(_q); P.Zp.set(0, -Math.cos(pa), Math.sin(pa)).applyQuaternion(_q);
+    P.Xp.setFromMatrixColumn(this.#setBone(B.pelvis, hip, P.Yp, P.Zp), 0);
+    const lumbar = P.lumbar.copy(hip).addScaledVector(P.Yp, 0.18);
     const ca = lerp(0.1, 0.66, up);
-    const Yc = V(0, Math.sin(ca), Math.cos(ca)).applyQuaternion(qC), Zc = V(0, -Math.cos(ca), Math.sin(ca)).applyQuaternion(qC);
-    const mc = this.#setBone(B.chest, lumbar, Yc, Zc);
-    const Xc = V().setFromMatrixColumn(mc, 0);
-    const c7 = lumbar.clone().addScaledVector(Yc, 0.34);
-    const qN = new THREE.Quaternion().setFromEuler(_e.set(0, -h * 0.4, h * 0.08));
+    _q.setFromEuler(_e.set(0, -h * 0.28, h * 0.26));
+    P.Yc.set(0, Math.sin(ca), Math.cos(ca)).applyQuaternion(_q); P.Zc.set(0, -Math.cos(ca), Math.sin(ca)).applyQuaternion(_q);
+    P.Xc.setFromMatrixColumn(this.#setBone(B.chest, lumbar, P.Yc, P.Zc), 0);
+    const c7 = P.c7.copy(lumbar).addScaledVector(P.Yc, 0.34);
     const na = lerp(0.3, 1.05, up);
-    const Yn = V(0, Math.sin(na), Math.cos(na)).applyQuaternion(qN), Zn = V(0, -Math.cos(na), Math.sin(na)).applyQuaternion(qN);
-    this.#setBone(B.neck, c7, Yn, Zn);
-    const head = c7.clone().addScaledVector(Yn, 0.15);
-    this.helmet.position.copy(head);
+    _q.setFromEuler(_e.set(0, -h * 0.4, h * 0.08));
+    P.Yn.set(0, Math.sin(na), Math.cos(na)).applyQuaternion(_q); P.Zn.set(0, -Math.cos(na), Math.sin(na)).applyQuaternion(_q);
+    this.#setBone(B.neck, c7, P.Yn, P.Zn);
+    this.helmet.position.copy(c7).addScaledVector(P.Yn, 0.15);
     this.helmet.rotation.set(-0.12 + up * 0.22, -h * 0.35, -lean * 0.45);
 
-    const mid = new THREE.Vector3(), end = new THREE.Vector3();
-    for (const s of ['l', 'r']) {
-      const sg = s === 'l' ? 1 : -1;
+    const { mid, end, t } = P;
+    for (let k = 0; k < 2; k++) {
+      const s = k ? 'r' : 'l', sg = k ? -1 : 1;
       const inside = Math.max(0, -sg * h), outside = Math.max(0, sg * h);
-      // --- arm
-      const sh = lumbar.clone().addScaledVector(Xc, sg * 0.168).addScaledVector(Yc, 0.27);
+      // --- arm: shoulder -> wrist IK, elbows out and down; outside arm reaches over the tank
+      const sh = P.sh.copy(lumbar).addScaledVector(P.Xc, sg * 0.168).addScaledVector(P.Yc, 0.27);
       const grip = this.grip[s];
-      const wristT = grip.clone().add(V(-sg * 0.004, 0.024, -0.058));
-      const pole = V(sg * 1, -0.75 - inside * 0.5 + outside * 0.45, -0.12 + inside * 0.2).normalize();
-      ik(sh, wristT, 0.28, 0.26, pole, mid, end);
-      const Yu = mid.clone().sub(sh).normalize(), Yf = end.clone().sub(mid).normalize();
-      const nz = pole.clone().negate();
-      this.#setBone(B['upper_' + s], sh, Yu, nz);
-      this.#setBone(B['elbow_' + s], mid, Yu.clone().add(Yf), nz);
-      this.#setBone(B['fore_' + s], mid, Yf, nz);
-      this.#setBone(B['hand_' + s], end, grip.clone().add(V(0, -0.01, 0.022)).sub(end), V(sg * 0.35, 1, 0.25));
-      // --- leg
-      const hj = hip.clone().addScaledVector(Xp, sg * 0.095);
-      const peg = this.pegs[s];
-      const Yft = V(sg * (0.1 + inside * 0.25), -0.32, 1).normalize();
-      const Zft = V(0, 1, 0.3).addScaledVector(Yft, -V(0, 1, 0.3).dot(Yft)).normalize();
-      const ankle = peg.clone().addScaledVector(Yft, -0.1).addScaledVector(Zft, 0.09);
-      const kp = V(sg * 0.35, 0.3, 1).lerp(V(sg * 1, -0.12, 0.95), inside).normalize();
+      P.wr.copy(grip).add(t.set(-sg * 0.004, 0.024, -0.058));
+      const pole = P.pole.set(sg * (1 + outside * 0.4), -0.75 - inside * 0.45 + outside * 0.12, -0.12 + inside * 0.25 - outside * 0.1).normalize();
+      ik(sh, P.wr, 0.28, 0.26, pole, mid, end);
+      P.Yu.subVectors(mid, sh).normalize(); P.Yf.subVectors(end, mid).normalize();
+      P.nz.copy(pole).negate();
+      this.#setBone(B['upper_' + s], sh, P.Yu, P.nz);
+      this.#setBone(B['elbow_' + s], mid, t.addVectors(P.Yu, P.Yf), P.nz);
+      this.#setBone(B['fore_' + s], mid, P.Yf, P.nz);
+      this.#setBone(B['hand_' + s], end, t.copy(grip).add(_v1.set(0, -0.01, 0.022)).sub(end), _v2.set(sg * 0.35, 1, 0.25));
+      // --- leg: hip -> ankle IK with the ball of the boot on the peg; inside knee swings out when hanging off
+      const hj = P.hj.copy(hip).addScaledVector(P.Xp, sg * 0.095);
+      const Yft = P.Yft.set(sg * (0.1 + inside * 0.25), -0.32, 1).normalize();
+      _v1.set(0, 1, 0.3);
+      const Zft = P.Zft.copy(_v1).addScaledVector(Yft, -_v1.dot(Yft)).normalize();
+      const ankle = P.ank.copy(this.pegs[s]).addScaledVector(Yft, -0.1).addScaledVector(Zft, 0.09);
+      const kp = P.kp.set(sg * (0.35 + outside * 0.7), 0.3, 1).lerp(P.kp2.set(sg, -0.12, 0.95), ss(0.05, 1, inside)).normalize();
       ik(hj, ankle, 0.42, 0.42, kp, mid, end);
-      const Yt = mid.clone().sub(hj).normalize(), Ys = end.clone().sub(mid).normalize();
-      this.#setBone(B['thigh_' + s], hj, Yt, kp);
-      const mk = this.#setBone(B['knee_' + s], mid, Yt.clone().add(Ys), kp);
-      this.#setBone(B['shin_' + s], mid, Ys, kp);
+      P.Yt.subVectors(mid, hj).normalize(); P.Ys.subVectors(end, mid).normalize();
+      this.#setBone(B['thigh_' + s], hj, P.Yt, kp);
+      const mk = this.#setBone(B['knee_' + s], mid, t.addVectors(P.Yt, P.Ys), kp);
+      this.#setBone(B['shin_' + s], mid, P.Ys, kp);
       this.#setBone(B['foot_' + s], end, Yft, Zft);
       // knee slider position (rider space): outer face of the knee puck
-      (s === 'l' ? this.kneeL : this.kneeR).set(-sg * 0.085, 0.005, 0.006).applyMatrix4(mk);
+      (k ? this.kneeR : this.kneeL).set(-sg * 0.085, 0.005, 0.006).applyMatrix4(mk);
     }
   }
 
