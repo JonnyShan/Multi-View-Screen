@@ -7,7 +7,7 @@ const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); retu
 export function newState(s0 = 0) {
   return {
     s: s0, x: 0, vx: 0, v: 0, lean: 0, psi: 0,
-    gear: 0, rpm: TUNE.idle, throttle: 0, brake: 0, pitch: 0, tuck: 0, discHeat: 0,
+    gear: 0, rpm: TUNE.idle, throttle: 0, brake: 0, pitch: 0, tuck: 0, discHeat: 0, shiftT: 9,
     a: 0, tyre: 0, surface: 'road', kerb: false,
     maxLean: 0, topSpeed: 0, offTime: 0,
     events: [],
@@ -101,7 +101,7 @@ export function step(st, input, track, dt, opts = {}) {
   // --- Gearbox
   const kmh = st.v * 3.6;
   const G = T.gears;
-  if (st.gear < G.length - 1 && kmh > G[st.gear] * 0.965) { st.gear++; st.events.push({ type: 'upshift' }); }
+  if (st.gear < G.length - 1 && kmh > G[st.gear] * 0.965) { st.gear++; st.shiftT = 0; st.events.push({ type: 'upshift' }); }
   else if (st.gear > 0 && kmh < G[st.gear - 1] * 0.7) { st.gear--; st.events.push({ type: 'downshift' }); }
   let rpm = T.idle + (T.redline - T.idle) * clamp(kmh / G[st.gear], 0, 1.02);
   if (st.gear === 0 && kmh < 40 && st.throttle > 0.5) rpm = Math.max(rpm, 9500 + kmh * 100); // clutch slip on launch
@@ -112,8 +112,11 @@ export function step(st, input, track, dt, opts = {}) {
   const leanAbs = Math.abs(st.lean);
   const wheelie = st.throttle > 0.5 && st.gear <= 1 && leanAbs < 0.2 ? -clamp((a - 6.5) / 5, 0, 1) * 0.2 : 0;
   const stoppie = st.brake > 0.5 && leanAbs < 0.3 && v > 25 ? clamp(st.brake * (v / 70), 0, 1) * 0.05 : 0;
-  st.pitch += ((wheelie || stoppie) - st.pitch) * Math.min(1, dt * 6);
-  const tuckT = st.v > 38 && !braking && leanAbs < 0.4 ? 1 : 0;
+  // upshift under power: drive re-engages after the quickshifter cut, the front lifts a touch and the rider sits up
+  st.shiftT += dt;
+  const kick = st.shiftT < 0.5 && st.throttle > 0.6 && leanAbs < 0.35 ? Math.sin(Math.PI * st.shiftT / 0.5) * (st.gear <= 3 ? 1 : 0.6) : 0;
+  st.pitch += ((wheelie || stoppie || 0) - 0.07 * kick - st.pitch) * Math.min(1, dt * 6);
+  const tuckT = (st.v > 38 && !braking && leanAbs < 0.4 ? 1 : 0) - 0.45 * kick;
   st.tuck += (tuckT - st.tuck) * Math.min(1, dt * 4);
   st.discHeat = st.discHeat * Math.exp(-dt * 0.7) + st.brake * v * dt * 0.012;
   st.discHeat = Math.min(st.discHeat, 1);

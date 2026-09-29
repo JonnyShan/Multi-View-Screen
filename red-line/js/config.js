@@ -98,6 +98,8 @@ export const QUALITY = (() => {
 })();
 
 export const PARAMS = new URLSearchParams(location.search);
+// Google Analytics 4 measurement ID (Gamify.com property) for anonymous play stats; '' turns analytics off.
+export const ANALYTICS_ID = 'G-V6EPMF5MXG';
 export const KIOSK = PARAMS.get('kiosk') === '1';
 // Date-of-birth age gate before the title screen. Off for the demo; switch on (or add ?gate=1) before any
 // public or client-facing release: some events require one.

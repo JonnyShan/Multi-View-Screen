@@ -12,6 +12,7 @@ import { Audio } from './audio.js';
 import { Post, Particles } from './fx.js';
 import { Hud } from './hud.js';
 import * as Store from './store.js';
+import { track } from './analytics.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -112,6 +113,9 @@ class Game {
     addEventListener('resize', () => this.#resize());
     progress(1, 'Ready');
     window.__ready = true;
+    track('game_loaded', { load_ms: Math.round(performance.now()), device: QUALITY.mobile ? 'mobile' : 'desktop', quality: QUALITY.tier });
+    // closing the tab mid-ride counts as an abandoned lap
+    addEventListener('pagehide', () => { if (['intro', 'countdown', 'race'].includes(this.state)) this.#trackAbandon('closed'); });
     // a slow device may have tripped the load watchdog in index.html; the game did load, so clear it
     clearTimeout(window.__boot);
     if ($('fatal').dataset.watchdog) $('fatal').style.display = 'none';
@@ -170,6 +174,7 @@ class Game {
   // ------------------------------------------------------------------ states
   #setState(s) {
     const prev = this.state;
+    if (['intro', 'countdown', 'race'].includes(prev) && !['countdown', 'race', 'finish'].includes(s)) this.#trackAbandon(s === 'intro' ? 'restart' : 'menu');
     // Kiosk: every new player passes the age gate (after results or an attract loop).
     if (AGE_GATE && KIOSK && s === 'title' && (prev === 'results' || prev === 'attract')) s = 'gate';
     this.state = s; this.stateT = 0;
@@ -215,7 +220,18 @@ class Game {
     this.lastSection = null;
     this.gasHint = false;
     this.lastCall = {};
-    if (!this.autoplay) { this.audio.unlock(); this.#say('intro'); }
+    if (!this.autoplay) {
+      this.audio.unlock();
+      this.#say('intro');
+      this.attempts = (this.attempts || 0) + 1;
+      track('ride_start', { attempt: this.attempts, assist: this.settings.assist, camera: this.settings.cam });
+    }
+  }
+
+  #trackAbandon(reason) {
+    if (this.autoplay) return;
+    const p = Math.round(100 * Math.max(0, this.st.s - START_S) / (this.track.length - START_S));
+    track('lap_abandon', { reason, at_s: +(this.raceT || 0).toFixed(1), progress_pct: Math.min(100, Math.max(0, p)), attempt: this.attempts || 0 });
   }
 
   // Announcer, with a per-line cooldown so crashes and run-offs don't nag
@@ -250,7 +266,14 @@ class Game {
     }
     this.hud.msg(pb ? 'Personal best' : 'Lap complete', Store.fmtTime(t), 2600);
     const m = this.medals;
-    this.#say(t <= m.gold ? 'gold' : prevBest == null ? 'first' : pb ? 'pb' : t <= m.silver ? 'silver' : t <= m.bronze ? 'bronze' : 'none', 3);
+    const medal = t <= m.gold ? 'gold' : t <= m.silver ? 'silver' : t <= m.bronze ? 'bronze' : 'none';
+    this.#say(medal === 'gold' ? 'gold' : prevBest == null ? 'first' : pb ? 'pb' : medal, 3);
+    if (!this.autoplay) {
+      track('lap_complete', {
+        lap_time: +t.toFixed(3), medal, personal_best: pb ? 1 : 0, first_lap: prevBest == null ? 1 : 0, attempt: this.attempts || 0,
+        top_speed_kmh: Math.round(this.st.topSpeed), off_track_s: +this.st.offTime.toFixed(1),
+      });
+    }
   }
 
   // ------------------------------------------------------------------ main loop
@@ -985,6 +1008,7 @@ class Game {
     if (k === 'cam') s.cam = s.cam === 'chase' ? 'onboard' : 'chase';
     if (k === 'assist') s.assist = s.assist === 'standard' ? 'pro' : 'standard';
     if (k === 'sound') { s.sound = !s.sound; this.audio.setEnabled(s.sound); }
+    track('setting_change', { setting: k, value: String(s[k]) });
     Store.save('settings', s);
     this.#syncToggles();
     this.audio.click();
@@ -1079,6 +1103,7 @@ class Game {
     this.board.sort((a, b) => a.t - b.t);
     this.board = this.board.slice(0, 10);
     Store.save('board', this.board);
+    track('leaderboard_entry', { rank: this.board.indexOf(entry) + 1, lap_time: +entry.t.toFixed(3) });
     this.pendingEntry = null;
     $('rInit').classList.add('hidden');
     this.#renderBoard($('rBoard'), null, entry);
