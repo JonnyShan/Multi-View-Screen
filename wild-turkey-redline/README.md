@@ -44,6 +44,7 @@ Records (leaderboard, personal best and ghost) are kept in `localStorage` on eac
 | Param | Effect |
 |---|---|
 | `?kiosk=1` | Hides the cursor. The age gate reappears when leaving the results screen, when leaving attract mode, and after 45 s idle on results, so each new player is checked. The gate is never remembered between players. |
+| `?voice=1` | Plays the race announcer lines. They are muted for the client demo; set `ANNOUNCER` in `js/config.js` to turn them back on for everyone. |
 | `?q=ultra\|high\|mid\|low` | Forces a graphics tier for this visit. Otherwise the player's **Graphics** choice on the title screen is used (Ultra, High, Balanced, Performance), and the default is Ultra on desktop and High on phones. Resolution also adapts to the frame rate, never dropping below the tier's floor. |
 | `?auto=title\|race\|attract\|bike` | Dev and screenshot helpers. `race` lets the autopilot ride. |
 | `?at=<metres>` | With `auto=race`, starts mid-lap at that distance (dev only). |

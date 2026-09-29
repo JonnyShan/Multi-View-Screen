@@ -104,3 +104,5 @@ export const KIOSK = PARAMS.get('kiosk') === '1';
 // Date-of-birth age gate before the title screen. Off for the demo; switch on (or add ?gate=1) before any
 // public or client-facing release: some events require one.
 export const AGE_GATE = PARAMS.get('gate') === '1';
+// Race announcer voice lines. Muted for the client demo; add ?voice=1 to hear them, or set true to switch them back on.
+export const ANNOUNCER = PARAMS.get('voice') === '1';

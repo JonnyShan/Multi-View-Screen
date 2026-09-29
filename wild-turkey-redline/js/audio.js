@@ -1,5 +1,7 @@
 // Web Audio synth: V4 race engine, quickshifter, decel pops, wind, tyres, kerbs, crowd, UI.
 // Plus a race announcer: short pre-recorded lines in assets/voice/<key>-<n>.mp3.
+import { ANNOUNCER } from './config.js';
+
 const VOICE = { intro: 2, go: 1, purple: 2, green: 2, yellow: 2, wall: 2, off: 1, first: 1, gold: 1, pb: 2, silver: 1, bronze: 1, none: 1 };
 // 0.1 s of silent 8 kHz mono WAV, for the older-iOS silent-switch workaround below.
 const SILENT_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACA' + 'gICA'.repeat(266) + 'gA==';
@@ -33,7 +35,7 @@ export class Audio {
     this.noise = this.#noiseBuffer(2);
     this.#engine();
     this.#beds();
-    this.#loadVoice();
+    if (ANNOUNCER) this.#loadVoice();
   }
 
   setEnabled(on) {
@@ -75,7 +77,7 @@ export class Audio {
   // Announcer line. A higher-priority call cuts in; an equal or lower one is dropped while a line plays.
   say(key, prio = 1) {
     const c = this.ctx;
-    if (!c || !this.enabled) return false;
+    if (!ANNOUNCER || !c || !this.enabled) return false;
     const t = c.currentTime;
     if (!this.voice) { this.pending = { key, prio, until: t + 1.5 }; return false; }
     const set = this.voice[key];
