@@ -35,5 +35,6 @@ python3 -m http.server 8131 --directory f1-livewire
 
 ## Open items
 
-- **Logo file.** The Livewire logo is needed as a file. Until then, the game shows the text wordmark "LIVEWIRE". Save it as described in `WORKFLOW.md` step 2, then set `logo` and `logoUi` in `js/brand.js`.
 - **Placeholder names.** The game name "HOT LAP" and the trackside copy are placeholders to confirm.
+- **Brand colours and typeface.** The colours come from the supplied logo (lime `#CCFF00`, near-black ink); the official values and typeface are still to confirm.
+- **Logo.** The supplied logo is in `assets/brand/source/`. `logo.webp` is white artwork, used on the boards and the car; `logo-ui.webp` is lime, used in the menus.

@@ -1,6 +1,7 @@
 // Every brand value in this build lives here: names, colours, fonts, logos, copy and legal lines.
 // A reskin is this file plus new images in assets/brand/ (see WORKFLOW.md at the repo root).
-// Colours are taken from the supplied Livewire logo (lime on black); swap in official brand-guide values when they arrive.
+// Colours are taken from the supplied Livewire logo (lime #CCFF00 with near-black ink); swap in official brand-guide values
+// when they arrive.
 
 export const BRAND = {
   id: 'livewire_hotlap_v1',           // save-key prefix (leaderboard, settings); give every brand its own
@@ -41,9 +42,9 @@ export const BRAND = {
   },
 
   // Logo for trackside boards, the gantry and the car: white artwork on transparent, tinted per use. null = text wordmark.
-  logo: null,
-  // Full-colour logo for the dark menus, HUD and results screen. null = text wordmark.
-  logoUi: null,
+  logo: 'assets/brand/logo.webp',
+  // Logo for the dark menus, HUD and results screen (lime on transparent). null = text wordmark.
+  logoUi: 'assets/brand/logo-ui.webp',
   // Title-screen product shot. null = none.
   product: null,
 
