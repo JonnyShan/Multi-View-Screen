@@ -8,7 +8,7 @@ The original game lives in `wild-turkey-redline/`. It stays untouched: each resk
 | `red-line/` | None (stand-in) | Motorbike | Generated shareable copy of the original. |
 | `motogp-wildturkey/` | Wild Turkey | Motorbike | Built: 7.4 MB. |
 | `motogp-livewire/` | Livewire | Motorbike | Built: 7.4 MB. The bike and rider are repainted in Livewire colours. |
-| `f1-livewire/` | Livewire | F1 car | Built: 1.3 MB. | An alternative take, not the live Livewire version. |
+| `f1-livewire/` | Livewire | F1 car | Built: 1.3 MB. An alternative take, not the live Livewire version. |
 
 Colours come from the brands' own sites (promotions.wildturkeybourbon.com and livewire.group). Both brands' typefaces are commercial, so free stand-ins are used: Antonio for Wild Turkey, which its site also uses, and Barlow Condensed for Livewire.
 

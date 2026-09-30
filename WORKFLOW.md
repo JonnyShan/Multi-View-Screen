@@ -8,7 +8,7 @@ Every brand value lives in one file per game: `js/brand.js`. That covers names, 
 | `motogp-livewire/` | a motorbike, with no age gate and no alcohol copy. |
 | `f1-livewire/` | an F1 car. It has no age gate and no alcohol copy. |
 
-Never edit those two folders or `wild-turkey-redline/` for a new brand. Copy them.
+Never edit those base folders or `wild-turkey-redline/` for a new brand. Copy them.
 
 ## Steps
 
