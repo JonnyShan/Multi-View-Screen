@@ -6,8 +6,10 @@ The original game lives in `wild-turkey-redline/`. It stays untouched: each resk
 |---|---|---|---|
 | `wild-turkey-redline/` | Wild Turkey | Motorbike | Original. Do not edit for reskins. |
 | `red-line/` | None (stand-in) | Motorbike | Generated shareable copy of the original. |
-| `motogp-wildturkey/` | Wild Turkey | Motorbike | Built: 7.5 MB. |
-| `f1-livewire/` | Livewire | F1 car | Built: 1.2 MB. Waiting on the Livewire logo file. |
+| `motogp-wildturkey/` | Wild Turkey | Motorbike | Built: 7.4 MB. |
+| `f1-livewire/` | Livewire | F1 car | Built: 1.3 MB. |
+
+Colours come from the brands' own sites (promotions.wildturkeybourbon.com and livewire.group). Both brands' typefaces are commercial, so free stand-ins are used: Antonio for Wild Turkey, which its site also uses, and Barlow Condensed for Livewire.
 
 In both copies, every brand value now lives in `js/brand.js`, so the next reskin is that file plus new images. `WORKFLOW.md` has the steps.
 
