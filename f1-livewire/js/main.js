@@ -1156,8 +1156,9 @@ async function boot() {
     img.src = BRAND.product.img;
   }
   progress(0.03, 'Loading fonts');
-  const fonts = BRAND.fonts.files.map(f => `${f.style === 'italic' ? 'italic ' : ''}${f.weight} 40px "${f.family}"`);
-  await Promise.race([Promise.all(fonts.map(f => document.fonts.load(f))), new Promise(r => setTimeout(r, 4000))]);
+  // variable fonts give a weight range ('100 700'): preload at the heaviest weight
+  const fonts = BRAND.fonts.files.map(f => `${f.style === 'italic' ? 'italic ' : ''}${String(f.weight).split(' ').pop()} 40px "${f.family}"`);
+  await Promise.race([Promise.all(fonts.map(f => document.fonts.load(f).catch(() => null))), new Promise(r => setTimeout(r, 4000))]);
   if (BRAND.logo) {
     const logo = new Image();
     logo.src = BRAND.logo;

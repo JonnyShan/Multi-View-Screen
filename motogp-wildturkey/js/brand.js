@@ -1,6 +1,7 @@
 // Every brand value in this build lives here: names, colours, fonts, logos, copy and legal lines.
 // A reskin is this file plus new images in assets/brand/ (see WORKFLOW.md at the repo root).
-// Colours are estimated from the supplied logo and pack shot; swap in the official brand-guide values when they arrive.
+// Reds and charcoals are taken from promotions.wildturkeybourbon.com (Sep 2026); cream and gold from the supplied logo and
+// bottle. Swap in brand-guide values if the client supplies them.
 
 export const BRAND = {
   id: 'wt_redline_v1',                // save-key prefix (leaderboard, settings); give every brand its own
@@ -13,26 +14,24 @@ export const BRAND = {
   riderNumber: '54',
 
   // Colours by role. The UI, trackside signage, bike livery and HUD all read these.
-  primary: '#8B1E24',                 // main brand colour (airfence, primary buttons, bike paint)
-  primaryHot: '#C22A2E',              // brighter primary for glows, rev lights, the start line
-  primaryDeep: '#5E1419',             // darker primary for roofs and backgrounds
+  primary: '#9E0D2A',                 // main brand colour (airfence, primary buttons, bike paint); site's deep red
+  primaryHot: '#BB0B2F',              // brighter primary for glows, rev lights, the start line; site's button red
+  primaryDeep: '#5E0A1C',             // darker primary for roofs and backgrounds
   light: '#EFE6D2',                   // text and light boards
   accent: '#D9A95B',                  // highlights, the ghost, trims
   accent2: '#B8863B',                 // secondary highlight
-  dark: '#1B1512',                    // dark boards, panels
-  alt: '#2F4A35',                     // occasional third colour on signage
-  bg: '#0D0A09',                      // page background behind the game
+  dark: '#202224',                    // dark boards, panels; the site's charcoal
+  alt: '#36393B',                     // occasional third colour on signage; site's lighter charcoal
+  bg: '#161718',                      // page background behind the game
 
   // Typefaces: files in fonts/. `display` is the wordmark-style serif, `condensed` the racing type.
+  // Wild Turkey's own heading fonts (WT Heading, Flama) are commercial, so the condensed role uses Antonio, the free
+  // Google font the brand's promotions site uses for its headings. Variable fonts give a weight range.
   fonts: {
     display: 'Zilla Slab',
-    condensed: 'Barlow Condensed',
+    condensed: 'Antonio',
     files: [
-      { family: 'Barlow Condensed', weight: 600, style: 'italic', src: 'fonts/BarlowCondensed-600i.woff2' },
-      { family: 'Barlow Condensed', weight: 800, style: 'italic', src: 'fonts/BarlowCondensed-800i.woff2' },
-      { family: 'Barlow Condensed', weight: 500, style: 'normal', src: 'fonts/BarlowCondensed-500.woff2' },
-      { family: 'Barlow Condensed', weight: 700, style: 'normal', src: 'fonts/BarlowCondensed-700.woff2' },
-      { family: 'Barlow Condensed', weight: 800, style: 'normal', src: 'fonts/BarlowCondensed-800.woff2' },
+      { family: 'Antonio', weight: '100 700', style: 'normal', src: 'fonts/Antonio-var.woff2' },
       { family: 'Zilla Slab', weight: 600, style: 'normal', src: 'fonts/ZillaSlab-600.woff2' },
       { family: 'Zilla Slab', weight: 700, style: 'normal', src: 'fonts/ZillaSlab-700.woff2' },
     ],

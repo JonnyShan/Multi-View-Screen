@@ -1,7 +1,6 @@
 // Every brand value in this build lives here: names, colours, fonts, logos, copy and legal lines.
 // A reskin is this file plus new images in assets/brand/ (see WORKFLOW.md at the repo root).
-// Colours are taken from the supplied Livewire logo (lime #CCFF00 with near-black ink); swap in official brand-guide values
-// when they arrive.
+// Colours are Livewire's own palette from livewire.group (Sep 2026): Neoteric lime, Onyx, Ivory, Serene blue.
 
 export const BRAND = {
   id: 'livewire_hotlap_v1',           // save-key prefix (leaderboard, settings); give every brand its own
@@ -14,21 +13,21 @@ export const BRAND = {
   riderNumber: '7',                   // race number on the car and the timing tower
 
   // Colours by role. The UI, trackside signage, car livery and HUD all read these.
-  primary: '#161616',                 // main fill: airfence, primary buttons (text on it is picked for contrast)
-  primaryHot: '#CCFF00',              // the Livewire lime: glows, rev lights, start line, first word of the title
-  primaryDeep: '#0E0E0E',             // darker fill for roofs and backgrounds
-  light: '#F4F4F4',                   // text and light boards
-  accent: '#CCFF00',                  // highlights, the ghost, trims
-  accent2: '#9ECC00',                 // secondary highlight
-  dark: '#0B0B0B',                    // dark boards, panels
-  alt: '#262626',                     // occasional third colour on signage
-  bg: '#050505',                      // page background behind the game
+  primary: '#1A1A1A',                 // main fill: airfence, primary buttons (text on it is picked for contrast); Onyx
+  primaryHot: '#CBFE00',              // Neoteric, the Livewire lime: glows, rev lights, start line, first word of the title
+  primaryDeep: '#000000',             // darker fill for roofs and backgrounds; Black
+  light: '#F1F1F1',                   // text and light boards; Ivory
+  accent: '#CBFE00',                  // highlights, the ghost, trims; Neoteric
+  accent2: '#4766FF',                 // secondary highlight; Serene
+  dark: '#1A1A1A',                    // dark boards, panels; Onyx
+  alt: '#383838',                     // occasional third colour on signage; Black 80
+  bg: '#000000',                      // page background behind the game
 
   // Car livery (js/car.js builds the F1 car from these).
-  car: { body: '#111111', accent: '#CCFF00', trim: '#F4F4F4', carbon: '#1A1A1A' },
+  car: { body: '#141414', accent: '#CBFE00', trim: '#F1F1F1', carbon: '#1A1A1A' },
 
-  // Typefaces: files in fonts/. Livewire's wordmark is a heavy italic sans, so both roles use Barlow Condensed
-  // until the brand typeface is supplied.
+  // Typefaces: files in fonts/. Livewire's own fonts (GT Flexa, Aktiv Grotesk) are commercial, so both roles use the free
+  // Barlow Condensed until licensed files are supplied.
   fonts: {
     display: 'Barlow Condensed',
     condensed: 'Barlow Condensed',
