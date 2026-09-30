@@ -57,7 +57,7 @@ function ballTextures() {
   g.fillStyle = 'rgba(20,12,8,0.55)';
   g.font = '700 38px "Saira Extra Condensed", "Arial Narrow", sans-serif';
   g.textAlign = 'center';
-  g.fillText('HARDWOOD', W * 0.37, H * 0.42);
+  g.fillText('HOOPS', W * 0.37, H * 0.42);
   g.font = '600 20px "Saira Extra Condensed", "Arial Narrow", sans-serif';
   g.fillText('OFFICIAL GAME BALL', W * 0.37, H * 0.47);
   const map = new THREE.CanvasTexture(c);

@@ -1,4 +1,4 @@
-# Hardwood 1v1
+# Hoops 1v1
 
 A 1-on-1 half-court basketball game for phones, built with three.js. Open `index.html` from any static web server.
 

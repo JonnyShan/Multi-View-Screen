@@ -136,6 +136,23 @@ export class Player {
     this.ikTarget = [null, null];      // [left, right] world targets
     this.ikW = [0, 0];
     this.lookAt = new THREE.Vector3(0, 1.5, 0);
+    // foot planting (world-space feet driven by a stepping planner + leg IK)
+    const mkFoot = () => ({ pos: new THREE.Vector3(), from: new THREE.Vector3(), to: new THREE.Vector3(), u: 1, dur: 0.2, lift: 0.05, yaw: 0, yawFrom: 0, yawTo: 0, heel: 0 });
+    this.feet = [mkFoot(), mkFoot()];
+    this.feetReady = false;
+    this.legW = 0;
+    this.prevVel = new THREE.Vector3();
+    this.acc = new THREE.Vector3();
+    this.prevYaw = 0;
+    this.turnRate = 0;
+    this.land = 0;
+    this.wasAir = false;
+    this.chopT = 0;
+    this.chopSide = 0;
+    this.handsT = 1;
+    this.handsHigh = 1;
+    this.pelvisYaw = 0;
+    this.pelvisRoll = 0;
     this.j = {                          // smoothed joint angles
       spineX: 0.05, spineY: 0, spineZ: 0,
       hipLX: 0, hipLZ: 0.05, kneeL: 0.2, hipRX: 0, hipRZ: -0.05, kneeR: 0.2, ankleL: 0, ankleR: 0,
@@ -460,6 +477,40 @@ export class Player {
     T.spineX += 0.02 * Math.sin(tt * 1.7) * still;
     T.hipLZ += 0.03 * Math.sin(tt * 0.6) * still;
     T.hipRZ += 0.03 * Math.sin(tt * 0.6) * still;
+    // acceleration lean + banking into turns
+    const idt = 1 / Math.max(dt, 1e-3);
+    _v1.set((this.vel.x - this.prevVel.x) * idt, 0, (this.vel.z - this.prevVel.z) * idt);
+    this.prevVel.copy(this.vel);
+    this.acc.lerp(_v1, 1 - Math.exp(-dt * 8));
+    let dyaw = this.yaw - this.prevYaw;
+    dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
+    this.prevYaw = this.yaw;
+    this.turnRate = smooth(this.turnRate, dyaw * idt, 1 - Math.exp(-dt * 6));
+    const aF = this.acc.x * fwdX + this.acc.z * fwdZ;
+    const aL = this.acc.x * fwdZ - this.acc.z * fwdX;
+    T.spineX += clamp(aF * 0.022, -0.22, 0.26);
+    const bank = clamp(-aL * 0.018 - this.turnRate * spd * 0.03, -0.28, 0.28);
+    T.spineZ += bank * 0.55;
+    // hips swing with the legs, shoulders counter-rotate
+    const twist = A * sp;
+    this.pelvisYaw = smooth(this.pelvisYaw, -0.2 * twist, k);
+    this.pelvisRoll = smooth(this.pelvisRoll, bank * 0.35 + 0.04 * A * cp, k);
+    T.spineY += 0.3 * twist;
+    // landing absorb
+    const air = this.wasAir;
+    if (air && this.jumpY < 0.01) this.land = 1;
+    this.wasAir = this.jumpY > 0.04;
+    this.land = Math.max(0, this.land - dt * 4);
+    if (this.land > 0) {
+      T.kneeL += 0.55 * this.land; T.kneeR += 0.55 * this.land;
+      T.hipLX -= 0.35 * this.land; T.hipRX -= 0.35 * this.land;
+      T.spineX += 0.18 * this.land;
+    }
+    // ball handler rocks and sells the dribble when standing
+    if (this.dribble.active && still > 0.3) {
+      T.spineZ += 0.07 * Math.sin(tt * 2.3) * still;
+      T.spineY += 0.12 * Math.sin(tt * 1.15) * still;
+    }
     // lateral slide gait
     if (slideW > 0.01 && spd > 0.05) {
       this.slidePhase += dt * spd * 4.2;
@@ -474,9 +525,15 @@ export class Player {
       T.kneeL += 0.95; T.kneeR += 0.95;
       T.ankleL = -0.3; T.ankleR = -0.3;
       T.hipLZ += 0.16; T.hipRZ -= 0.16;
-      const wig = Math.sin(performance.now() * 0.009) * 0.08;
-      T.shLX = -0.55 + wig; T.shLZ = 1.0; T.elbowL = -0.7;
-      T.shRX = -0.55 - wig; T.shRZ = -1.0; T.elbowR = -0.7;
+      // active hands: one high to contest, one low in the passing lane
+      this.handsT -= dt;
+      if (this.handsT <= 0) { this.handsHigh = -this.handsHigh; this.handsT = 0.9 + Math.random() * 1.1; }
+      const wig = Math.sin(tt * 9) * 0.1;
+      const hiL = this.handsHigh > 0 ? 1 : 0;
+      const slideArms = Math.min(1, slideW * spd * 0.5);
+      const hL = hiL * (1 - slideArms), hR = (1 - hiL) * (1 - slideArms);
+      T.shLX = -0.5 - 1.6 * hL + wig; T.shLZ = 1.0 - 0.55 * hL; T.elbowL = -0.7 + 0.35 * hL;
+      T.shRX = -0.5 - 1.6 * hR - wig; T.shRZ = -1.0 + 0.55 * hR; T.elbowR = -0.7 + 0.35 * hR;
     } else if (this.dribble.active) {
       T.hipLX -= 0.18; T.hipRX -= 0.18; T.kneeL += 0.35; T.kneeR += 0.35;
       T.spineX += 0.12;
@@ -536,6 +593,12 @@ export class Player {
         T.shRX = -2.3 - pump * 0.4; T.shRZ = -0.3; T.elbowR = -1.4 + pump * 0.5;
         T.shLX = -0.2; T.shLZ = 0.5; T.elbowL = -1.2;
         T.spineX = -0.1; T.neckX = -0.3;
+      } else if (act.type === 'jab') {
+        const r = ss(t / 0.12) * (1 - ss((t - 0.32) / 0.18));
+        T.spineX += 0.22 * r;
+        T.spineZ += -act.side * 0.1 * r;
+        T.spineY += act.side * 0.18 * r;
+        T.kneeL += 0.3 * r; T.kneeR += 0.3 * r;
       } else if (act.type === 'check') {
         T.shLX = T.shRX = -0.9; T.elbowL = T.elbowR = -1.3; T.shLZ = 0.35; T.shRZ = -0.35;
       }
@@ -557,8 +620,8 @@ export class Player {
     hipR.rotation.set(j.hipRX, 0, j.hipRZ);
     kneeL.rotation.x = j.kneeL;
     kneeR.rotation.x = j.kneeR;
-    ankL.rotation.x = j.ankleL - (j.hipLX + j.kneeL) * 0.6;
-    ankR.rotation.x = j.ankleR - (j.hipRX + j.kneeR) * 0.6;
+    ankL.rotation.set(j.ankleL - (j.hipLX + j.kneeL) * 0.6, 0, 0);
+    ankR.rotation.set(j.ankleR - (j.hipRX + j.kneeR) * 0.6, 0, 0);
     this.spine.rotation.set(j.spineX, j.spineY, j.spineZ);
     this.neck.rotation.set(j.neckX - j.spineX * 0.6, j.neckY, 0);
     this.shoulder[0].rotation.set(j.shLX, 0, j.shLZ);
@@ -566,19 +629,171 @@ export class Player {
     this.elbow[0].rotation.set(j.elbowL, 0, 0);
     this.elbow[1].rotation.set(j.elbowR, 0, 0);
 
-    // keep the lower foot planted
+    // desired pelvis height from the pose's crouch
     const ext = (hx, hz, kn) => (L.thigh * Math.cos(hx) + L.shin * Math.cos(hx + kn)) * Math.cos(hz);
     const eL = ext(j.hipLX, j.hipLZ, j.kneeL), eR = ext(j.hipRX, j.hipRZ, j.kneeR);
-    const pelvisY = Math.max(eL, eR) + L.footH + 0.03 * this.s;
-    this.pelvis.position.y = pelvisY + bob;
+    let pelvisY = Math.max(eL, eR) + L.footH + 0.03 * this.s + bob - 0.06 * this.s * this.land;
+    const sway = this.dribble.active ? 0.045 * s * Math.sin(tt * 2.3) * still : 0.02 * s * Math.sin(tt * 0.6) * still;
+    this.pelvis.position.set(sway, pelvisY, 0);
+    this.pelvis.rotation.set(0, this.pelvisYaw, this.pelvisRoll);
     this.root.position.set(this.pos.x, this.jumpY, this.pos.z);
     this.root.rotation.y = this.yaw;
+
+    // feet: planted steps + leg IK whenever grounded and not in a scripted leap
+    const scripted = act && (act.type === 'layup' || act.type === 'dunk');
+    const grounded = this.jumpY < 0.015 && !scripted;
+    this.legW = smooth(this.legW, grounded ? 1 : 0, 1 - Math.exp(-dt * (grounded ? 14 : 30)));
+    if (!grounded) this.feetReady = false;
+    else {
+      this.stepFeet(dt, spd, defense, act);
+      this.root.updateMatrixWorld(true);
+      // lower the hips if a planted foot is out of reach
+      const maxL = (L.thigh + L.shin) * 0.985;
+      let drop = 0;
+      for (let i = 0; i < 2; i++) {
+        const H = this.hip[i].getWorldPosition(_v2);
+        const f = this.feet[i];
+        const ay = L.footH + f.heel + (f.u < 1 ? f.lift * Math.sin(Math.PI * f.u) : 0);
+        const hz = Math.hypot(H.x - f.pos.x, H.z - f.pos.z);
+        if (hz < maxL) drop = Math.max(drop, H.y - (ay + Math.sqrt(maxL * maxL - hz * hz)));
+      }
+      if (drop > 0) { this.pelvis.position.y -= drop; this.root.updateMatrixWorld(true); }
+      for (let i = 0; i < 2; i++) this.solveLeg(i, this.legW);
+    }
 
     // blob shadow
     const bs = 1.05 * s * (1 - Math.min(0.5, this.jumpY * 0.5));
     this.blob.position.set(this.pos.x, 0.004, this.pos.z);
     this.blob.scale.set(bs, bs, 1);
     this.blob.material.opacity = 0.55 * (1 - Math.min(0.7, this.jumpY));
+  }
+
+  // ---- stepping planner: feet stay planted until the body drifts off them ----
+  stepFeet(dt, spd, defense, act) {
+    const s = this.s, feet = this.feet;
+    const half = (defense ? 0.2 : 0.13) * s;
+    const restAt = (i, out) => this.localToWorld(out, (i === 0 ? 1 : -1) * half, 0, (defense ? -0.03 : 0.02) * s).setY(0);
+    const R0 = restAt(0, new THREE.Vector3()), R1 = restAt(1, new THREE.Vector3());
+    const rest = [R0, R1];
+    if (!this.feetReady || feet[0].pos.distanceTo(R0) > 1.5 || feet[1].pos.distanceTo(R1) > 1.5) {
+      // (re)plant under the hips, e.g. after landing or a reset
+      for (let i = 0; i < 2; i++) {
+        const f = feet[i];
+        if (this.feetReady) f.pos.copy(rest[i]);
+        else { this.ankle[i].getWorldPosition(f.pos); f.pos.y = 0; if (f.pos.distanceTo(rest[i]) > 0.6) f.pos.copy(rest[i]); }
+        f.u = 1; f.heel = 0; f.yaw = this.yaw + (i === 0 ? 0.1 : -0.1);
+      }
+      this.feetReady = true;
+    }
+    // advance swings
+    for (const f of feet) {
+      if (f.u < 1) {
+        f.u = Math.min(1, f.u + dt / f.dur);
+        const e = f.u * f.u * (3 - 2 * f.u);
+        f.pos.lerpVectors(f.from, f.to, e);
+        f.pos.y = 0;
+        f.yaw = f.yawFrom + Math.atan2(Math.sin(f.yawTo - f.yawFrom), Math.cos(f.yawTo - f.yawFrom)) * e;
+      }
+    }
+    const moving = spd > 0.35;
+    const stepDur = moving ? clamp(0.3 - spd * 0.028, 0.14, 0.3) : 0.2;
+    const lead = moving ? stepDur + 0.12 : 0;
+    const start = (i, target, dur, lift) => {
+      const f = feet[i];
+      f.from.copy(f.pos); f.to.copy(target); f.to.y = 0;
+      // never reach further than the leg allows
+      const R = rest[i];
+      const dx = f.to.x - R.x, dz = f.to.z - R.z, d = Math.hypot(dx, dz), mx = 0.62 * s + spd * 0.06;
+      if (d > mx) { f.to.x = R.x + dx / d * mx; f.to.z = R.z + dz / d * mx; }
+      f.u = 0; f.dur = dur; f.lift = lift;
+      f.yawFrom = f.yaw; f.yawTo = this.yaw + (i === 0 ? 0.12 : -0.12);
+    };
+    // scripted jab step: lead foot out and back
+    if (act && act.type === 'jab') {
+      const i = act.side > 0 ? 0 : 1;
+      if (!act.out) { act.out = true; start(i, this.localToWorld(new THREE.Vector3(), act.side * 0.3 * s, 0, 0.42 * s), 0.14, 0.05); }
+      else if (!act.back && act.t > 0.34) { act.back = true; start(i, rest[i], 0.16, 0.04); }
+      return;
+    }
+    const busy = feet.some((f) => f.u < 1 && (!moving || spd < 4.8 || f.u < 0.55));
+    if (busy) return;
+    // defensive chop steps when holding position
+    if (defense && !moving && !act) {
+      this.chopT -= dt;
+      if (this.chopT <= 0) {
+        this.chopSide = 1 - this.chopSide;
+        start(this.chopSide, rest[this.chopSide], 0.1, 0.028);
+        this.chopT = 0.13 + Math.random() * 0.05;
+        return;
+      }
+    }
+    let best = -1, bestErr = 0;
+    for (let i = 0; i < 2; i++) {
+      const f = feet[i];
+      const tx = rest[i].x + this.vel.x * lead, tz = rest[i].z + this.vel.z * lead;
+      let err = Math.hypot(f.pos.x - tx, f.pos.z - tz);
+      const yawErr = Math.abs(Math.atan2(Math.sin(this.yaw - f.yaw), Math.cos(this.yaw - f.yaw)));
+      err += Math.max(0, yawErr - 0.5) * 0.4;
+      if (err > bestErr) { bestErr = err; best = i; }
+    }
+    const thresh = moving ? clamp(0.1 + spd * 0.075, 0.14, 0.55) : 0.2 * s;
+    if (best >= 0 && bestErr > thresh) {
+      const tgt = rest[best].clone().addScaledVector(this.vel, lead);
+      start(best, tgt, stepDur, moving ? 0.05 + spd * 0.02 : 0.035);
+    }
+    // push-off: trailing planted foot rolls onto the toes
+    for (const f of feet) {
+      let heel = 0;
+      if (f.u >= 1 && spd > 1.5) {
+        const behind = -((f.pos.x - this.pos.x) * this.vel.x + (f.pos.z - this.pos.z) * this.vel.z) / spd;
+        heel = clamp((behind - 0.15) * 0.3, 0, 0.09);
+      }
+      f.heel = smooth(f.heel, heel, 1 - Math.exp(-dt * 15));
+    }
+  }
+
+  // ---- 2-bone leg IK; knee points along the pole, foot set flat by yaw ----
+  solveLeg(i, w) {
+    if (w < 0.01) return;
+    const f = this.feet[i], L = this.L, s = this.s;
+    const hip = this.hip[i], knee = this.knee[i], ank = this.ankle[i];
+    const liftY = f.u < 1 ? f.lift * Math.sin(Math.PI * f.u) : 0;
+    const target = _xb.set(f.pos.x, L.footH + f.heel + liftY, f.pos.z);
+    const side = i === 0 ? 1 : -1;
+    const pole = this.localToWorld(new THREE.Vector3(), side * 0.12 * s, 0.55 * s, 1.2 * s);
+    this.pelvis.updateWorldMatrix(true, false);
+    _m.copy(this.pelvis.matrixWorld).invert();
+    const t = _v1.copy(target).applyMatrix4(_m);
+    const pl = _v2.copy(pole).applyMatrix4(_m);
+    const S = hip.position;
+    const L1 = L.thigh, L2 = L.shin;
+    const d = t.sub(S);
+    const dist = clamp(d.length(), Math.abs(L1 - L2) + 1e-3, (L1 + L2) * 0.999);
+    const dir = d.normalize();
+    const a = Math.acos(clamp((L1 * L1 + dist * dist - L2 * L2) / (2 * L1 * dist), -1, 1));
+    const perp = pl.sub(S);
+    perp.addScaledVector(dir, -perp.dot(dir));
+    if (perp.lengthSq() < 1e-8) perp.set(0, 0, 1);
+    perp.normalize();
+    const u = _v3.copy(dir).multiplyScalar(Math.cos(a)).addScaledVector(perp, Math.sin(a)).normalize();
+    const kneeP = _v4.copy(S).addScaledVector(u, L1);
+    const fdir = new THREE.Vector3().copy(dir).multiplyScalar(dist).add(S).sub(kneeP).normalize();
+    const bend = Math.acos(clamp(u.dot(fdir), -1, 1));
+    _yb.copy(u).negate();
+    _zb.copy(fdir).addScaledVector(u, -fdir.dot(u)).negate();
+    if (_zb.lengthSq() < 1e-8) _zb.copy(perp);
+    _zb.normalize();
+    _xb.crossVectors(_yb, _zb);
+    _m.makeBasis(_xb, _yb, _zb);
+    _q.setFromRotationMatrix(_m);
+    hip.quaternion.slerp(_q, w);
+    knee.rotation.x = smooth(knee.rotation.x, bend, w);
+    hip.updateMatrixWorld(true);
+    // foot: flat on the floor (toe-down while swinging / on push-off)
+    const pitch = (f.u < 1 ? 0.35 * Math.sin(Math.PI * f.u) : 0) + f.heel * 4;
+    const want = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, f.yaw, 0, 'YXZ'));
+    const kq = knee.getWorldQuaternion(new THREE.Quaternion()).invert();
+    ank.quaternion.slerp(kq.multiply(want), w);
   }
 
   // IK pass (call after animate, once targets are known)
@@ -589,7 +804,10 @@ export class Player {
       this.ikW[i] = smooth(this.ikW[i], tgt ? 1 : 0, k);
       if (tgt && this.ikW[i] > 0.01) {
         const side = i === 0 ? 1 : -1;
-        const pole = this.localToWorld(_v4.clone(), side * 0.9 * this.s, 1.0 * this.s + this.jumpY, -0.7 * this.s);
+        const shooting = this.action && this.action.type === 'shoot';
+        const pole = shooting && i === 1
+          ? this.localToWorld(_v4.clone(), side * 0.25 * this.s, 1.05 * this.s + this.jumpY, 0.9 * this.s)   // elbow under the ball
+          : this.localToWorld(_v4.clone(), side * 0.9 * this.s, 1.0 * this.s + this.jumpY, -0.7 * this.s);
         this.solveArm(i, tgt, pole, this.ikW[i]);
       }
     }
@@ -681,22 +899,23 @@ export class Player {
     const tmpQ = new THREE.Quaternion();
     // hips
     const hipMid = W(this.hip[0], new THREE.Vector3()).add(W(this.hip[1], new THREE.Vector3())).multiplyScalar(0.5);
-    const hipsPos = hipMid.add(hipOffset.clone().applyQuaternion(Rq));
+    const RP = Rq.clone().multiply(this.pelvis.quaternion);   // root yaw + hip twist/roll
+    const hipsPos = hipMid.add(hipOffset.clone().applyQuaternion(RP));
     const hb = bones.Hips;
     hb.parent.updateMatrixWorld(true);
     hb.position.copy(hb.parent.worldToLocal(hipsPos));
-    setWorldQ(hb, Rq.clone().multiply(rest.Hips.q));
+    setWorldQ(hb, RP.clone().multiply(rest.Hips.q));
     // spine chain (lower -> upper)
     const dSpine = this.spine.quaternion;
     const ident = new THREE.Quaternion();
     for (const [n, f] of [['Spine02', 0.34], ['Spine01', 0.67], ['Spine', 1]]) {
       tmpQ.copy(ident).slerp(dSpine, f);
-      setWorldQ(bones[n], Rq.clone().multiply(tmpQ).multiply(rest[n].q));
+      setWorldQ(bones[n], RP.clone().multiply(tmpQ).multiply(rest[n].q));
     }
     // neck + head
     const dHead = dSpine.clone().multiply(this.neck.quaternion).multiply(this.head.quaternion);
-    setWorldQ(bones.neck, Rq.clone().multiply(dSpine.clone().slerp(dHead, 0.5)).multiply(rest.neck.q));
-    setWorldQ(bones.Head, Rq.clone().multiply(dHead).multiply(rest.Head.q));
+    setWorldQ(bones.neck, RP.clone().multiply(dSpine.clone().slerp(dHead, 0.5)).multiply(rest.neck.q));
+    setWorldQ(bones.Head, RP.clone().multiply(dHead).multiply(rest.Head.q));
     // limbs by segment direction
     const limb = (name, from, to) => {
       const a = W(from, new THREE.Vector3()), b = W(to, new THREE.Vector3());

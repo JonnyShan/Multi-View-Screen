@@ -97,7 +97,13 @@ export class AI {
         return;
       }
       // hesitation now and then
-      if (Math.random() < 0.08) { this.pause = rnd(0.2, 0.5); return; }
+      if (Math.random() < 0.14) {
+        const r = Math.random();
+        if (r < 0.5 && dOpp < 2.4) g.jab(this.i, Math.random() < 0.5 ? 1 : -1);
+        else if (r < 0.75 && s.moveCd <= 0) g.doMove(this.i, 0, 0);
+        this.pause = rnd(0.35, 0.7);
+        return;
+      }
       // pick a drive / reposition target
       const style = r.finish + r.dunk * 0.5 > r.three + r.mid * 0.5 ? 'inside' : 'outside';
       if (inFront > 0.55 && dOpp < 1.8) {
@@ -162,8 +168,11 @@ export class AI {
     for (let k = hist.length - 1; k >= 0; k--) { if (hist[k].t <= lagT) { hx = hist[k].x; hz = hist[k].z; break; } }
     const dRim = Math.hypot(hx - RIM.x, hz - RIM.z) || 1;
     const gap = clamp(0.95 + (dRim - 3) * 0.08, 0.9, 1.55) * (g.needClear ? 1.4 : 1);
-    const gx = hx + (RIM.x - hx) / dRim * gap;
-    const gz = hz + (RIM.z - hz) / dRim * gap;
+    const ph = g.t * 1.3 + this.i * 2;
+    const px = -(RIM.z - hz) / dRim, pz = (RIM.x - hx) / dRim;          // perpendicular to the drive line
+    const stunt = 0.16 * Math.sin(ph) + 0.08 * Math.sin(ph * 2.7);
+    const gx = hx + (RIM.x - hx) / dRim * (gap + 0.1 * Math.sin(ph * 0.7)) + px * stunt;
+    const gz = hz + (RIM.z - hz) / dRim * (gap + 0.1 * Math.sin(ph * 0.7)) + pz * stunt;
     const d = this.moveTo(gx, gz, { sprint: Math.hypot(gx - me.pos.x, gz - me.pos.z) > 1.6, arrive: 0.12 });
     // reach for the ball
     const dh = Math.hypot(opp.pos.x - me.pos.x, opp.pos.z - me.pos.z);

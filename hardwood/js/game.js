@@ -426,6 +426,19 @@ export class Game {
     this.tag(text, 'rgba(10,12,18,.8)', p.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, 0.4, 0)));
   }
 
+  // jab step: sells a drive; a jumpy defender may lean the wrong way
+  jab(i, side) {
+    const p = this.players[i];
+    if (p.action || this.handler !== i) return;
+    p.setAction('jab', { side, dur: 0.55 });
+    const dp = this.players[1 - i], ds = this.ps[1 - i];
+    const d = Math.hypot(dp.pos.x - p.pos.x, dp.pos.z - p.pos.z);
+    if (d < 1.8 && 1 - i === CPU && Math.random() < 0.3 * (1.2 - this.diff.iq)) {
+      ds.off = 0.3;
+      this.tagMove(i, 'JAB');
+    }
+  }
+
   trySteal(i) {
     const s = this.ps[i], p = this.players[i];
     if (p.action || s.off > 0) return;
@@ -644,7 +657,7 @@ export class Game {
     for (let i = 0; i < 2; i++) {
       const p = this.players[i];
       const hasBall = this.handler === i;
-      p.dribble.active = hasBall && !p.action;
+      p.dribble.active = hasBall && (!p.action || p.action.type === 'jab');
       if (p.dribble.active) {
         const spd = Math.hypot(p.vel.x, p.vel.z);
         const rate = p.dribble.crossing ? 2.9 : 1.75 + spd * 0.27;

@@ -176,7 +176,7 @@ function renderPick() {
   const rows = [['3PT', p.r.three], ['Mid-range', p.r.mid], ['Finishing', p.r.finish], ['Dunking', p.r.dunk], ['Handles', p.r.handle], ['Speed', p.r.speed], ['Defense', p.r.defense], ['Blocks', p.r.block], ['Steals', p.r.steal]];
   $('featBars').innerHTML = rows.map(([k, v]) => `<span>${k}</span><span class="b"><i style="width:${v}%;background:${v >= 85 ? 'var(--green)' : 'var(--leather)'}"></i></span><span class="v">${v}</span>`).join('');
   $('pickTitle').innerHTML = pickStep === 'you' ? 'Choose <em>your</em> player' : 'Choose your <em>opponent</em>';
-  $('pickNext').textContent = pickStep === 'you' ? 'Next' : 'Tip off';
+  $('pickNext').textContent = pickStep === 'you' ? 'Next' : 'Play';
   $('pickOpts').hidden = pickStep !== 'opp';
   seg($('segDiff'), Object.entries(DIFFICULTY).map(([k, d]) => [k, d.label]), () => settings.diff, (v) => { settings.diff = v; });
   seg($('segTo'), [[11, '11'], [21, '21']], () => settings.to, (v) => { settings.to = v; });
