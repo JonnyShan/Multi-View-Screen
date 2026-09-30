@@ -230,11 +230,11 @@ export class Sound {
   }
 
   // ---------- crowd ----------
-  // the crowd rises with every shot; louder for the home player (you)
-  shotRise(home = true, finish = false) {
+  // the crowd's "ooooh" as a three goes up; louder for the home player (you)
+  shotRise(home = true) {
     if (!this.ok) return;
     this.fadeOut(this.riseH, 0.2);
-    this.riseH = this.play('rise', { gain: (home ? 0.6 : 0.3) * (finish ? 0.8 : 1), bus: this.crowd, attack: 0.25 });
+    this.riseH = this.play('rise', { gain: home ? 0.6 : 0.3, bus: this.crowd, attack: 0.25 });
     if (!this.riseH) this.ooh();
     this.excite = Math.min(1.5, this.excite + (home ? 0.35 : 0.15));
   }
@@ -256,7 +256,7 @@ export class Sound {
       }
       this.excite = Math.min(2.2, this.excite + 1.2 + big * 0.6);
     } else {
-      if (!this.play('groan', { gain: 0.45, bus: this.crowd })) this.ooh();
+      this.play('groan', { gain: 0.45, bus: this.crowd });
       this.excite = Math.max(0, this.excite - 0.3);
     }
   }
@@ -264,7 +264,7 @@ export class Sound {
   missed(home = true) {
     if (!this.ok) return;
     this.fadeOut(this.riseH, 0.2); this.riseH = null;
-    if (home) { if (!this.play('groan', { gain: 0.6, bus: this.crowd })) this.ooh(); }
+    if (home) this.play('groan', { gain: 0.6, bus: this.crowd });
     else if (!this.play('roar', { gain: 0.4, bus: this.crowd })) this.cheer(0.4);
   }
 

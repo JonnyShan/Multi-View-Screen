@@ -11,7 +11,7 @@ A 1-on-1 half-court basketball game for phones, built with three.js. Open `index
 - **Gameplay**: timed jump shots with a release meter, layups and dunks, crossovers, spins and step-backs, steals, blocks, rebounds, a 12-second shot clock, clearing the ball, and games to 11. The front screen has one button: Start.
 - **Audio**: recorded sound effects generated with ElevenLabs (`sfx/`):
   - an arena crowd bed that swells with excitement
-  - an "ooooh" build-up whenever someone rises to shoot or drives
+  - an "ooooh" build-up when someone rises for a three
   - two layered crowd roars when you score, which get bigger on threes and dunks
   - groans when you miss or the CPU scores
   - the net swish, the backboard bang, rim clanks, the dribble and the dunk slam

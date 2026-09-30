@@ -220,7 +220,7 @@ export class Game {
     this.stateT = 0;
     p.vel.multiplyScalar(0.3);
     this.sound.whoosh();
-    this.sound.shotRise(i === HUMAN);
+    if (three) this.sound.shotRise(i === HUMAN);   // the crowd only "ooooh"s for threes
   }
 
   // ball "set point" while rising for a jumper
@@ -361,7 +361,6 @@ export class Game {
     this.state = 'finishing';
     this.stateT = 0;
     this.shot = { shooter: i, type: dunk ? 'dunk' : 'layup' };
-    this.sound.shotRise(i === HUMAN, true);
   }
 
   finishProb(i, dunk) {
