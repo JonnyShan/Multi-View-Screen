@@ -6,8 +6,12 @@ The original game lives in `wild-turkey-redline/`. It stays untouched: each resk
 |---|---|---|---|
 | `wild-turkey-redline/` | Wild Turkey | Motorbike | Original. Do not edit for reskins. |
 | `red-line/` | None (stand-in) | Motorbike | Generated shareable copy of the original. |
-| `motogp-wildturkey/` | Wild Turkey | Motorbike | To build. |
-| `f1-livewire/` | Livewire | F1 car | To build. |
+| `motogp-wildturkey/` | Wild Turkey | Motorbike | Built: 7.5 MB. |
+| `f1-livewire/` | Livewire | F1 car | Built: 1.2 MB. Waiting on the Livewire logo file. |
+
+In both copies, every brand value now lives in `js/brand.js`, so the next reskin is that file plus new images. `WORKFLOW.md` has the steps.
+
+The rest of this page is the audit from before the build. It lists where the brand touched the original code, which is what `brand.js` now replaces.
 
 ## How the game is built
 

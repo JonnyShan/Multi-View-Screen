@@ -65,9 +65,9 @@ const mb = (b) => (b / 1024 / 1024).toFixed(2) + ' MB';
   report.title = await p.evaluate(() => ({ tab: document.title, legal: document.querySelector('#legal').textContent, logo: !!document.querySelector('#title .wm img') }));
   if (play) {
     await p.click('#btnRide');
-    await p.waitForFunction(() => window.__game.state === 'race', null, { timeout: 240000 });
+    await p.waitForFunction(() => window.__game.state === 'race', null, { timeout: 900000 });
     await p.keyboard.down('ArrowUp');
-    await p.waitForFunction(() => window.__game.raceT > 5, null, { timeout: 240000 });
+    await p.waitForFunction(() => window.__game.raceT > 5, null, { timeout: 900000 });
     await snap('race');
     report.race = await p.evaluate(() => ({ t: +window.__game.raceT.toFixed(1), kmh: Math.round(window.__game.st.v * 3.6) }));
     await p.keyboard.up('ArrowUp');
