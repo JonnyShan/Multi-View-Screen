@@ -1,9 +1,34 @@
-// Synthesised arena audio: crowd bed, cheers, ball, rim, net, sneakers, buzzer.
+// Arena audio. The crowd and the ball use recorded sound effects (generated
+// with ElevenLabs, in sfx/); every sound has a synthesised fallback that plays
+// until the files are decoded or if they fail to load.
+const SFX = {
+  bed: ['sfx/crowd-bed.mp3'],
+  rise: ['sfx/crowd-rise.mp3'],
+  roar: ['sfx/crowd-roar-1.mp3', 'sfx/crowd-roar-2.mp3'],
+  groan: ['sfx/crowd-groan-1.mp3', 'sfx/crowd-groan-2.mp3'],
+  swish: ['sfx/swish.mp3'],
+  board: ['sfx/backboard.mp3'],
+  rim: ['sfx/rim-1.mp3', 'sfx/rim-2.mp3'],
+  dribble: ['sfx/dribble.mp3'],
+  dunk: ['sfx/dunk.mp3'],
+};
+// crowd clips play from the top; impacts are trimmed to their first transient
+const CROWD = new Set(['bed', 'rise', 'roar', 'groan']);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
 export class Sound {
   constructor() {
     this.ctx = null;
     this.enabled = true;
     this.excite = 0;
+    this.buf = {};
+    this.riseH = null;
+    // start downloading straight away; decoding waits for the audio unlock tap
+    this.raw = {};
+    for (const [k, files] of Object.entries(SFX)) {
+      this.raw[k] = files.map((f) => fetch(f).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null));
+    }
   }
 
   unlock() {
@@ -16,7 +41,7 @@ export class Sound {
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4;
     this.master.connect(comp).connect(ctx.destination);
-    // noise buffers
+    // noise buffers for the synthesised fallbacks
     const len = ctx.sampleRate * 4;
     const buf = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let ch = 0; ch < 2; ch++) {
@@ -33,19 +58,77 @@ export class Sound {
     const wd = wb.getChannelData(0);
     for (let i = 0; i < wd.length; i++) wd[i] = Math.random() * 2 - 1;
     this.white = wb;
-    // crowd bed
+    // crowd bus: everything the crowd does goes through one filter that opens up with excitement
+    this.crowdLp = ctx.createBiquadFilter(); this.crowdLp.type = 'lowpass'; this.crowdLp.frequency.value = 9000;
+    this.crowd = ctx.createGain(); this.crowd.gain.value = 1;
+    this.crowd.connect(this.crowdLp).connect(this.master);
+    // synthesised crowd bed until the recorded one is ready
     const src = ctx.createBufferSource();
     src.buffer = buf; src.loop = true;
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 0.6;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800;
-    this.bed = ctx.createGain(); this.bed.gain.value = 0.18;
-    this.bedLp = lp;
-    src.connect(bp).connect(lp).connect(this.bed).connect(this.master);
+    this.synthBed = ctx.createGain(); this.synthBed.gain.value = 0.18;
+    src.connect(bp).connect(lp).connect(this.synthBed).connect(this.crowd);
     src.start();
-    // murmur modulation
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.23;
-    const lfoG = ctx.createGain(); lfoG.gain.value = 0.04;
-    lfo.connect(lfoG).connect(this.bed.gain); lfo.start();
+    this.bed = null;
+    this.decodeAll();
+  }
+
+  async decodeAll() {
+    const ctx = this.ctx;
+    await Promise.all(Object.entries(this.raw).map(async ([k, list]) => {
+      const out = [];
+      for (const p of list) {
+        const ab = await p;
+        if (!ab) continue;
+        try {
+          const b = await new Promise((res, rej) => ctx.decodeAudioData(ab.slice(0), res, rej));
+          // loudness match: peak-normalise, and skip leading silence on impacts
+          let peak = 0;
+          for (let c = 0; c < b.numberOfChannels; c++) { const d = b.getChannelData(c); for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i])); }
+          let start = 0;
+          if (!CROWD.has(k) && peak > 0) {
+            const d = b.getChannelData(0);
+            for (let i = 0; i < d.length; i++) if (Math.abs(d[i]) > peak * 0.12) { start = Math.max(0, i / b.sampleRate - 0.006); break; }
+          }
+          out.push({ b, norm: peak > 0 ? 0.9 / peak : 1, start });
+        } catch (e) { /* undecodable: the synth fallback stays */ }
+      }
+      if (out.length) this.buf[k] = out;
+      // swap the synthesised bed for the recorded loop as soon as it's ready
+      if (k === 'bed' && out.length) {
+        const t = ctx.currentTime;
+        this.bed = this.play('bed', { gain: 0, loop: true, bus: this.crowd, raw: true });
+        this.bed.g.gain.setTargetAtTime(this.bedLevel(), t, 0.8);
+        this.synthBed.gain.setTargetAtTime(0, t, 0.5);
+      }
+    }));
+  }
+
+  // play a decoded sample; returns a handle whose gain can be faded, or null
+  play(name, { gain = 1, rate = 1, pan = 0, when = 0, loop = false, bus = null, raw = false, attack = 0 } = {}) {
+    const set = this.buf[name];
+    if (!this.ctx || !set) return null;
+    const ctx = this.ctx, s = pick(set), t = ctx.currentTime + when;
+    const src = ctx.createBufferSource();
+    src.buffer = s.b; src.loop = loop; src.playbackRate.value = rate;
+    const g = ctx.createGain();
+    const level = raw ? gain : gain * s.norm;
+    if (attack > 0) { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(level, t + attack); } else g.gain.value = level;
+    let node = src.connect(g);
+    if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = pan; node = node.connect(p); }
+    node.connect(bus || this.master);
+    src.start(t, loop ? 0 : s.start);
+    return { src, g, level };
+  }
+
+  fadeOut(h, time = 0.25) {
+    if (!h || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    h.g.gain.cancelScheduledValues(t);
+    h.g.gain.setValueAtTime(h.g.gain.value, t);
+    h.g.gain.setTargetAtTime(0, t, time / 3);
+    try { h.src.stop(t + time + 0.1); } catch (e) { /* already stopped */ }
   }
 
   setEnabled(on) {
@@ -91,16 +174,19 @@ export class Sound {
     o.start(t); o.stop(t + dur + 0.05);
   }
 
+  // ---------- ball ----------
   dribble(v = 1, pan = 0) {
     if (!this.ok) return;
+    if (this.play('dribble', { gain: clamp(0.3 + v * 0.22, 0.25, 0.85), rate: 0.94 + Math.random() * 0.12, pan })) return;
     const g = Math.min(0.9, 0.35 + v * 0.1);
     this._tone(115, 0.13, { f2: 55, gain: g, pan });
     this._noise(0.06, { type: 'lowpass', f: 1400, gain: g * 0.5, pan });
-    this._noise(0.25, { type: 'bandpass', f: 380, q: 3, gain: g * 0.12, pan, attack: 0.01 }); // gym reverb tail
+    this._noise(0.25, { type: 'bandpass', f: 380, q: 3, gain: g * 0.12, pan, attack: 0.01 });
   }
 
   rim(v = 1, pan = 0) {
     if (!this.ok) return;
+    if (this.play('rim', { gain: clamp(0.25 + v * 0.18, 0.25, 0.9), rate: 0.95 + Math.random() * 0.12, pan })) return;
     const g = Math.min(0.6, 0.12 + v * 0.07);
     for (const [f, d] of [[512, 0.5], [1187, 0.35], [2010, 0.22], [3120, 0.12]]) this._tone(f, d, { gain: g * (f < 600 ? 1 : 0.5), pan, type: 'triangle' });
     this._noise(0.05, { type: 'highpass', f: 2500, gain: g * 0.6, pan });
@@ -108,6 +194,7 @@ export class Sound {
 
   board(v = 1, pan = 0) {
     if (!this.ok) return;
+    if (this.play('board', { gain: clamp(0.35 + v * 0.16, 0.3, 0.95), rate: 0.96 + Math.random() * 0.08, pan })) return;
     const g = Math.min(0.7, 0.2 + v * 0.07);
     this._tone(150, 0.16, { f2: 90, gain: g, pan });
     this._noise(0.12, { type: 'bandpass', f: 900, q: 1.2, gain: g * 0.5, pan });
@@ -116,8 +203,18 @@ export class Sound {
 
   swish(clean = true) {
     if (!this.ok) return;
+    if (this.play('swish', { gain: clean ? 0.95 : 0.6, rate: 0.97 + Math.random() * 0.06 })) {
+      // a touch of bright net hiss on top of the recording
+      this._noise(0.35, { type: 'bandpass', f: 3600, f2: 5600, q: 0.8, gain: clean ? 0.16 : 0.1, attack: 0.03 });
+      return;
+    }
     this._noise(clean ? 0.42 : 0.3, { type: 'bandpass', f: 3200, f2: 5200, q: 0.8, gain: clean ? 0.5 : 0.3, attack: 0.03 });
     this._noise(0.3, { type: 'highpass', f: 6000, gain: 0.12, attack: 0.02, when: 0.05 });
+  }
+
+  dunk(pan = 0) {
+    if (!this.ok) return;
+    if (!this.play('dunk', { gain: 1, pan })) this.rim(3, pan);
   }
 
   squeak(pan = 0) {
@@ -132,13 +229,57 @@ export class Sound {
     this._noise(0.05, { type: 'lowpass', f: 500, gain: 0.08, pan });
   }
 
-  cheer(amount = 1) {
+  // ---------- crowd ----------
+  // the crowd rises with every shot; louder for the home player (you)
+  shotRise(home = true, finish = false) {
     if (!this.ok) return;
+    this.fadeOut(this.riseH, 0.2);
+    this.riseH = this.play('rise', { gain: (home ? 0.6 : 0.3) * (finish ? 0.8 : 1), bus: this.crowd, attack: 0.25 });
+    if (!this.riseH) this.ooh();
+    this.excite = Math.min(1.5, this.excite + (home ? 0.35 : 0.15));
+  }
+
+  // made basket: the home crowd goes wild for you, deflates for the opponent
+  made(home = true, big = 0.7) {
+    if (!this.ok) return;
+    this.fadeOut(this.riseH, 0.35); this.riseH = null;
+    if (home) {
+      const a = this.play('roar', { gain: 1, bus: this.crowd });
+      if (!a) { this.cheer(big); return; }
+      // a second crowd recording on top, a beat later, for a bigger room
+      const set = this.buf.roar;
+      if (set.length > 1) {
+        const other = set.find((s) => s.b !== a.src.buffer) || set[0];
+        const src = this.ctx.createBufferSource(); src.buffer = other.b;
+        const g = this.ctx.createGain(); g.gain.value = other.norm * clamp(0.45 + big * 0.35, 0.5, 0.95);
+        src.connect(g).connect(this.crowd); src.start(this.ctx.currentTime + 0.14);
+      }
+      this.excite = Math.min(2.2, this.excite + 1.2 + big * 0.6);
+    } else {
+      if (!this.play('groan', { gain: 0.45, bus: this.crowd })) this.ooh();
+      this.excite = Math.max(0, this.excite - 0.3);
+    }
+  }
+
+  missed(home = true) {
+    if (!this.ok) return;
+    this.fadeOut(this.riseH, 0.2); this.riseH = null;
+    if (home) { if (!this.play('groan', { gain: 0.6, bus: this.crowd })) this.ooh(); }
+    else if (!this.play('roar', { gain: 0.4, bus: this.crowd })) this.cheer(0.4);
+  }
+
+  // generic crowd pop (steals, ankle-breakers, blocks); home = the play went your way
+  cheer(amount = 1, home = true) {
+    if (!this.ok) return;
+    if (!home) { if (this.play('groan', { gain: clamp(0.3 + amount * 0.3, 0.3, 0.7), bus: this.crowd })) return; }
+    else if (this.play('roar', { gain: clamp(0.25 + amount * 0.45, 0.3, 1), bus: this.crowd })) { this.excite = Math.min(2, this.excite + amount * 0.6); return; }
     const dur = 1.6 + amount * 1.6;
     this._noise(dur, { type: 'bandpass', f: 900, f2: 1300, q: 0.5, gain: 0.25 + amount * 0.3, attack: 0.18, buf: this.pink });
-    this._noise(dur * 0.8, { type: 'bandpass', f: 2600, q: 1.5, gain: 0.05 + amount * 0.08, attack: 0.25, buf: this.pink }); // whistles/screams
+    this._noise(dur * 0.8, { type: 'bandpass', f: 2600, q: 1.5, gain: 0.05 + amount * 0.08, attack: 0.25, buf: this.pink });
     this.excite = Math.min(1.5, this.excite + amount);
   }
+
+  stopRise() { this.fadeOut(this.riseH, 0.2); this.riseH = null; }
 
   ooh() {
     if (!this.ok) return;
@@ -157,11 +298,14 @@ export class Sound {
     this._noise(0.25, { type: 'bandpass', f: 600, f2: 1800, q: 1, gain: 0.1, attack: 0.05 });
   }
 
+  bedLevel() { return (0.9 + Math.min(1.5, this.excite) * 0.4) * (this.buf.bed ? this.buf.bed[0].norm : 1) * 0.5; }
+
   update(dt) {
     if (!this.ctx) return;
-    this.excite = Math.max(0, this.excite - dt * 0.4);
+    this.excite = Math.max(0, this.excite - dt * 0.3);
     const t = this.ctx.currentTime;
-    this.bed.gain.setTargetAtTime(0.16 + this.excite * 0.12, t, 0.3);
-    this.bedLp.frequency.setTargetAtTime(1600 + this.excite * 1400, t, 0.3);
+    if (this.bed) this.bed.g.gain.setTargetAtTime(this.bedLevel(), t, 0.4);
+    else this.synthBed.gain.setTargetAtTime(0.16 + this.excite * 0.12, t, 0.3);
+    this.crowdLp.frequency.setTargetAtTime(5000 + Math.min(1.5, this.excite) * 5000, t, 0.3);
   }
 }

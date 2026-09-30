@@ -8,7 +8,14 @@ A 1-on-1 half-court basketball game for phones, built with three.js. Open `index
 - **Players**: two fictional players, Morrow (you) and Varga (CPU). Each body is a textured, rigged 3D model made from a generated full-body photo. Models ship as glTF JSON plus a JPEG texture (`models/`). If a model fails to load, a built-in body is used instead. The data for six more players is still in `js/data.js`, but there is no picker for now.
 - **Motion**: running, walking, backpedalling, defensive slides, stances and jumps come from motion-capture clips (`models/motion.json`). The clips are blended by speed and direction and retargeted onto each body. A procedural rig handles what the library doesn't cover: dribbling, shooting, layups, dunks, steals, and arm IK that keeps the hands on the ball.
 - **Gameplay**: timed jump shots with a release meter, layups and dunks, crossovers, spins and step-backs, steals, blocks, rebounds, a 12-second shot clock, clearing the ball, and games to 11. The front screen has one button: Start.
-- **Audio**: synthesised with WebAudio. It covers crowd noise, the dribble, rim, glass, net, sneaker squeaks and the buzzer.
+- **Audio**: recorded sound effects generated with ElevenLabs (`sfx/`):
+  - an arena crowd bed that swells with excitement
+  - an "ooooh" build-up whenever someone rises to shoot or drives
+  - two layered crowd roars when you score, which get bigger on threes and dunks
+  - groans when you miss or the CPU scores
+  - the net swish, the backboard bang, rim clanks, the dribble and the dunk slam
+
+  Sneaker squeaks and the buzzer are still synthesised with WebAudio. If a sound file fails to load, a synthesised version plays instead.
 
 ## Controls
 
@@ -28,7 +35,8 @@ A 1-on-1 half-court basketball game for phones, built with three.js. Open `index
 - `js/motion.js`: the motion-capture layer (clip blending by speed and direction, jump time-warping)
 - `js/ball.js`: ball physics and the net cloth
 - `js/arena.js`: court, markings, reflections, stands, hoop
-- `js/audio.js`, `js/input.js`, `js/data.js`
+- `js/audio.js`: sound playback (recorded crowd and ball sounds, synthesised fallbacks)
+- `js/input.js`, `js/data.js`
 
 ## Art
 
