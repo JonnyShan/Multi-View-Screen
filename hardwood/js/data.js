@@ -14,7 +14,7 @@ export const TEAMS = [
   {
     id: 'livewire', city: '', name: 'Livewire', abbr: 'MORROW', brand: true,
     primary: '#CBFE00', secondary: '#1A1A1A', jersey: '#CBFE00', letters: '#1A1A1A',
-    logo: 'img/logo-livewire.png', portrait: 'img/p0.jpg', model: 'models/morrow.json',
+    logo: 'img/logo-livewire.png', portrait: 'img/p0.jpg', model: 'models/morrow.json', modelLo: 'models/morrow-lo.json',
     player: {
       first: 'Kade', last: 'Morrow', num: 7, pos: 'PG', height: 1.91,
       skin: '#5b3a29', hair: { style: 'fade', color: '#120d0b' }, beard: '#120d0b',
@@ -25,7 +25,7 @@ export const TEAMS = [
     // Livewire's black kit (the CPU)
     id: 'livewire-black', city: '', name: 'Livewire', abbr: 'VARGA', brand: true,
     primary: '#F1F3F6', secondary: '#CBFE00', jersey: '#1A1A1A', letters: '#CBFE00',
-    logo: 'img/logo-livewire-black.png', portrait: 'img/p1.jpg', model: 'models/varga.json',
+    logo: 'img/logo-livewire-black.png', portrait: 'img/p1.jpg', model: 'models/varga.json', modelLo: 'models/varga-lo.json',
     player: {
       first: 'Nico', last: 'Varga', num: 3, pos: 'SG', height: 1.96,
       skin: '#b8835f', hair: { style: 'curly', color: '#1a120d' }, headband: '#111111',

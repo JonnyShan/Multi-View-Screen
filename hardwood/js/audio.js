@@ -1,19 +1,19 @@
-// Arena audio. The crowd and the ball use recorded sound effects (generated
-// with ElevenLabs, in sfx/); every sound has a synthesised fallback that plays
-// until the files are decoded or if they fail to load.
+// Arena audio. The crowd is real recordings of big crowds and the rim is built
+// from real recordings of a basketball and a steel hoop (Freesound, CC0); the
+// swish, backboard, dribble and dunk were generated with ElevenLabs. Every
+// sound has a synthesised fallback that plays until the files are decoded or
+// if they fail to load.
 const SFX = {
   bed: ['sfx/crowd-bed.mp3'],
-  rise: ['sfx/crowd-rise.mp3'],
   roar: ['sfx/crowd-roar-1.mp3', 'sfx/crowd-roar-2.mp3'],
-  groan: ['sfx/crowd-groan-1.mp3', 'sfx/crowd-groan-2.mp3'],
   swish: ['sfx/swish.mp3'],
   board: ['sfx/backboard.mp3'],
-  rim: ['sfx/rim-1.mp3', 'sfx/rim-2.mp3'],
+  rim: ['sfx/rim-1.mp3', 'sfx/rim-2.mp3', 'sfx/rim-3.mp3'],
   dribble: ['sfx/dribble.mp3'],
   dunk: ['sfx/dunk.mp3'],
 };
 // crowd clips play from the top; impacts are trimmed to their first transient
-const CROWD = new Set(['bed', 'rise', 'roar', 'groan']);
+const CROWD = new Set(['bed', 'roar']);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -23,7 +23,8 @@ export class Sound {
     this.enabled = true;
     this.excite = 0;
     this.buf = {};
-    this.riseH = null;
+    this.swell = 0;          // the crowd noise building while a three is in the air
+    this.dip = 0;            // ...and falling away after a miss or an opponent's score
     // start downloading straight away; decoding waits for the audio unlock tap
     this.raw = {};
     for (const [k, files] of Object.entries(SFX)) {
@@ -186,7 +187,8 @@ export class Sound {
 
   rim(v = 1, pan = 0) {
     if (!this.ok) return;
-    if (this.play('rim', { gain: clamp(0.25 + v * 0.18, 0.25, 0.9), rate: 0.95 + Math.random() * 0.12, pan })) return;
+    // the rim is the sound of the game: loud, heavy, never quieter than the crowd
+    if (this.play('rim', { gain: clamp(0.5 + v * 0.2, 0.5, 1), rate: 0.94 + Math.random() * 0.1, pan })) return;
     const g = Math.min(0.6, 0.12 + v * 0.07);
     for (const [f, d] of [[512, 0.5], [1187, 0.35], [2010, 0.22], [3120, 0.12]]) this._tone(f, d, { gain: g * (f < 600 ? 1 : 0.5), pan, type: 'triangle' });
     this._noise(0.05, { type: 'highpass', f: 2500, gain: g * 0.6, pan });
@@ -230,61 +232,56 @@ export class Sound {
   }
 
   // ---------- crowd ----------
-  // the crowd's "ooooh" as a three goes up; louder for the home player (you)
-  shotRise(home = true) {
+  // No single voices: the crowd is the arena murmur (bed) and big cheers (roar).
+  // A three going up makes the whole building louder; a miss lets it fall away.
+  threeUp(home = true) {
     if (!this.ok) return;
-    this.fadeOut(this.riseH, 0.2);
-    this.riseH = this.play('rise', { gain: home ? 0.6 : 0.3, bus: this.crowd, attack: 0.25 });
-    if (!this.riseH) this.ooh();
+    this.swell = home ? 1 : 0.5;
+    this.dip = 0;
     this.excite = Math.min(1.5, this.excite + (home ? 0.35 : 0.15));
   }
 
-  // made basket: the home crowd goes wild for you, deflates for the opponent
+  // the noise drops away (a miss, the opponent scoring)
+  hush(amount = 0.6) {
+    this.swell = 0;
+    this.dip = Math.min(1, this.dip + amount);
+    this.excite = Math.max(0, this.excite - amount * 0.5);
+  }
+
+  // made basket: the home crowd goes wild for you, goes quiet for the opponent
   made(home = true, big = 0.7) {
     if (!this.ok) return;
-    this.fadeOut(this.riseH, 0.35); this.riseH = null;
-    if (home) {
-      const a = this.play('roar', { gain: 1, bus: this.crowd });
-      if (!a) { this.cheer(big); return; }
-      // a second crowd recording on top, a beat later, for a bigger room
-      const set = this.buf.roar;
-      if (set.length > 1) {
-        const other = set.find((s) => s.b !== a.src.buffer) || set[0];
-        const src = this.ctx.createBufferSource(); src.buffer = other.b;
-        const g = this.ctx.createGain(); g.gain.value = other.norm * clamp(0.45 + big * 0.35, 0.5, 0.95);
-        src.connect(g).connect(this.crowd); src.start(this.ctx.currentTime + 0.14);
-      }
-      this.excite = Math.min(2.2, this.excite + 1.2 + big * 0.6);
-    } else {
-      this.play('groan', { gain: 0.45, bus: this.crowd });
-      this.excite = Math.max(0, this.excite - 0.3);
+    this.swell = 0;
+    if (!home) { this.hush(0.7); return; }
+    const a = this.play('roar', { gain: 1, bus: this.crowd });
+    if (!a) { this.cheer(big); return; }
+    // a second crowd recording on top, a beat later, for a bigger room
+    const set = this.buf.roar;
+    if (set.length > 1) {
+      const other = set.find((x) => x.b !== a.src.buffer) || set[0];
+      const src = this.ctx.createBufferSource(); src.buffer = other.b;
+      const g = this.ctx.createGain(); g.gain.value = other.norm * clamp(0.45 + big * 0.35, 0.5, 0.95);
+      src.connect(g).connect(this.crowd); src.start(this.ctx.currentTime + 0.14);
     }
+    this.excite = Math.min(2.2, this.excite + 1.2 + big * 0.6);
   }
 
   missed(home = true) {
     if (!this.ok) return;
-    this.fadeOut(this.riseH, 0.2); this.riseH = null;
-    if (home) this.play('groan', { gain: 0.6, bus: this.crowd });
+    this.swell = 0;
+    if (home) this.hush(0.6);
     else if (!this.play('roar', { gain: 0.4, bus: this.crowd })) this.cheer(0.4);
   }
 
   // generic crowd pop (steals, ankle-breakers, blocks); home = the play went your way
   cheer(amount = 1, home = true) {
     if (!this.ok) return;
-    if (!home) { if (this.play('groan', { gain: clamp(0.3 + amount * 0.3, 0.3, 0.7), bus: this.crowd })) return; }
-    else if (this.play('roar', { gain: clamp(0.25 + amount * 0.45, 0.3, 1), bus: this.crowd })) { this.excite = Math.min(2, this.excite + amount * 0.6); return; }
+    if (!home) { this.hush(clamp(amount * 0.5, 0.2, 0.6)); return; }
+    if (this.play('roar', { gain: clamp(0.25 + amount * 0.45, 0.3, 1), bus: this.crowd })) { this.excite = Math.min(2, this.excite + amount * 0.6); return; }
     const dur = 1.6 + amount * 1.6;
     this._noise(dur, { type: 'bandpass', f: 900, f2: 1300, q: 0.5, gain: 0.25 + amount * 0.3, attack: 0.18, buf: this.pink });
     this._noise(dur * 0.8, { type: 'bandpass', f: 2600, q: 1.5, gain: 0.05 + amount * 0.08, attack: 0.25, buf: this.pink });
     this.excite = Math.min(1.5, this.excite + amount);
-  }
-
-  stopRise() { this.fadeOut(this.riseH, 0.2); this.riseH = null; }
-
-  ooh() {
-    if (!this.ok) return;
-    this._noise(1.2, { type: 'bandpass', f: 480, f2: 360, q: 4, gain: 0.35, attack: 0.15, buf: this.pink });
-    this._noise(1.1, { type: 'bandpass', f: 900, f2: 700, q: 5, gain: 0.18, attack: 0.15, buf: this.pink });
   }
 
   buzzer() {
@@ -298,14 +295,19 @@ export class Sound {
     this._noise(0.25, { type: 'bandpass', f: 600, f2: 1800, q: 1, gain: 0.1, attack: 0.05 });
   }
 
-  bedLevel() { return (0.9 + Math.min(1.5, this.excite) * 0.4) * (this.buf.bed ? this.buf.bed[0].norm : 1) * 0.5; }
+  bedLevel() {
+    const mood = (0.9 + Math.min(1.5, this.excite) * 0.4) * (1 + this.swell * 0.9) * (1 - this.dip * 0.45);
+    return mood * (this.buf.bed ? this.buf.bed[0].norm : 1) * 0.5;
+  }
 
   update(dt) {
     if (!this.ctx) return;
     this.excite = Math.max(0, this.excite - dt * 0.3);
+    this.swell = Math.max(0, this.swell - dt * 0.15);   // a shot that never resolves still fades
+    this.dip = Math.max(0, this.dip - dt * 0.3);
     const t = this.ctx.currentTime;
     if (this.bed) this.bed.g.gain.setTargetAtTime(this.bedLevel(), t, 0.4);
-    else this.synthBed.gain.setTargetAtTime(0.16 + this.excite * 0.12, t, 0.3);
-    this.crowdLp.frequency.setTargetAtTime(5000 + Math.min(1.5, this.excite) * 5000, t, 0.3);
+    else this.synthBed.gain.setTargetAtTime((0.16 + this.excite * 0.12) * (1 + this.swell * 0.9) * (1 - this.dip * 0.45), t, 0.3);
+    this.crowdLp.frequency.setTargetAtTime(5000 + Math.min(1.5, this.excite + this.swell * 0.5) * 5000, t, 0.3);
   }
 }

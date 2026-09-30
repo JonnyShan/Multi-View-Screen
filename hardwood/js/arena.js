@@ -1,10 +1,11 @@
-// Arena: hardwood floor + markings, glossy reflections, photo stands,
+// Arena: hardwood floor + markings, glossy reflections, the crowd (crowd.js),
 // LED boards, hoop (stanchion, glass, rim, shot clock). Units are metres.
 // Court frame: baseline at z = 0, half-court line at z = 14.33, x = lateral.
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { BRAND } from './data.js';
+import { buildCrowd } from './crowd.js';
 
 export const COURT = {
   halfW: 7.62,           // sideline x
@@ -287,7 +288,7 @@ export async function buildArena(scene, renderer, { home, away, quality }) {
   const group = new THREE.Group();
   scene.add(group);
   scene.background = new THREE.Color('#040507');
-  scene.fog = new THREE.Fog('#050608', 26, 48);
+  scene.fog = new THREE.Fog('#0a0b0e', 34, 80);
 
   // lights
   const hemi = new THREE.HemisphereLight('#ffe9d0', '#140e0a', 0.32);
@@ -374,41 +375,6 @@ export async function buildArena(scene, renderer, { home, away, quality }) {
     group.add(reflector);
   }
 
-  // photo stands (slightly raked cone so tiers lean back)
-  const standsTex = tex('img/stands.jpg');
-  standsTex.wrapS = THREE.RepeatWrapping;
-  standsTex.repeat.x = -1;
-  standsTex.anisotropy = 4;
-  const thetaLen = Math.PI * 1.88;
-  const stands = new THREE.Mesh(
-    new THREE.CylinderGeometry(14.2, 10.8, 10.2, 120, 1, true, Math.PI - thetaLen / 2, thetaLen),
-    new THREE.MeshBasicMaterial({ map: standsTex, side: THREE.BackSide, color: '#8e8e8e', fog: false })
-  );
-  stands.position.set(0, 4.6, 6.2);
-  group.add(stands);
-  const roof = new THREE.Mesh(new THREE.CircleGeometry(15, 48), new THREE.MeshBasicMaterial({ color: '#030304' }));
-  roof.rotation.x = Math.PI / 2;
-  roof.position.set(0, 9.7, 6.2);
-  group.add(roof);
-
-  // camera flashes in the crowd
-  const flashN = 90;
-  const flashPos = new Float32Array(flashN * 3);
-  const flashCol = new Float32Array(flashN * 3);
-  for (let i = 0; i < flashN; i++) {
-    const th = Math.PI + (Math.random() - 0.5) * thetaLen * 0.9;
-    const y = 0.4 + Math.random() * 7;
-    const r = 10.6 + (y / 10.2) * 3.3;
-    flashPos.set([Math.sin(th) * r, y, 6.2 + Math.cos(th) * r], i * 3);
-  }
-  const flashGeo = new THREE.BufferGeometry();
-  flashGeo.setAttribute('position', new THREE.BufferAttribute(flashPos, 3));
-  flashGeo.setAttribute('color', new THREE.BufferAttribute(flashCol, 3));
-  const flashes = new THREE.Points(flashGeo, new THREE.PointsMaterial({
-    size: 0.35, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, toneMapped: false,
-  }));
-  group.add(flashes);
-
   // LED boards
   const leds = [];
   const ledMat = (t) => new THREE.MeshBasicMaterial({ map: t, toneMapped: false, color: '#d8d8d8' });
@@ -433,6 +399,11 @@ export async function buildArena(scene, renderer, { home, away, quality }) {
     back.position.set(s * 9.36, 0.4, 6.5);
     group.add(back);
   }
+
+  // ---------- crowd ----------
+  const fascia = makeLed(16, 1, home, away, 2048);
+  leds.push(fascia);
+  const crowd = buildCrowd(group, { quality, ledTex: fascia.tex });
 
   // ---------- hoop ----------
   const hoop = new THREE.Group();
@@ -512,25 +483,18 @@ export async function buildArena(scene, renderer, { home, away, quality }) {
 
   // ---------- runtime ----------
   let t = 0;
-  let excite = 0;
   const api = {
-    group, reflector, hoop, rim,
+    group, reflector, hoop, rim, crowd,
     setShotClock: (v, red = true) => clock.draw(v, red),
     buzzer(on) { edgeMat.color.set(on ? '#ff2a1a' : '#2a0a08'); },
-    cheer(amount = 1) { excite = Math.min(1.5, excite + amount); },
-    update(dt) {
+    // home = the play went the home crowd's way
+    cheer(amount = 1, home = true) { crowd.cheer(amount, home); },
+    rise(home = true) { crowd.rise(home); },
+    settle() { crowd.settle(); },
+    update(dt, camera) {
       t += dt;
       for (const l of leds) l.tex.offset.x = (t * 0.03) % 1;
-      excite = Math.max(0, excite - dt * 0.35);
-      const rate = 0.004 + excite * 0.06;
-      for (let i = 0; i < flashN; i++) {
-        const k = i * 3;
-        const cur = flashCol[k];
-        let v = cur * Math.exp(-dt * 16);
-        if (Math.random() < rate) v = 0.9 + Math.random() * 0.6;
-        flashCol[k] = flashCol[k + 1] = flashCol[k + 2] = v;
-      }
-      flashGeo.attributes.color.needsUpdate = true;
+      crowd.update(dt, camera);
     },
   };
   return api;

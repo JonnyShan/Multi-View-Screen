@@ -4,7 +4,6 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { TEAMS, DIFFICULTY } from './data.js';
 import { buildArena, RIM } from './arena.js';
 import { Player } from './player.js';
@@ -12,6 +11,9 @@ import { Ball, Net } from './ball.js';
 import { Game } from './game.js';
 import { Sound } from './audio.js';
 import { Input } from './input.js';
+import { installGrade, makeGradePass, loadArenaLight } from './look.js';
+
+installGrade();
 
 const $ = (id) => document.getElementById(id);
 
@@ -39,23 +41,39 @@ function makeRenderer() {
   if (renderer) renderer.dispose();
   renderer = new THREE.WebGLRenderer({ canvas, antialias: q !== 'low', powerPreference: 'high-performance', stencil: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q === 'high' ? 2 : q === 'med' ? 1.6 : 1));
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMapping = THREE.CustomToneMapping;      // ACES + broadcast grade (look.js)
   renderer.toneMappingExposure = 0.82;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = q !== 'low';
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // a neutral studio light until the arena photo has loaded
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
   pmrem.dispose();
+  look = null;
+  const r = renderer;
+  loadArenaLight(renderer, q).then((l) => { if (renderer === r) { look = l; applyLook(); } })
+    .catch((e) => console.warn('arena lighting failed, keeping the studio light', e));
   composer = null;
   if (q === 'high') {
     composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.32, 0.55, 0.88);
     composer.addPass(bloom);
-    composer.addPass(new OutputPass());
+    composer.addPass(makeGradePass(renderer));
   }
   resize();
+}
+
+// the arena's own light: the 360 photo lights and reflects in everything, and
+// shows through above the lower bowl
+let look = null;
+function applyLook() {
+  if (!look) return;
+  scene.environment = look.env;
+  scene.background = look.background;
+  scene.backgroundIntensity = 0.55;
+  scene.backgroundBlurriness = 0.035;
 }
 
 function resize() {
@@ -82,13 +100,16 @@ async function buildMatch(home, away) {
   if (ball) { scene.remove(ball.mesh); scene.remove(ball.blob); }
   if (net) scene.remove(net.lines);
   arena = await buildArena(scene, renderer, { home, away, quality: qualityTier() });
+  applyLook();
   // the away side switches to white only when kits clash and it has no photoreal model
   const awayWhite = colorClash(home.jersey, away.jersey) && !(away.model && settings.models !== false);
   players = [new Player(home), new Player(away, { away: awayWhite })];
   for (const p of players) scene.add(p.group);
   // photoreal bodies where a model exists (falls back to the built-in body)
+  // Low quality keeps the lighter (31k-triangle) bodies for older phones
+  const lo = qualityTier() === 'low';
   await Promise.all(players.map((p) => (p.team.model && !p.away && settings.models !== false
-    ? p.attachSkin(p.team.model).catch((e) => console.warn('model failed, using built-in body', e)) : null)));
+    ? p.attachSkin(lo && p.team.modelLo ? p.team.modelLo : p.team.model).catch((e) => console.warn('model failed, using built-in body', e)) : null)));
   ball = new Ball(scene);
   net = new Net(scene, resolution);
   resize();
@@ -260,7 +281,7 @@ function frame(now) {
 }
 
 function tick(dt) {
-  if (arena) arena.update(dt);
+  if (arena) arena.update(dt, camera);
   if (game && !paused) {
     const sdt = dt * game.timeScale;
     game.update(sdt, dt);

@@ -220,7 +220,7 @@ export class Game {
     this.stateT = 0;
     p.vel.multiplyScalar(0.3);
     this.sound.whoosh();
-    if (three) this.sound.shotRise(i === HUMAN);   // the crowd only "ooooh"s for threes
+    if (three) { this.sound.threeUp(i === HUMAN); this.arena.rise(i === HUMAN); }   // the building gets loud for threes
   }
 
   // ball "set point" while rising for a jumper
@@ -329,9 +329,8 @@ export class Game {
     this.stats[shooter].fga++;
     this.stats[blocker].blk++;
     this.sound.dribble(2.5);
-    this.sound.stopRise();
     this.sound.cheer(0.9, blocker === HUMAN);
-    this.arena.cheer(0.8);
+    this.arena.cheer(0.8, blocker === HUMAN);
     this.callout('Blocked', this.players[blocker].info.last);
     this.vibrate(30);
     this.cam.shake = 0.6;
@@ -416,7 +415,7 @@ export class Game {
         ds.off = 0.55;
         dp.setAction('stumble', { dur: 0.6 });
         if (s.r.handle >= 85 && Math.random() < 0.45) this.callout('Ankles', `${p.info.last} breaks ${dp.info.last}`);
-        this.arena.cheer(0.4);
+        this.arena.cheer(0.4, i === HUMAN);
         this.sound.cheer(0.4, i === HUMAN);
       }
     }
@@ -474,7 +473,7 @@ export class Game {
       this.stealBy = i;
       this.sound.dribble(1.5, this.pan(b.x));
       this.callout('Stolen', p.info.last);
-      this.arena.cheer(0.6);
+      this.arena.cheer(0.6, i === HUMAN);
       this.sound.cheer(0.5, i === HUMAN);
       this.vibrate(25);
     } else this.reach(i);
@@ -876,7 +875,7 @@ export class Game {
     this.sound.swish(clean);
     const big = sh.type === 'dunk' ? 1.4 : sh.pts === 3 ? 1.1 : 0.7;
     this.sound.made(i === HUMAN, big);
-    this.arena.cheer(big);
+    this.arena.cheer(big, i === HUMAN);
     const p = this.players[i];
     let title = sh.type === 'dunk' ? 'Slam' : sh.pts === 3 ? 'From deep' : clean ? 'Swish' : 'Bucket';
     if (sh.type === 'layup') title = sh.board ? 'Off the glass' : 'Layup';
@@ -896,7 +895,7 @@ export class Game {
     this.slowmo(0.35, 1.2);
     setTimeout(() => this.sound.buzzer(), 300);
     this.arena.buzzer(true);
-    this.arena.cheer(1.5);
+    this.arena.cheer(1.5, winner === HUMAN);
     this.sound.cheer(1.5, winner === HUMAN);
     this.onEnd({ youWon: winner === HUMAN, score: this.score.slice(), stats: this.stats });
   }
@@ -957,6 +956,7 @@ export class Game {
       if (!this.shot.made && ((this.shot.rim || this.shot.board) && ball.vel.y < 0 && ball.pos.y < RIM.y - 0.1 || ball.pos.y < 1.2 && this.shot.t > 0.3)) {
         if (!this.shot.rim && !this.shot.board) this.callout('Air ball');
         this.sound.missed(this.shot.shooter === HUMAN);
+        this.arena.settle();
         this.state = 'loose';
         this.stateT = 0;
         this.shotClockReset = true;

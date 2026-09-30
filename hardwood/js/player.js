@@ -46,6 +46,7 @@ const _v2 = new THREE.Vector3();
 const _v3 = new THREE.Vector3();
 const _v4 = new THREE.Vector3();
 const _q = new THREE.Quaternion();
+const _m3 = new THREE.Matrix3();
 const _xb = new THREE.Vector3(), _yb = new THREE.Vector3(), _zb = new THREE.Vector3();
 
 const smooth = (a, b, k) => a + (b - a) * k;
@@ -302,9 +303,16 @@ export class Player {
     blob.rotation.x = -Math.PI / 2;
     blob.renderOrder = 1;
     this.blob = blob;
+    this.footShadow = [0, 1].map(() => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false, opacity: 0.7, toneMapped: false }));
+      m.rotation.order = 'YXZ';
+      m.rotation.x = -Math.PI / 2;
+      m.renderOrder = 1;
+      return m;
+    });
 
     this.group = new THREE.Group();
-    this.group.add(root, blob);
+    this.group.add(root, blob, ...this.footShadow);
   }
 
   buildHair(head, hr, mat, add) {
@@ -666,7 +674,7 @@ export class Player {
     const bs = 1.05 * s * (1 - Math.min(0.5, this.jumpY * 0.5));
     this.blob.position.set(this.pos.x, 0.004, this.pos.z);
     this.blob.scale.set(bs, bs, 1);
-    this.blob.material.opacity = 0.55 * (1 - Math.min(0.7, this.jumpY));
+    this.blob.material.opacity = 0.42 * (1 - Math.min(0.7, this.jumpY));
   }
 
   // ---- stepping planner: feet stay planted until the body drifts off them ----
@@ -814,6 +822,47 @@ export class Player {
     }
     if (this.motion) this.motion.update(dt);
     if (this.skin) this.driveSkin();
+    if (this.cloth) this.updateCloth(dt);
+    this.updateContact();
+  }
+
+  // loose kit: the shorts and jersey hem trail behind the body's movement on a
+  // damped spring, drop and lift on jumps, and flutter at speed
+  updateCloth(dt) {
+    const c = this.cloth, idt = 1 / Math.max(dt, 1e-3);
+    const vy = (this.jumpY - c.lastY) * idt;
+    const ay = (vy - c.lastVy) * idt;
+    c.lastY = this.jumpY; c.lastVy = vy;
+    _v1.set(-this.acc.x * 0.006 - this.vel.x * 0.005, clamp(-ay * 0.0015, -0.03, 0.03), -this.acc.z * 0.006 - this.vel.z * 0.005);
+    if (_v1.length() > 0.07) _v1.setLength(0.07);
+    c.vel.addScaledVector(_v1.sub(c.sway), 120 * dt).multiplyScalar(Math.exp(-dt * 11));
+    c.sway.addScaledVector(c.vel, dt);
+    const inv = _m3.setFromMatrix4(this.skin.mesh.matrixWorld).invert();
+    c.u.uSway.value.copy(c.sway).applyMatrix3(inv);
+    const spd = Math.hypot(this.vel.x, this.vel.z);
+    const amp = Math.min(0.012, spd * 0.0025 + Math.abs(vy) * 0.002);
+    c.t += dt * (8 + spd * 2);
+    _v2.set(amp, amp * 0.5, amp).applyMatrix3(inv);
+    c.u.uFlutter.value.set(_v2.x, _v2.y, _v2.z, c.t);
+  }
+
+  // contact shadows: a tight dark patch under each shoe, fading as the foot lifts
+  updateContact() {
+    const bones = this.skin && this.skin.bones;
+    for (let i = 0; i < 2; i++) {
+      const m = this.footShadow[i];
+      const heel = bones ? bones[i === 0 ? 'LeftFoot' : 'RightFoot'].getWorldPosition(_v1) : this.ankle[i].getWorldPosition(_v1);
+      const toe = bones ? bones[i === 0 ? 'LeftToeBase' : 'RightToeBase'].getWorldPosition(_v2)
+        : _v2.copy(heel).add(_v3.set(Math.sin(this.yaw), 0, Math.cos(this.yaw)).multiplyScalar(0.18 * this.s));
+      const lift = Math.max(0, Math.min(heel.y - 0.08 * this.s, toe.y - 0.02));
+      m.position.set((heel.x + toe.x) / 2, 0.005, (heel.z + toe.z) / 2);
+      m.rotation.z = Math.atan2(toe.x - heel.x, toe.z - heel.z);
+      const len = Math.max(0.2, Math.hypot(toe.x - heel.x, toe.z - heel.z) * 2.1);
+      const fade = Math.max(0, 1 - lift / 0.22);
+      m.scale.set(0.2 * this.s * (1 + (1 - fade) * 0.6), len * (1 + (1 - fade) * 0.4), 1);
+      m.material.opacity = 0.75 * fade * fade;
+      m.visible = fade > 0.02;
+    }
   }
 
   // ---------- photoreal skinned body (Higgsfield image-to-3D) ----------
@@ -880,9 +929,15 @@ export class Player {
     this.head.position.set(0, rest.Head.p.y - rest.neck.p.y, rest.Head.p.z - rest.neck.p.z);
     // hide the procedural body, keep its skeleton
     this.root.traverse((o) => { if (o.isMesh) o.visible = false; });
-    // look
-    const map = mesh.material.map;
-    mesh.material = new THREE.MeshStandardMaterial({ map, roughness: 0.7, metalness: 0, envMapIntensity: 0.3 });
+    // look: the model's colour, surface-detail and roughness maps
+    const src = mesh.material;
+    const mat = new THREE.MeshStandardMaterial({
+      map: src.map, normalMap: src.normalMap || null, roughnessMap: src.roughnessMap || null,
+      roughness: src.roughnessMap ? 1 : 0.7, metalness: 0, envMapIntensity: 0.45,
+    });
+    if (src.normalMap) mat.normalScale.copy(src.normalScale);
+    this.cloth = mesh.geometry.getAttribute('_cloth') ? clothSway(mat) : null;
+    mesh.material = mat;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.frustumCulled = false;
@@ -1006,6 +1061,21 @@ export class Player {
       if (M) blend(toe, legW, true);
     }
   }
+}
+
+// vertex shader patch for the loose kit: vertices carry a _cloth weight (0 on
+// the body, up to 1 at the shorts' hem) and follow uSway / uFlutter
+function clothSway(mat) {
+  const u = { uSway: { value: new THREE.Vector3() }, uFlutter: { value: new THREE.Vector4() } };
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float _cloth;\nuniform vec3 uSway;\nuniform vec4 uFlutter;')
+      .replace('#include <skinning_vertex>', `#include <skinning_vertex>
+        transformed += ( uSway + uFlutter.xyz * sin( uFlutter.w + position.y * 23.0 + position.x * 17.0 ) ) * _cloth;`);
+  };
+  mat.customProgramCacheKey = () => 'cloth';
+  return { u, sway: new THREE.Vector3(), vel: new THREE.Vector3(), t: 0, lastY: 0, lastVy: 0 };
 }
 
 let _blobTex = null;
