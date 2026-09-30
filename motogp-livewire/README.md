@@ -1,6 +1,6 @@
 # Livewire HOT LAP (bike reskin)
 
-A time-attack motorcycle racing game branded for Livewire. The player rides one timed lap of the fictional Kentucky River Circuit at golden hour.
+A time-attack motorcycle racing game branded for Livewire. The player rides one timed lap of the fictional Livewire Raceway at golden hour.
 
 It's the same game as `motogp-wildturkey/`, reskinned through `js/brand.js`, with the bike's paint repainted to the Livewire colours. See `WORKFLOW.md` at the repo root for how to make the next one.
 

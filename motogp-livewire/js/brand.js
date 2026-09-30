@@ -8,7 +8,7 @@ export const BRAND = {
   mark: '',                           // shown after the name in the legal bar ('' for none)
   wordmark: 'LIVEWIRE',               // text stand-in wherever the logo image is missing
   game: 'HOT LAP',                    // game name on boards, the gantry and the title screen (placeholder: confirm)
-  circuit: 'Kentucky River Circuit',
+  circuit: 'Livewire Raceway',        // fictional
   mode: 'Time Attack',
   riderNumber: '7',                   // race number on the bike, the rider and the timing tower
 
@@ -48,7 +48,7 @@ export const BRAND = {
 
   // Page title and link-preview text.
   title: 'Livewire Hot Lap',
-  description: 'Livewire HOT LAP: a time-attack motorcycle racing game on the fictional Kentucky River Circuit.',
+  description: 'Livewire HOT LAP: a time-attack motorcycle racing game on the fictional Livewire Raceway.',
 
   // Text painted on trackside signage.
   signs: {
@@ -56,13 +56,13 @@ export const BRAND = {
     productLine: 'ONE LAP · FLAT OUT',
     safety: 'BEAT THE GHOST',
     safetySub: 'LIVEWIRE · HOT LAP',
-    place: 'KENTUCKY RIVER CIRCUIT',
+    place: 'HOME OF THE HOT LAP',
   },
   // Corner names, in track order (shown in the HUD as you reach them).
-  corners: ['Lawrenceburg Hairpin', 'Ridge Esses', 'The Palisades', 'Warehouse Row', 'Tyrone Hairpin', 'Mill Creek',
-    'Quarry Chicane', 'Bluegrass Bend', 'Home Sweep'],
+  corners: ['Spark Hairpin', 'Ridge Esses', 'The Coil', 'Warehouse Row', 'Surge Hairpin', 'Mill Creek',
+    'Breaker Chicane', 'Voltage Bend', 'Home Sweep'],
   // Loading-screen line while the scenery is built.
-  loadingScenery: 'Carving the Kentucky River palisades',
+  loadingScenery: 'Wiring up the circuit',
 
   // No age gate: nothing age-restricted in this build.
   gate: { on: false },
