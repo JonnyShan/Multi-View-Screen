@@ -8,6 +8,7 @@
 //   cream  hue 20-60, saturation 0.12-0.5, value > 0.5   (cream stripes and trims)
 //   gold   hue 28-58, saturation > 0.5, value > 0.35     (gold wheels and anodised parts)
 //   white  saturation < 0.12, value > 0.78               (white panels)
+//   lime   hue 55-100, saturation > 0.3, value > 0.25    (yellow-green paint, e.g. a generated Livewire bike)
 // Blacks, greys and metals are left alone. Edges blend softly, so anti-aliased borders stay clean.
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
@@ -28,6 +29,7 @@ const FAMILY = {
   cream: (h, s, v) => (h >= 20 && h <= 60 ? 1 : 0) * smooth(0.08, 0.16, s) * (1 - smooth(0.45, 0.55, s)) * smooth(0.42, 0.55, v),
   gold: (h, s, v) => (h >= 28 && h <= 58 ? 1 : 0) * smooth(0.45, 0.55, s) * smooth(0.3, 0.4, v),
   white: (h, s, v) => (1 - smooth(0.08, 0.16, s)) * smooth(0.7, 0.82, v),
+  lime: (h, s, v) => (h >= 55 && h <= 100 ? 1 : h > 48 && h < 55 ? (h - 48) / 7 : h > 100 && h < 108 ? (108 - h) / 8 : 0) * smooth(0.2, 0.32, s) * smooth(0.18, 0.28, v),
 };
 for (const k of Object.keys(maps)) if (!FAMILY[k]) { console.error(`unknown family "${k}" (use ${Object.keys(FAMILY).join(', ')})`); process.exit(1); }
 

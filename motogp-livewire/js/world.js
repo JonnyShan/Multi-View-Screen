@@ -216,10 +216,11 @@ export class World {
     sun.shadow.normalBias = 0.04;
     this.scene.add(sun, sun.target);
     this.sun = sun;
-    const hemi = new THREE.HemisphereLight(0x9aa2d0, 0x6a4a30, 0.55);
+    const L = BRAND.look || {};
+    const hemi = new THREE.HemisphereLight(0x9aa2d0, 0x6a4a30, L.sky ?? 0.55);
     this.scene.add(hemi);
     // cool sky fill from the opposite side so shaded flanks keep their shape
-    const fill = new THREE.DirectionalLight(0x8a9ad0, 0.7);
+    const fill = new THREE.DirectionalLight(0x8a9ad0, L.fill ?? 0.7);
     fill.position.set(-this.sunDir.x, 0.6, -this.sunDir.z);
     this.scene.add(fill);
   }

@@ -120,6 +120,10 @@ function splitAIBike() {
   };
   const mat = mesh.material;
   mat.side = THREE.DoubleSide;
+  // brand look: shinier paint and livelier reflections (roughness scaled, so rubber stays duller than paint)
+  const gloss = BRAND.look?.gloss || 0;
+  mat.roughness *= 1 - 0.35 * gloss;
+  mat.envMapIntensity = 1 + 0.8 * gloss;
   AI_BIKE.split = { body: part(lists[0]), wheels: [part(lists[1]), part(lists[2])], mat };
   return AI_BIKE.split;
 }
@@ -1520,7 +1524,8 @@ class AIRider {
         o.frustumCulled = false; o.castShadow = true; o.receiveShadow = true;
         const m = o.material = o.material.clone();
         m.emissiveMap = null; m.emissive && m.emissive.set(0);
-        m.roughness = 0.55; m.metalness = 0.05;
+        const gloss = BRAND.look?.gloss || 0;
+        m.roughness = 0.55 * (1 - 0.25 * gloss); m.metalness = 0.05; m.envMapIntensity = 1 + 0.3 * gloss;
         addDecals(m, RIDER_DECALS); // geometry is already in model-space metres
         this.mesh = o;
       }

@@ -123,6 +123,11 @@ class Game {
     this.medals = { gold: Math.floor(p * 0.99 * 10) / 10, silver: Math.floor(p * 1.05 * 10) / 10, bronze: Math.floor(p * 1.12 * 10) / 10 };
     this.post = new Post(this.renderer, this.scene, this.camera, QUALITY);
     this.#setupReflections();
+    // brand look: a soft light from the camera side, aimed at the bike, so the paint reads in the low sun
+    if (BRAND.look?.key) {
+      this.keyLight = new THREE.SpotLight(0xfff4e6, BRAND.look.key, 0, 0.45, 0.9, 0);
+      this.scene.add(this.keyLight, this.keyLight.target);
+    }
     this.hud = new Hud(this.track);
     this.audio = new Audio();
     this.#loadRecords();
@@ -802,6 +807,11 @@ class Game {
     this.world.followShadow(this.bike.root.position);
     const cam = this.post.renderPass.camera;
     cam.updateMatrixWorld();
+    if (this.keyLight) {
+      this.keyLight.position.copy(cam.position).y += 1.5;
+      this.keyLight.target.position.copy(this.bike.root.position).y += 0.7;
+      this.keyLight.target.updateMatrixWorld();
+    }
     this.world.updateView(cam);
     // Depth of field on the cinematic shots, focused on the bike; while riding, only the far background blurs.
     if (this.post.dof) {

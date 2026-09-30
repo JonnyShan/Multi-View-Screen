@@ -5,6 +5,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import * as TX from './textures.js';
+import { BRAND } from './config.js';
 
 const FinalShader = {
   uniforms: {
@@ -398,6 +399,14 @@ export class Post {
     this.composer.addPass(this.final);
     this.u = this.final.uniforms;
     this.u.uSharpen.value = quality.sharpen;
+    // brand look overrides (brand.js `look`); sharpening stays off on the tiers that skip it
+    const L = BRAND.look || {};
+    if (L.exposure != null) this.u.uExposure.value = L.exposure;
+    if (L.saturation != null) this.u.uSat.value = L.saturation;
+    if (L.grain != null) this.u.uGrain.value = L.grain;
+    if (L.dirt != null) this.u.uDirt.value = L.dirt;
+    if (L.bloom != null) this.bloom.strength = L.bloom;
+    if (L.sharpen != null && quality.sharpen > 0) this.u.uSharpen.value = L.sharpen;
     if (this.rays) {
       this.u.tRays.value = this.rays.texture;
       this.u.tDirt.value = TX.lensDirtTexture();

@@ -25,6 +25,11 @@ export const BRAND = {
   bg: '#000000',                      // page background behind the game
 
 
+  // Picture look. Leave out any value to keep the game's default. exposure, saturation, sharpen, grain and dirt (lens
+  // dirt glow) set the cinematic grade; bloom is the glow strength. sky and fill light the shaded side of everything;
+  // key is a soft light from the camera side that shows off the paint; gloss makes the bike and rider shinier (0..1).
+  look: { exposure: 1.06, saturation: 1.18, sharpen: 0.4, grain: 0.015, dirt: 0.06, bloom: 0.25, sky: 0.95, fill: 1.6, key: 2, gloss: 1 },
+
   // Typefaces: files in fonts/. Livewire's own fonts (GT Flexa, Aktiv Grotesk) are commercial, so both roles use the free
   // Barlow Condensed until licensed files are supplied.
   fonts: {
