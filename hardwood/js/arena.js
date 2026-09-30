@@ -220,7 +220,7 @@ function makeLed(w, h, home, away, pxW = 2048) {
   const msgs = [
     [home.brand ? BRAND : teamName(home).toUpperCase(), home.brand ? BRAND.yellow : home.primary],
     ['1 ON 1 · HALF COURT', '#ffffff'],
-    [teamName(away).toUpperCase(), away.primary],
+    away.brand ? ['HOOPS', '#ffffff'] : [teamName(away).toUpperCase(), away.primary],
     [BRAND, BRAND.yellow],
   ];
   const draw = (hot = 0) => {
