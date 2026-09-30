@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { BRAND } from './data.js';
 
 export const COURT = {
   halfW: 7.62,           // sideline x
@@ -93,6 +94,20 @@ const ReflectShader = {
     }`,
 };
 
+// draw the Livewire wordmark centred at (cx, cy), h pixels tall
+let _wm = null;
+function drawWordmark(ctx, cx, cy, h, color) {
+  const W = BRAND.wordmark;
+  if (!_wm) _wm = new Path2D(W.d);
+  const sc = h / W.h;
+  ctx.save();
+  ctx.translate(cx - (W.w * sc) / 2, cy - h / 2);
+  ctx.scale(sc, sc);
+  ctx.fillStyle = color;
+  ctx.fill(_wm);
+  ctx.restore();
+}
+
 // ---------- court markings canvas ----------
 const MK = { x0: -9, z0: -2.5, size: 18, px: 2048 };
 function drawCourt(ctx, home, logoImg) {
@@ -109,9 +124,9 @@ function drawCourt(ctx, home, logoImg) {
   ctx.fillRect(X(COURT.halfW), 0, MK.px, MK.px);
   ctx.globalAlpha = 1;
 
-  // painted key
-  ctx.globalAlpha = 0.86;
-  ctx.fillStyle = home.primary;
+  // painted key (a branded home team paints it in its dark colour)
+  ctx.globalAlpha = home.brand ? 0.92 : 0.86;
+  ctx.fillStyle = home.brand ? home.secondary : home.primary;
   ctx.fillRect(X(-COURT.keyW / 2), Z(0), COURT.keyW * k, COURT.ftZ * k);
   ctx.globalAlpha = 1;
 
@@ -119,45 +134,40 @@ function drawCourt(ctx, home, logoImg) {
   ctx.save();
   ctx.beginPath();
   ctx.arc(X(0), Z(COURT.halfLen), 1.83 * k, 0, Math.PI * 2);
-  ctx.globalAlpha = 0.85;
-  ctx.fillStyle = home.primary;
+  ctx.globalAlpha = home.brand ? 0.94 : 0.85;
+  ctx.fillStyle = home.brand ? home.secondary : home.primary;
   ctx.fill();
   ctx.globalAlpha = 1;
   if (logoImg) {
-    const s = 3.1 * k;
-    ctx.drawImage(logoImg, X(0) - s / 2, Z(COURT.halfLen) - s / 2, s, s);
+    // fit inside the circle, keeping the image's own proportions
+    const s = (home.brand ? 2.3 : 3.1) * k, ar = logoImg.width / logoImg.height || 1;
+    const w = ar >= 1 ? s : s * ar, h = ar >= 1 ? s / ar : s;
+    ctx.drawImage(logoImg, X(0) - w / 2, Z(COURT.halfLen) - h / 2, w, h);
   }
   ctx.restore();
 
   // baseline apron wordmark
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  ctx.font = `900 ${Math.round(1.25 * k)}px "Saira Extra Condensed", "Arial Narrow", sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(home.city.toUpperCase(), X(-4.4), Z(-1.25));
-  ctx.fillText(home.name.toUpperCase(), X(4.4), Z(-1.25));
-  ctx.restore();
+  if (home.brand) {
+    for (const x of [-4.4, 4.4]) drawWordmark(ctx, X(x), Z(-1.25), 0.85 * k, BRAND.yellow);
+  } else {
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.font = `900 ${Math.round(1.25 * k)}px "Saira Extra Condensed", "Arial Narrow", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(home.city.toUpperCase(), X(-4.4), Z(-1.25));
+    ctx.fillText(home.name.toUpperCase(), X(4.4), Z(-1.25));
+    ctx.restore();
+  }
 
   // sideline wordmarks (read from the court)
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.font = `800 ${Math.round(0.7 * k)}px "Saira Extra Condensed", "Arial Narrow", sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.translate(X(-8.3), Z(7));
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText('HARDWOOD LEAGUE', 0, 0);
-  ctx.restore();
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.font = `800 ${Math.round(0.7 * k)}px "Saira Extra Condensed", "Arial Narrow", sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.translate(X(8.3), Z(7));
-  ctx.rotate(Math.PI / 2);
-  ctx.fillText('HARDWOOD LEAGUE', 0, 0);
-  ctx.restore();
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.translate(X(side * 8.3), Z(7));
+    ctx.rotate(side * Math.PI / 2);
+    drawWordmark(ctx, 0, 0, 0.5 * k, 'rgba(203,254,0,0.9)');
+    ctx.restore();
+  }
 
   // lines
   ctx.strokeStyle = 'rgba(255,255,255,0.96)';
@@ -206,11 +216,12 @@ function makeLed(w, h, home, away, pxW = 2048) {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.wrapS = THREE.RepeatWrapping;
+  const teamName = (t) => (t.city ? t.city + ' ' : '') + t.name;
   const msgs = [
-    [home.city.toUpperCase() + ' ' + home.name.toUpperCase(), home.primary],
-    ['HARDWOOD LEAGUE', '#ffffff'],
-    [away.city.toUpperCase() + ' ' + away.name.toUpperCase(), away.primary],
+    [home.brand ? BRAND : teamName(home).toUpperCase(), home.brand ? BRAND.yellow : home.primary],
     ['1 ON 1 · HALF COURT', '#ffffff'],
+    [teamName(away).toUpperCase(), away.primary],
+    [BRAND, BRAND.yellow],
   ];
   const draw = (hot = 0) => {
     g.fillStyle = '#05060a';
@@ -227,8 +238,11 @@ function makeLed(w, h, home, away, pxW = 2048) {
       grd.addColorStop(1, 'rgba(255,255,255,0.02)');
       g.fillStyle = grd;
       g.fillRect(seg * i, 0, seg, c.height);
-      g.fillStyle = hot ? '#ffffff' : col;
-      g.fillText(txt, cx, c.height * 0.54);
+      if (txt === BRAND) drawWordmark(g, cx, c.height * 0.52, c.height * 0.5, hot ? '#ffffff' : col);
+      else {
+        g.fillStyle = hot ? '#ffffff' : col;
+        g.fillText(txt, cx, c.height * 0.54);
+      }
     });
     // LED pixel grid
     g.fillStyle = 'rgba(0,0,0,0.35)';
@@ -326,7 +340,7 @@ export async function buildArena(scene, renderer, { home, away, quality }) {
   // markings
   const mkCanvas = document.createElement('canvas');
   mkCanvas.width = mkCanvas.height = MK.px;
-  const logoImg = await loadImage(home.logo);
+  const logoImg = await loadImage(home.brand ? 'img/livewire-mark.png' : home.logo);
   try { await document.fonts.load('900 40px "Saira Extra Condensed"'); } catch (e) { /* fallback font */ }
   drawCourt(mkCanvas.getContext('2d'), home, logoImg);
   const mkTex = new THREE.CanvasTexture(mkCanvas);
