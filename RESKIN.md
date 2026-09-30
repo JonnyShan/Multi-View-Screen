@@ -8,7 +8,7 @@ The original game lives in `wild-turkey-redline/`. It stays untouched: each resk
 | `red-line/` | None (stand-in) | Motorbike | Generated shareable copy of the original. |
 | `motogp-wildturkey/` | Wild Turkey | Motorbike | Built: 7.4 MB. |
 | `motogp-livewire/` | Livewire | Motorbike | Built: 7.4 MB. The bike and rider are repainted in Livewire colours. |
-| `f1-livewire/` | Livewire | F1 car | Built: 1.3 MB. An alternative take, not the live Livewire version. |
+| `f1-livewire/` | Livewire | F1 car | Retired. The link redirects to `motogp-livewire/`; the car version is in git history (commit `af32d2c`). |
 
 Colours come from the brands' own sites (promotions.wildturkeybourbon.com and livewire.group). Both brands' typefaces are commercial, so free stand-ins are used: Antonio for Wild Turkey, which its site also uses, and Barlow Condensed for Livewire.
 
@@ -115,4 +115,4 @@ The brief points to `~/Desktop/assests wilf turkey & livewire`. That is on your 
 
 - "This F1 racing game" means RED LINE. It is the only racing game in this repo. `JonnyShan/starter-kit-racing-gamify` is a cartoon hatchback racer, not F1.
 - `motogp-wildturkey` keeps the existing bike, because RED LINE already uses bikes.
-- `f1-livewire` swaps the bike for an F1 car, because the brief says "cars".
+- `f1-livewire` swaps the bike for an F1 car, because the brief says "cars". It was later replaced by the bike version, `motogp-livewire`.
