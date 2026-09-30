@@ -5,6 +5,7 @@ Every brand value lives in one file per game: `js/brand.js`. That covers names, 
 | Start from | When the new game has |
 |---|---|
 | `motogp-wildturkey/` | a motorbike. It has an age gate and responsible-drinking lines, for alcohol brands. |
+| `motogp-livewire/` | a motorbike, with no age gate and no alcohol copy. |
 | `f1-livewire/` | an F1 car. It has no age gate and no alcohol copy. |
 
 Never edit those two folders or `wild-turkey-redline/` for a new brand. Copy them.
@@ -61,7 +62,15 @@ Never edit those two folders or `wild-turkey-redline/` for a new brand. Copy the
 
 ## When it takes more than config
 
-- **Bike livery.** The bike's and rider's colours are baked into the textures of `assets/bike-ai.glb` and `assets/rider-ai.glb`. Recolour or regenerate those textures, then run the compressor below. The F1 car has no such files: its livery comes straight from `brand.car`.
+- **Bike livery.** The bike's and rider's colours are baked into the textures of `assets/bike-ai.glb` and `assets/rider-ai.glb`.
+  - Repaint them from the uncompressed originals in `wild-turkey-redline/assets/`, then compress:
+    ```sh
+    node tools/recolour-model.mjs wild-turkey-redline/assets/bike-ai.glb bike.glb --map red=#CBFE00 --map cream=#1A1A1A --map gold=#CBFE00
+    node tools/compress-models.mjs bike.glb motogp-acme/assets/bike-ai.glb
+    ```
+    Run the same two commands for `rider-ai.glb`.
+  - `motogp-livewire/` was made this way.
+  - The F1 car has no such files: its livery comes straight from `brand.car`.
 - **New or bigger 3D models.** Run them through the compressor. It resizes the textures and compresses the geometry. It took the bike from 10.2 MB to 3.6 MB and the rider from 3.5 MB to 1.8 MB.
   ```sh
   node tools/compress-models.mjs big.glb f1-acme/assets/model.glb
