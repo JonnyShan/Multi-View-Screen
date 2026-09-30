@@ -26,7 +26,7 @@ python3 -m http.server 8131 --directory motogp-wildturkey
 - **Brand assets from the client folder** in `assets/brand/`, with the originals in `assets/brand/source/`:
   - `logo.webp` is the white artwork used on the trackside boards and gantry.
   - `logo-ui.webp` is the full-colour logo for the menus and HUD.
-  - `bottle.webp` is the title-screen pack shot.
+  - `bottle.webp` is the title-screen pack shot: the red-label bottle from the client's "wild turkey drink" file (`source/wild-turkey-drink.avif`, 308 × 385 px), cropped and scaled 2×. A higher-resolution file would look sharper on large screens.
 - **Compressed models.** The bike and rider are 3.6 MB and 1.8 MB, down from 10.2 MB and 3.5 MB. Textures are resized, and the geometry is quantised and meshopt-compressed with `tools/compress-models.mjs`. The game decodes it with `vendor/meshopt/`.
 
 ## URL options
