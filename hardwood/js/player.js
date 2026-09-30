@@ -7,8 +7,36 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const gltfCache = new Map();
 export function loadModel(url) {
-  if (!gltfCache.has(url)) gltfCache.set(url, new GLTFLoader().loadAsync(url));
+  if (!gltfCache.has(url)) gltfCache.set(url, fetchModel(url));
   return gltfCache.get(url);
+}
+
+// Models ship as glTF JSON with the geometry buffer inlined as base64. Strict
+// hosts (CSP connect-src 'self') refuse to fetch data: URIs, so decode the
+// buffer here and hand GLTFLoader an in-memory GLB instead.
+async function fetchModel(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`model ${url}: HTTP ${res.status}`);
+  const json = await res.json();
+  const buf = json.buffers && json.buffers[0];
+  const base = url.slice(0, url.lastIndexOf('/') + 1);
+  const loader = new GLTFLoader();
+  if (!buf || !buf.uri || !buf.uri.startsWith('data:')) return loader.parseAsync(JSON.stringify(json), base);
+  const b64 = buf.uri.slice(buf.uri.indexOf(',') + 1);
+  const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  delete buf.uri;
+  buf.byteLength = bin.length;
+  const enc = new TextEncoder().encode(JSON.stringify(json));
+  const jsonLen = (enc.length + 3) & ~3, binLen = (bin.length + 3) & ~3;
+  const glb = new Uint8Array(12 + 8 + jsonLen + 8 + binLen);
+  const dv = new DataView(glb.buffer);
+  dv.setUint32(0, 0x46546c67, true); dv.setUint32(4, 2, true); dv.setUint32(8, glb.length, true);
+  dv.setUint32(12, jsonLen, true); dv.setUint32(16, 0x4e4f534a, true);
+  glb.set(enc, 20);
+  glb.fill(0x20, 20 + enc.length, 20 + jsonLen);
+  dv.setUint32(20 + jsonLen, binLen, true); dv.setUint32(24 + jsonLen, 0x004e4942, true);
+  glb.set(bin, 28 + jsonLen);
+  return loader.parseAsync(glb.buffer, base);
 }
 
 const _m = new THREE.Matrix4();
@@ -119,9 +147,9 @@ export class Player {
 
   build() {
     const s = this.s, L = this.L, team = this.team, info = this.info;
-    const skin = new THREE.MeshPhysicalMaterial({ color: info.skin, roughness: 0.52, clearcoat: 0.25, clearcoatRoughness: 0.45, sheen: 0.2, sheenColor: new THREE.Color('#ffd9c0') });
-    const jerseyMat = new THREE.MeshPhysicalMaterial({ map: jerseyTexture(team, info, this.away), roughness: 0.78, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color('#ffffff'), side: THREE.DoubleSide });
-    const shortsMat = new THREE.MeshPhysicalMaterial({ map: shortsTexture(team, this.away), roughness: 0.72, sheen: 0.5, sheenColor: new THREE.Color('#ffffff'), side: THREE.DoubleSide });
+    const skin = new THREE.MeshPhysicalMaterial({ color: info.skin, roughness: 0.55, clearcoat: 0.2, clearcoatRoughness: 0.45, sheen: 0.15, sheenColor: new THREE.Color('#ffd9c0'), envMapIntensity: 0.35 });
+    const jerseyMat = new THREE.MeshPhysicalMaterial({ map: jerseyTexture(team, info, this.away), roughness: 0.8, sheen: 0.3, sheenRoughness: 0.5, sheenColor: new THREE.Color('#ffffff'), side: THREE.DoubleSide, envMapIntensity: 0.35 });
+    const shortsMat = new THREE.MeshPhysicalMaterial({ map: shortsTexture(team, this.away), roughness: 0.75, sheen: 0.3, sheenColor: new THREE.Color('#ffffff'), side: THREE.DoubleSide, envMapIntensity: 0.35 });
     const hairMat = new THREE.MeshStandardMaterial({ color: info.hair.color, roughness: 0.85 });
     const sockMat = new THREE.MeshStandardMaterial({ color: '#f2f2f2', roughness: 0.9 });
     const shoeMat = new THREE.MeshStandardMaterial({ color: this.away ? '#f4f4f4' : '#141414', roughness: 0.5 });
@@ -632,7 +660,7 @@ export class Player {
     this.root.traverse((o) => { if (o.isMesh) o.visible = false; });
     // look
     const map = mesh.material.map;
-    mesh.material = new THREE.MeshStandardMaterial({ map, roughness: 0.68, metalness: 0, envMapIntensity: 0.55 });
+    mesh.material = new THREE.MeshStandardMaterial({ map, roughness: 0.7, metalness: 0, envMapIntensity: 0.3 });
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.frustumCulled = false;

@@ -52,7 +52,7 @@ const ReflectShader = {
     color: { value: null },
     tDiffuse: { value: null },
     textureMatrix: { value: null },
-    strength: { value: 0.32 },
+    strength: { value: 0.24 },
     texel: { value: new THREE.Vector2(1 / 512, 1 / 512) },
   },
   vertexShader: /* glsl */`
@@ -276,9 +276,9 @@ export async function buildArena(scene, renderer, { home, away, quality }) {
   scene.fog = new THREE.Fog('#050608', 26, 48);
 
   // lights
-  const hemi = new THREE.HemisphereLight('#fff4e6', '#2a1d12', 0.75);
+  const hemi = new THREE.HemisphereLight('#ffe9d0', '#140e0a', 0.32);
   group.add(hemi);
-  const key = new THREE.DirectionalLight('#fff3e2', 2.6);
+  const key = new THREE.DirectionalLight('#fff0dc', 2.25);
   key.position.set(3.5, 17, 11);
   key.target.position.set(0, 0, 6);
   key.castShadow = quality !== 'low';
@@ -289,11 +289,11 @@ export async function buildArena(scene, renderer, { home, away, quality }) {
   key.shadow.normalBias = 0.02;
   key.shadow.radius = 3;
   group.add(key, key.target);
-  const fill = new THREE.DirectionalLight('#dfe8ff', 0.55);
+  const fill = new THREE.DirectionalLight('#dfe8ff', 0.18);
   fill.position.set(-6, 10, -4);
   group.add(fill);
   // warm pools of light over the court
-  const spotA = new THREE.SpotLight('#ffe7c4', 60, 30, 0.5, 0.6, 1.6);
+  const spotA = new THREE.SpotLight('#ffe7c4', 30, 30, 0.46, 0.75, 1.6);
   spotA.position.set(0, 13, 4);
   spotA.target.position.set(0, 0, 4);
   group.add(spotA, spotA.target);
@@ -316,7 +316,7 @@ export async function buildArena(scene, renderer, { home, away, quality }) {
   woodTex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const wood = new THREE.Mesh(
     new THREE.PlaneGeometry(woodW, woodL),
-    new THREE.MeshStandardMaterial({ map: woodTex, color: '#f2d7b0', roughness: 0.3, metalness: 0.0, envMapIntensity: 0.55 })
+    new THREE.MeshStandardMaterial({ map: woodTex, color: '#d6b690', roughness: 0.32, metalness: 0.0, envMapIntensity: 0.25 })
   );
   wood.rotation.x = -Math.PI / 2;
   wood.position.set(0, 0, MK.z0 + woodL / 2);
@@ -334,7 +334,7 @@ export async function buildArena(scene, renderer, { home, away, quality }) {
   mkTex.anisotropy = woodTex.anisotropy;
   const markings = new THREE.Mesh(
     new THREE.PlaneGeometry(MK.size, MK.size),
-    new THREE.MeshStandardMaterial({ map: mkTex, transparent: true, roughness: 0.32, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, envMapIntensity: 0.5 })
+    new THREE.MeshStandardMaterial({ map: mkTex, transparent: true, roughness: 0.32, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, envMapIntensity: 0.25 })
   );
   markings.rotation.x = -Math.PI / 2;
   markings.position.set(0, 0.001, MK.z0 + MK.size / 2);
@@ -368,7 +368,7 @@ export async function buildArena(scene, renderer, { home, away, quality }) {
   const thetaLen = Math.PI * 1.88;
   const stands = new THREE.Mesh(
     new THREE.CylinderGeometry(14.2, 10.8, 10.2, 120, 1, true, Math.PI - thetaLen / 2, thetaLen),
-    new THREE.MeshBasicMaterial({ map: standsTex, side: THREE.BackSide, color: '#b9b9b9', fog: false })
+    new THREE.MeshBasicMaterial({ map: standsTex, side: THREE.BackSide, color: '#8e8e8e', fog: false })
   );
   stands.position.set(0, 4.6, 6.2);
   group.add(stands);
@@ -475,7 +475,7 @@ export async function buildArena(scene, renderer, { home, away, quality }) {
   hoop.add(clockBox);
 
   // rim + bracket
-  const rimMat = new THREE.MeshStandardMaterial({ color: '#e0521b', roughness: 0.32, metalness: 0.55, envMapIntensity: 1.2 });
+  const rimMat = new THREE.MeshStandardMaterial({ color: '#e0521b', roughness: 0.32, metalness: 0.55, envMapIntensity: 0.8 });
   const rim = new THREE.Mesh(new THREE.TorusGeometry(COURT.rimR + COURT.rimTube, COURT.rimTube, 10, 56), rimMat);
   rim.rotation.x = Math.PI / 2;
   rim.position.copy(RIM);
