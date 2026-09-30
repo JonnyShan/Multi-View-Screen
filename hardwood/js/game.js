@@ -622,6 +622,9 @@ export class Game {
       } else if (this.handler === 1 - i) {
         const h = this.players[1 - i];
         ty = Math.atan2(h.pos.x - p.pos.x, h.pos.z - p.pos.z);
+        // beaten off the dribble: open the hips and run with the play
+        const run = clamp((spd - 3.4) / 1.2, 0, 1);
+        if (run > 0) ty += Math.atan2(Math.sin(dir - ty), Math.cos(dir - ty)) * run * 0.9;
       } else {
         ty = Math.atan2(ball.pos.x - p.pos.x, ball.pos.z - p.pos.z);
       }

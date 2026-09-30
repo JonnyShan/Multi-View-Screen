@@ -5,7 +5,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { TEAMS, DIFFICULTY, overall, heightLabel } from './data.js';
+import { TEAMS, DIFFICULTY } from './data.js';
 import { buildArena, RIM } from './arena.js';
 import { Player } from './player.js';
 import { Ball, Net } from './ball.js';
@@ -17,9 +17,12 @@ const $ = (id) => document.getElementById(id);
 
 // ---------- settings ----------
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-const settings = { quality: 'auto', sound: true, vib: true, diff: 'pro', to: 11, you: 0, opp: 1 };
+const settings = { quality: 'auto', sound: true, vib: true };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('hardwood.settings') || '{}')); } catch (e) { /* storage blocked */ }
 const save = () => { try { localStorage.setItem('hardwood.settings', JSON.stringify(settings)); } catch (e) { /* storage blocked */ } };
+// the two players (fixed for now: no picker)
+const HOME = TEAMS[0], AWAY = TEAMS[1];
+const DIFF = DIFFICULTY.pro, GAME_TO = 11;
 const qualityTier = () => settings.quality === 'auto' ? (isTouch ? 'med' : 'high') : settings.quality;
 
 // ---------- renderer ----------
@@ -136,7 +139,7 @@ function updateCamera(dt, focus, snap = false) {
 }
 
 // ---------- menus ----------
-const screens = ['scrTitle', 'scrPick'];
+const screens = ['scrTitle'];
 function show(id) { for (const s of screens) $(s).hidden = s !== id; }
 
 function seg(el, opts, get, set) {
@@ -148,38 +151,6 @@ function seg(el, opts, get, set) {
     b.addEventListener('click', () => { set(val); save(); seg(el, opts, get, set); });
     el.appendChild(b);
   }
-}
-
-let pickStep = 'you';
-function renderPick() {
-  const grid = $('pickGrid');
-  grid.innerHTML = '';
-  const cur = pickStep === 'you' ? settings.you : settings.opp;
-  TEAMS.forEach((t, i) => {
-    const c = document.createElement('button');
-    c.className = 'card' + (i === cur ? ' sel' : '') + (pickStep === 'opp' && i === settings.you ? ' taken' : '');
-    c.style.backgroundImage = `url("${t.portrait}")`;
-    c.innerHTML = `<img class="lg" alt="" src="${t.logo}"><span class="cn">${t.player.last}<b>${t.abbr} · ${overall(t.player)} OVR</b></span>`;
-    c.addEventListener('click', () => {
-      if (pickStep === 'you') { settings.you = i; if (settings.opp === i) settings.opp = (i + 1) % TEAMS.length; } else settings.opp = i;
-      save();
-      renderPick();
-    });
-    grid.appendChild(c);
-  });
-  const t = TEAMS[cur], p = t.player;
-  $('featPh').style.backgroundImage = `url("${t.portrait}")`;
-  $('featLogo').src = t.logo;
-  $('featOvr').innerHTML = `${overall(p)}<small>OVR</small>`;
-  $('featName').textContent = `${p.first} ${p.last}`;
-  $('featTeam').textContent = `${t.city} ${t.name} · ${p.pos} · ${heightLabel(p.height)}`;
-  const rows = [['3PT', p.r.three], ['Mid-range', p.r.mid], ['Finishing', p.r.finish], ['Dunking', p.r.dunk], ['Handles', p.r.handle], ['Speed', p.r.speed], ['Defense', p.r.defense], ['Blocks', p.r.block], ['Steals', p.r.steal]];
-  $('featBars').innerHTML = rows.map(([k, v]) => `<span>${k}</span><span class="b"><i style="width:${v}%;background:${v >= 85 ? 'var(--green)' : 'var(--leather)'}"></i></span><span class="v">${v}</span>`).join('');
-  $('pickTitle').innerHTML = pickStep === 'you' ? 'Choose <em>your</em> player' : 'Choose your <em>opponent</em>';
-  $('pickNext').textContent = pickStep === 'you' ? 'Next' : 'Play';
-  $('pickOpts').hidden = pickStep !== 'opp';
-  seg($('segDiff'), Object.entries(DIFFICULTY).map(([k, d]) => [k, d.label]), () => settings.diff, (v) => { settings.diff = v; });
-  seg($('segTo'), [[11, '11'], [21, '21']], () => settings.to, (v) => { settings.to = v; });
 }
 
 function renderSettings() {
@@ -197,11 +168,7 @@ for (const m of ['modHow', 'modSettings']) {
     }
   });
 }
-$('goHow').onclick = () => { $('modHow').hidden = false; };
-$('goSettings').onclick = () => { renderSettings(); $('modSettings').hidden = false; };
-$('goPlay').onclick = () => { sound.unlock(); sound.setEnabled(settings.sound); pickStep = 'you'; renderPick(); show('scrPick'); };
-$('pickBack').onclick = () => { if (pickStep === 'opp') { pickStep = 'you'; renderPick(); } else show('scrTitle'); };
-$('pickNext').onclick = () => { if (pickStep === 'you') { pickStep = 'opp'; renderPick(); } else startMatch(); };
+$('goPlay').onclick = () => { sound.unlock(); sound.setEnabled(settings.sound); startMatch(); };
 $('pauseBtn').onclick = () => pause(true);
 $('resume').onclick = () => pause(false);
 $('pHow').onclick = () => { $('modHow').hidden = false; };
@@ -222,9 +189,8 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && gam
 async function rebuildRenderer() {
   makeRenderer();
   if (game) {
-    const [h, a] = [TEAMS[settings.you], TEAMS[settings.opp]];
     const snap = game.snapshot();
-    await buildMatch(h, a);
+    await buildMatch(HOME, AWAY);
     game.rebind({ arena, players, ball, net });
     game.restore(snap);
   }
@@ -233,13 +199,13 @@ async function rebuildRenderer() {
 async function startMatch() {
   $('loading').hidden = false;
   show(null);
-  const home = TEAMS[settings.you], away = TEAMS[settings.opp];
+  const home = HOME, away = AWAY;
   await buildMatch(home, away);
   $('bugLogoL').src = home.logo; $('bugLogoR').src = away.logo;
   $('bugAbbrL').textContent = home.abbr; $('bugAbbrR').textContent = away.abbr;
   $('bugL').style.setProperty('--team', home.primary);
   $('bugR').style.setProperty('--team', away.primary);
-  $('gameTo').textContent = `TO ${settings.to}`;
+  $('gameTo').textContent = `TO ${GAME_TO}`;
   $('hud').hidden = false;
   $('pad').hidden = false;
   $('loading').hidden = true;
@@ -248,7 +214,7 @@ async function startMatch() {
   input.parkStick();
   game = new Game({
     arena, players, ball, net, sound, input, cam, threeCamera: camera, scene,
-    diff: DIFFICULTY[settings.diff], to: settings.to, vib: () => settings.vib,
+    diff: DIFF, to: GAME_TO, vib: () => settings.vib,
     onEnd: showEnd,
   });
   resize();
@@ -265,7 +231,7 @@ function endToMenu() {
 }
 
 function showEnd(res) {
-  const you = TEAMS[settings.you], opp = TEAMS[settings.opp];
+  const you = HOME, opp = AWAY;
   const winner = res.youWon ? you : opp;
   $('endPh').style.backgroundImage = `url("${winner.portrait}")`;
   $('endEyebrow').textContent = res.youWon ? 'Final · Victory' : 'Final · Defeat';
@@ -315,11 +281,9 @@ async function boot() {
   makeRenderer();
   sound.setEnabled(settings.sound);
   const mode = location.hash.replace('#', '');
-  await buildMatch(TEAMS[settings.you], TEAMS[settings.opp]);
+  await buildMatch(HOME, AWAY);
   $('loading').hidden = true;
   if (mode === 'play') { await startMatch(); }
-  else if (mode === 'pick') { renderPick(); show('scrPick'); }
-  else if (mode === 'pick2') { pickStep = 'opp'; renderPick(); show('scrPick'); }
   else show('scrTitle');
   requestAnimationFrame(frame);
 }

@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { loadMotion, MotionLayer, MOTION_URL } from './motion.js';
 
 const gltfCache = new Map();
 export function loadModel(url) {
@@ -811,6 +812,7 @@ export class Player {
         this.solveArm(i, tgt, pole, this.ikW[i]);
       }
     }
+    if (this.motion) this.motion.update(dt);
     if (this.skin) this.driveSkin();
   }
 
@@ -818,7 +820,8 @@ export class Player {
   // The procedural rig keeps running invisibly; its joint directions drive the
   // skinned model's bones every frame.
   async attachSkin(url) {
-    const gltf = await loadModel(url);
+    const [gltf, lib] = await Promise.all([loadModel(url),
+      loadMotion(MOTION_URL).catch((e) => { console.warn('mocap library failed, using procedural motion', e); return null; })]);
     const { clone } = await import('three/addons/utils/SkeletonUtils.js');
     const scene = clone(gltf.scene);
     scene.position.set(0, 0, 0);
@@ -841,7 +844,8 @@ export class Player {
     }
     const P = (n) => bones[n].getWorldPosition(new THREE.Vector3());
     const rest = {};
-    for (const n of need) rest[n] = { q: bones[n].getWorldQuaternion(new THREE.Quaternion()), p: P(n) };
+    const all = lib ? [...new Set([...need, ...lib.bones])].filter((n) => bones[n]) : need;
+    for (const n of all) rest[n] = { q: bones[n].getWorldQuaternion(new THREE.Quaternion()), p: P(n), local: bones[n].quaternion.clone() };
     const dir = (a, b) => rest[b].p.clone().sub(rest[a].p).normalize();
     const restDir = {
       LeftArm: dir('LeftArm', 'LeftForeArm'), LeftForeArm: dir('LeftForeArm', 'LeftHand'),
@@ -884,10 +888,15 @@ export class Player {
     mesh.frustumCulled = false;
     this.group.add(scene);
     this.skin = { scene, bones, rest, restDir, hipOffset: rest.Hips.p.clone().sub(hipMid), mesh, len: { upper: L.upper, fore: L.fore } };
+    if (lib && lib.bones.every((n) => bones[n])) {
+      this.motion = new MotionLayer(this, lib);
+      this.skin.hipScale = rest.Hips.p.y / lib.restHipY;
+    }
   }
 
   driveSkin() {
     const { bones, rest, restDir, hipOffset } = this.skin;
+    const M = this.motion, lib = M && M.lib;
     this.root.updateMatrixWorld(true);
     const Rq = _q.setFromAxisAngle(_v4.set(0, 1, 0), this.yaw).clone();
     const W = (o, out) => o.getWorldPosition(out);
@@ -896,26 +905,53 @@ export class Player {
       bone.quaternion.copy(pq.invert().multiply(q));
       bone.updateMatrixWorld(true);
     };
+    // mocap layer: pull a bone's local rotation toward the clip pose. The clip
+    // stores rest-relative world deltas (character space), re-based on this
+    // body's own rest pose.
+    const mocapQ = (name) => M.delta(lib.index[name], new THREE.Quaternion()).multiply(rest[name].q);
+    const blend = (name, w, fromRest = false) => {
+      const b = bones[name];
+      if (fromRest) b.quaternion.copy(rest[name].local);
+      if (!M || w < 0.001) { if (fromRest) b.updateMatrixWorld(true); return; }
+      const pn = b.parent.name;
+      const local = lib.index[pn] !== undefined
+        ? mocapQ(pn).invert().multiply(mocapQ(name))
+        : b.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(Rq.clone().multiply(mocapQ(name)));
+      b.quaternion.slerp(local, w);
+      b.updateMatrixWorld(true);
+    };
+    const bodyW = M ? M.bodyW : 0, legW = M ? M.legW : 0, armW = M ? M.armW : [0, 0];
     const tmpQ = new THREE.Quaternion();
     // hips
     const hipMid = W(this.hip[0], new THREE.Vector3()).add(W(this.hip[1], new THREE.Vector3())).multiplyScalar(0.5);
     const RP = Rq.clone().multiply(this.pelvis.quaternion);   // root yaw + hip twist/roll
     const hipsPos = hipMid.add(hipOffset.clone().applyQuaternion(RP));
+    if (M && legW > 0.001) {
+      const h = M.h, sc = this.skin.hipScale;
+      const mp = rest.Hips.p.clone().add(_v1.set(h[0] * sc, h[1] * sc, h[2] * sc)).applyQuaternion(Rq);
+      mp.x += this.pos.x; mp.y += this.jumpY; mp.z += this.pos.z;
+      hipsPos.lerp(mp, legW);
+    }
     const hb = bones.Hips;
     hb.parent.updateMatrixWorld(true);
     hb.position.copy(hb.parent.worldToLocal(hipsPos));
     setWorldQ(hb, RP.clone().multiply(rest.Hips.q));
+    blend('Hips', bodyW);
     // spine chain (lower -> upper)
     const dSpine = this.spine.quaternion;
     const ident = new THREE.Quaternion();
     for (const [n, f] of [['Spine02', 0.34], ['Spine01', 0.67], ['Spine', 1]]) {
       tmpQ.copy(ident).slerp(dSpine, f);
       setWorldQ(bones[n], RP.clone().multiply(tmpQ).multiply(rest[n].q));
+      blend(n, bodyW);
     }
-    // neck + head
+    // neck + head: the procedural rig keeps the eyes on the play, mocap adds life
     const dHead = dSpine.clone().multiply(this.neck.quaternion).multiply(this.head.quaternion);
     setWorldQ(bones.neck, RP.clone().multiply(dSpine.clone().slerp(dHead, 0.5)).multiply(rest.neck.q));
+    blend('neck', bodyW * 0.5);
     setWorldQ(bones.Head, RP.clone().multiply(dHead).multiply(rest.Head.q));
+    blend('Head', bodyW * 0.4);
+    if (M) { blend('LeftShoulder', armW[0], true); blend('RightShoulder', armW[1], true); }
     // limbs by segment direction
     const limb = (name, from, to) => {
       const a = W(from, new THREE.Vector3()), b = W(to, new THREE.Vector3());
@@ -926,7 +962,7 @@ export class Player {
     };
     // arms: FK directions from the driver rig, re-solved on the model's own
     // shoulders when a hand target is active so the hands land on the ball
-    for (const [k, up, fo] of [[0, 'LeftArm', 'LeftForeArm'], [1, 'RightArm', 'RightForeArm']]) {
+    for (const [k, up, fo, hand] of [[0, 'LeftArm', 'LeftForeArm', 'LeftHand'], [1, 'RightArm', 'RightForeArm', 'RightHand']]) {
       const S = W(bones[up], new THREE.Vector3());
       let dU = W(this.elbow[k], new THREE.Vector3()).sub(W(this.shoulder[k], new THREE.Vector3())).normalize();
       let dF = W(this.handG[k], new THREE.Vector3()).sub(W(this.elbow[k], new THREE.Vector3())).normalize();
@@ -952,18 +988,22 @@ export class Player {
         const r0 = restDir[name].clone().applyQuaternion(Rq);
         const rot = new THREE.Quaternion().setFromUnitVectors(r0, dd);
         setWorldQ(bones[name], rot.multiply(Rq.clone().multiply(rest[name].q)));
+        blend(name, armW[k]);
       }
+      if (M) blend(hand, armW[k], true);
     }
-    limb('LeftUpLeg', this.hip[0], this.knee[0]);
-    limb('LeftLeg', this.knee[0], this.ankle[0]);
-    limb('RightUpLeg', this.hip[1], this.knee[1]);
-    limb('RightLeg', this.knee[1], this.ankle[1]);
-    for (const [name, k] of [['LeftFoot', 0], ['RightFoot', 1]]) {
+    for (const [k, up, lo, foot, toe] of [[0, 'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase'], [1, 'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase']]) {
+      limb(up, this.hip[k], this.knee[k]);
+      blend(up, legW);
+      limb(lo, this.knee[k], this.ankle[k]);
+      blend(lo, legW);
       const aq = this.ankle[k].getWorldQuaternion(new THREE.Quaternion());
-      const d = restDir[name].clone().applyQuaternion(aq);
-      const r0 = restDir[name].clone().applyQuaternion(Rq);
+      const d = restDir[foot].clone().applyQuaternion(aq);
+      const r0 = restDir[foot].clone().applyQuaternion(Rq);
       const rot = new THREE.Quaternion().setFromUnitVectors(r0, d);
-      setWorldQ(bones[name], rot.multiply(Rq.clone().multiply(rest[name].q)));
+      setWorldQ(bones[foot], rot.multiply(Rq.clone().multiply(rest[foot].q)));
+      blend(foot, legW);
+      if (M) blend(toe, legW, true);
     }
   }
 }

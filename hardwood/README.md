@@ -5,8 +5,9 @@ A 1-on-1 half-court basketball game for phones, built with three.js. Open `index
 ## What's in it
 
 - **Arena**: a 3D half court with glossy floor reflections, a verlet-cloth net, a rim and glass that the ball physically bounces off, LED boards and a shot clock. The stands, crowd and hardwood are photo textures.
-- **Players**: 8 fictional stars from a fictional league. Each body is a textured, rigged 3D model made from a generated full-body photo. The models are driven live by a procedural animation rig with arm IK, so hands stay on the ball. Models ship as glTF JSON plus a JPEG texture (`models/`). If a model fails to load, a built-in body is used instead.
-- **Gameplay**: timed jump shots with a release meter, layups and dunks, crossovers, spins and step-backs, steals, blocks, rebounds, a 12-second shot clock, clearing the ball, and games to 11 or 21. There are four CPU difficulty levels.
+- **Players**: two fictional players, Morrow (you) and Varga (CPU). Each body is a textured, rigged 3D model made from a generated full-body photo. Models ship as glTF JSON plus a JPEG texture (`models/`). If a model fails to load, a built-in body is used instead. The data for six more players is still in `js/data.js`, but there is no picker for now.
+- **Motion**: running, walking, backpedalling, defensive slides, stances and jumps come from motion-capture clips (`models/motion.json`). The clips are blended by speed and direction and retargeted onto each body. A procedural rig handles what the library doesn't cover: dribbling, shooting, layups, dunks, steals, and arm IK that keeps the hands on the ball.
+- **Gameplay**: timed jump shots with a release meter, layups and dunks, crossovers, spins and step-backs, steals, blocks, rebounds, a 12-second shot clock, clearing the ball, and games to 11. The front screen has one button: Start.
 - **Audio**: synthesised with WebAudio. It covers crowd noise, the dribble, rim, glass, net, sneaker squeaks and the buzzer.
 
 ## Controls
@@ -24,10 +25,11 @@ A 1-on-1 half-court basketball game for phones, built with three.js. Open `index
 - `js/game.js`: rules, possessions, shooting model, moves, steals, blocks, HUD
 - `js/ai.js`: CPU offense and defense
 - `js/player.js`: procedural rig and animation, IK, and retargeting onto the skinned models
+- `js/motion.js`: the motion-capture layer (clip blending by speed and direction, jump time-warping)
 - `js/ball.js`: ball physics and the net cloth
 - `js/arena.js`: court, markings, reflections, stands, hoop
 - `js/audio.js`, `js/input.js`, `js/data.js`
 
 ## Art
 
-The images and models were generated with Higgsfield: the arena crowd panorama, hardwood texture, team logos, player portraits, cover art, and the player models (full-body reference, then image-to-3D with auto-rigging). All teams and players are fictional.
+The images and models were generated with Higgsfield: the arena crowd panorama, hardwood texture, team logos, player portraits, cover art, and the player models (full-body reference, then image-to-3D with auto-rigging). The motion clips come from the Higgsfield (Meshy) animation library. They were baked to per-bone rotation deltas by `raw/hardwood/anim/convert_clips.py`, which is kept outside the repo. All teams and players are fictional.
