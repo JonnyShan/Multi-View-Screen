@@ -29,7 +29,8 @@ for (let t = 0; t < idx.getCount(); t += 3) {
   }
   const [hue, sat, val] = hsv(...colour(i0, i1, i2));
   const red = sat > 0.45 && val > 0.25 && (hue < 18 || hue > 342);
-  tris.push({ x: ctr[0], y: ctr[1], z: ctr[2], ylo: Math.min(a[1], b[1], c[1]), zlo: Math.min(a[2], b[2], c[2]), zhi: Math.max(a[2], b[2], c[2]), l: luma(i0, i1, i2), red });
+  const blue = sat > 0.45 && val > 0.25 && hue > 200 && hue < 250;
+  tris.push({ x: ctr[0], y: ctr[1], z: ctr[2], ylo: Math.min(a[1], b[1], c[1]), yhi: Math.max(a[1], b[1], c[1]), zlo: Math.min(a[2], b[2], c[2]), zhi: Math.max(a[2], b[2], c[2]), l: luma(i0, i1, i2), red, blue });
 }
 const L = max[2] - min[2];
 const centreX = (min[0] + max[0]) / 2;
@@ -75,6 +76,15 @@ const out = {
 // tail lamps: red triangles near the back, left side (+x)
 const tail = tris.filter((t) => t.red && t.z < min[2] + 0.1 * L && t.x - centreX > 0.25 * halfW);
 if (tail.length) out.tail = [median(tail.map((t) => t.x - centreX)), median(tail.map((t) => t.y)), Math.min(...tail.map((t) => t.z))].map((v) => +v.toFixed(3));
+// a roof light bar (red and blue lenses on the roof): the flashers go near its ends, on top.
+// x keeps its sign: the side the red lens is on when the colours are split left and right.
+const lens = tris.filter((t) => (t.red || t.blue) && t.y > 0.8 * max[1]);
+if (lens.length > 3) {
+  const span = Math.max(...lens.map((t) => Math.abs(t.x - centreX)));
+  const red = lens.filter((t) => t.red);
+  const side = red.length && median(red.map((t) => t.x - centreX)) < -0.3 * span ? -1 : 1;
+  out.bar = [centreX + side * 0.7 * span, Math.max(...lens.map((t) => t.yhi)), median(lens.map((t) => t.z))].map((v) => +v.toFixed(3));
+}
 // headlights: the front of the body at headY of the height, 0.68 of the half width out
 const hy = +headFrac * max[1], hx = 0.68 * halfW;
 const nose = tris.filter((t) => Math.abs(t.y - hy) < 0.03 * max[1] && Math.abs(t.x - centreX - hx) < 0.12 * halfW && t.z > midZ);

@@ -1,4 +1,5 @@
-// Dev helper: parks a row of cars of one model in different paints and shoots them by day and night.
+// Dev helper: parks a row of cars of one model in different paints and shoots them by day and night
+// (police with their lights flashing).
 // usage: node tools/cars.mjs out-prefix [model]
 import { chromium } from '@playwright/test';
 const [out = 'cars', model = 'sedan'] = process.argv.slice(2);
@@ -17,6 +18,8 @@ await page.evaluate((m) => {
   paints.forEach((c, i) => {
     const car = sim.spawnCar('civilian', m, c, 470 + i * 0, 380 + i * 48, Math.PI / 2 + (i % 2) * 0.4, 999);
     car.mode = 'idle';
+    // police flash their light bars
+    if (m === 'police') car.siren = true;
   });
   window.__nc.setWeather('clear');
 }, model);

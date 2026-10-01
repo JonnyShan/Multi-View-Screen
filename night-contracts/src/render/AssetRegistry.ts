@@ -31,8 +31,11 @@ export interface CarAsset {
    * and where the four axles are (`wheel_fl`, `wheel_fr`, `wheel_rl`, `wheel_rr`).
    */
   wheel: { near: AssetPart; far: AssetPart | null; axles: THREE.Vector3[] } | null;
-  /** Left head and tail lamp positions (`light_head_l`, `light_tail_l`), mirrored for the right. */
-  lights: { head: THREE.Vector3; tail: THREE.Vector3 } | null;
+  /**
+   * Left head and tail lamp positions (`light_head_l`, `light_tail_l`), mirrored
+   * for the right, and the left lens of a roof light bar (`light_bar_l`) if any.
+   */
+  lights: { head: THREE.Vector3; tail: THREE.Vector3; bar: THREE.Vector3 | null } | null;
 }
 
 const CAR_FILES: Record<CarModel, string> = {
@@ -159,7 +162,7 @@ export class AssetRegistry {
       parts: flattenParts(scene, named('body')),
       far: far.length ? far : null,
       wheel: near && axles.every(Boolean) ? { near, far: one('wheel_lod1'), axles: axles as THREE.Vector3[] } : null,
-      lights: head && tail ? { head, tail } : null,
+      lights: head && tail ? { head, tail, bar: at('light_bar_l') } : null,
     };
   }
 

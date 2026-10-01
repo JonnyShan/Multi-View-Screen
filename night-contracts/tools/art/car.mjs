@@ -48,6 +48,18 @@ const CARS = {
     tail: [0.127, 0.134, -0.581],
     bodyTris: 8000,
   },
+  police: {
+    file: 'police',
+    scale: 4.178, // 1.1669 -> 4.875 m
+    centreX: -0.0035,
+    axleFront: 0.3203,
+    axleRear: -0.3213,
+    wheel: { r: 0.1068, y: 0.1068, x: 0.1867, xIn: 0.1386 },
+    head: [0.167, 0.162, 0.51],
+    tail: [0.176, 0.227, -0.563],
+    bar: [0.093, 0.385, -0.082], // roof light bar, near its left end, on top
+    bodyTris: 6500,
+  },
   hatch: {
     file: 'civ-hatch',
     scale: 3.4765, // 1.1506 -> 4 m
@@ -132,6 +144,7 @@ car.addChild(doc.createNode('wheel').setMesh(doc.createMesh('wheel').addPrimitiv
 for (const [name, p] of Object.entries(axles)) car.addChild(doc.createNode(name).setTranslation(p));
 car.addChild(doc.createNode('light_head_l').setTranslation(m(...c.head)));
 car.addChild(doc.createNode('light_tail_l').setTranslation(m(...c.tail)));
+if (c.bar) car.addChild(doc.createNode('light_bar_l').setTranslation(m(...c.bar)));
 
 await MeshoptSimplifier.ready;
 await doc.transform(weld());

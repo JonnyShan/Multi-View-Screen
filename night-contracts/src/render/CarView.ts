@@ -178,6 +178,8 @@ interface ModelMeshes {
   axles: THREE.Vector3[] | null;
   head: THREE.Vector3 | null;
   tail: THREE.Vector3 | null;
+  /** Left lens of the roof light bar (police), mirrored for the right. */
+  bar: THREE.Vector3 | null;
   nNear: number;
   nFar: number;
   wNear: number;
@@ -259,6 +261,7 @@ export class CarView {
         axles: asset?.wheel?.axles ?? null,
         head: asset?.lights?.head ?? null,
         tail: asset?.lights?.tail ?? null,
+        bar: asset?.lights?.bar ?? null,
         nNear: 0,
         nFar: 0,
         wNear: 0,
@@ -441,15 +444,20 @@ export class CarView {
         }
         if (car.model === 'police' && car.siren) {
           const phase = Math.floor(this.time * 7 + car.id) % 2;
+          // a GLB's light bar marks its red lens; code-built cars have red on the left
+          const redSide = mm.bar && mm.bar.x < 0 ? -1 : 1;
           for (const s of [-1, 1]) {
-            const bp = new THREE.Vector3(s * 2.2, car.spec.roof + 1.1, 1).applyQuaternion(this.q).add(this.p);
-            this.m.compose(bp, this.q, this.s.set(1, 1, 1));
+            const red = s === redSide;
+            const on = red === (phase === 0);
+            // on a GLB the lit box sits over the modelled lens and is hidden while off
+            const bp = (mm.bar ? new THREE.Vector3(s * Math.abs(mm.bar.x), mm.bar.y - 0.5, mm.bar.z) : new THREE.Vector3(s * 2.2, car.spec.roof + 1.1, 1)).applyQuaternion(this.q).add(this.p);
+            const k = mm.bar && !on ? 0 : 1;
+            this.m.compose(bp, this.q, this.s.set(k, k, k));
             this.bars.setMatrixAt(bari, this.m);
-            const on = (s > 0) === (phase === 0);
-            this.bars.setColorAt(bari++, on ? (s > 0 ? this.c.setRGB(5, 0.2, 0.15) : this.c.setRGB(0.2, 0.6, 6)) : this.c.setRGB(0.05, 0.05, 0.05));
+            this.bars.setColorAt(bari++, on ? (red ? this.c.setRGB(5, 0.2, 0.15) : this.c.setRGB(0.2, 0.6, 6)) : this.c.setRGB(0.05, 0.05, 0.05));
             if (on) {
               this.m.compose(bp, this.q, this.s.set(22, 22, 22));
-              if (s > 0) this.sirenRed.setMatrixAt(sr++, this.m);
+              if (red) this.sirenRed.setMatrixAt(sr++, this.m);
               else this.sirenBlue.setMatrixAt(sb++, this.m);
             }
           }
