@@ -179,6 +179,46 @@ export function hsv(r, g, b) {
 }
 
 /**
+ * A UV inside `mask` where the colour map is dark all round (8 texels at 1024),
+ * so added geometry can take plain black from the texture atlas without a
+ * material (and a draw call) of its own.
+ */
+export async function darkTexel(material, mask) {
+  const { data, w, h } = await colourMap(material);
+  const k = Math.max(2, Math.round(w / 128));
+  const luma = (x, y) => {
+    const i = (y * w + x) * 3;
+    return 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+  };
+  const inside = (x, y) => mask.at((x + 0.5) / w, (y + 0.5) / h);
+  let best = null;
+  let bestSum = Infinity;
+  for (let y = k; y < h - k; y += 2) {
+    for (let x = k; x < w - k; x += 2) {
+      if (luma(x, y) > 40 || !inside(x, y)) continue;
+      let sum = 0;
+      let ok = true;
+      for (let dy = -k; dy <= k && ok; dy++) {
+        for (let dx = -k; dx <= k; dx++) {
+          const l = luma(x + dx, y + dy);
+          if (l > 60 || !inside(x + dx, y + dy)) {
+            ok = false;
+            break;
+          }
+          sum += l;
+        }
+      }
+      if (ok && sum < bestSum) {
+        bestSum = sum;
+        best = [(x + 0.5) / w, (y + 0.5) / h];
+      }
+    }
+  }
+  if (!best) throw new Error('no dark texel inside the mask');
+  return best;
+}
+
+/**
  * Replace a material's metal and roughness map with one painted from its
  * colour map: `pick(r, g, b, u, v)` returns [metal, rough] (0 to 1) per texel.
  * Generated maps tend to mark random patches as mirror metal, which renders

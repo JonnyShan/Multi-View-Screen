@@ -25,7 +25,7 @@ The raw generator files are not committed (tens of MB each). Re-run a script on 
 
 | Script | Does |
 |---|---|
-| `node tools/art/bike.mjs raw.glb` | scales to metres, stands it on the ground, cuts the wheels out onto their axles (`wheel_f`, `wheel_r`), adds `seat`, `light_head_l`, `light_tail_l`, `grip_l/r`, `peg_l/r` |
+| `node tools/art/bike.mjs raw.glb` | scales to metres, stands it on the ground, cuts the wheels out onto their axles (`wheel_f`, `wheel_r`; centres fitted to the tread, mudguard edges left on the body), closes each tyre with a rubber core on one dark texel (the generated tread has gaps a spinning wheel would show), adds `seat`, `light_head_l`, `light_tail_l`, `grip_l/r`, `peg_l/r` |
 | `node tools/art/rider.mjs base.glb idle run=run.glb walk=walk.glb ...` | keeps the base file's mesh and skeleton and retargets each clip file onto it (clips from different auto rigs line up by bone name) |
 | `node tools/art/car.mjs <model> raw.glb [--back back.png]` | scales and centres, cuts one wheel out as a template plus four axle empties, adds lamp empties and far versions (`body_lod1`, `wheel_lod1`), and paints out made-up marks on the back. Each model's numbers live in the script's `CARS` table; `--back` writes a gridded view of the back (10 cm squares) for placing the `blank` boxes |
 | `node tools/art/measure.mjs raw.glb [rotY] [headY]` | measures a raw car for that table: length, centre, axles and wheel size from the tyres touching the ground, tail lamps from the red at the back, the nose at headlight height |
