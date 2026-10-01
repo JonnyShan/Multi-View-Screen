@@ -2,6 +2,8 @@
 // Plus a race announcer: short pre-recorded lines in assets/voice/<key>-<n>.mp3.
 import { ANNOUNCER, TUNE } from './config.js';
 
+const CHEER_S = 6.5; // length of the finish-line crowd cheer (s)
+const CHEER_GAIN = 2.8; // its level: about as loud as the engine at the line, so it carries as the engine fades
 const VOICE = { intro: 2, go: 1, purple: 2, green: 2, yellow: 2, wall: 2, off: 1, first: 1, gold: 1, pb: 2, silver: 1, bronze: 1, none: 1 };
 // 0.1 s of silent 8 kHz mono WAV, for the older-iOS silent-switch workaround below.
 const SILENT_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACA' + 'gICA'.repeat(266) + 'gA==';
@@ -35,6 +37,7 @@ export class Audio {
     this.noise = this.#noiseBuffer(2);
     this.#engine();
     this.#beds();
+    this.#renderCheer();
     if (ANNOUNCER) this.#loadVoice();
   }
 
@@ -177,8 +180,9 @@ export class Audio {
     this.kerb = { o: ko, g: kg };
   }
 
-  // Called every frame while riding (or with idle params on menus).
-  update(st, { ambient = 0, crowd = 0, active = true } = {}) {
+  // Called every frame while riding (or with idle params on menus). `bike` scales the bike's own sounds
+  // (engine, wind, tyres, kerbs), so they can fade away after the finish line.
+  update(st, { ambient = 0, crowd = 0, active = true, bike = 1 } = {}) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const rpm = st ? st.rpm : 0;
@@ -190,23 +194,23 @@ export class Audio {
     const rn = Math.min(1, rpm / TUNE.redline);
     this.engineLP.frequency.setTargetAtTime(500 + rn * 2600 + thr * 2400, t, 0.03);
     const cut = this.cutUntil && t < this.cutUntil ? 0.15 : 1;
-    this.engineOut.gain.setTargetAtTime(on ? (0.18 + rn * 0.22 + thr * 0.12) * cut : 0, t, 0.02);
-    this.roarGain.gain.setTargetAtTime(on ? thr * rn * 0.25 : 0, t, 0.05);
+    this.engineOut.gain.setTargetAtTime(on ? (0.18 + rn * 0.22 + thr * 0.12) * cut * bike : 0, t, 0.02);
+    this.roarGain.gain.setTargetAtTime(on ? thr * rn * 0.25 * bike : 0, t, 0.05);
     this.roarBP.frequency.setTargetAtTime(600 + rn * 2200, t, 0.05);
     const v = on ? st.v : 0;
-    this.wind.g.gain.setTargetAtTime(Math.min(0.5, (v / 90) ** 2 * 0.45), t, 0.1);
+    this.wind.g.gain.setTargetAtTime(Math.min(0.5, (v / 90) ** 2 * 0.45) * bike, t, 0.1);
     this.wind.flt.frequency.setTargetAtTime(300 + v * 18, t, 0.1);
     const squeal = on && st.tyre > 0.9 && v > 15 ? (st.tyre - 0.9) * 2.5 : 0;
     const brakeSq = on && st.brake > 0.6 && v > 20 ? 0.08 : 0;
-    this.tyre.g.gain.setTargetAtTime(Math.min(0.22, squeal + brakeSq), t, 0.05);
+    this.tyre.g.gain.setTargetAtTime(Math.min(0.22, squeal + brakeSq) * bike, t, 0.05);
     const off = on && (st.surface === 'grass' || st.surface === 'gravel');
-    this.grass.g.gain.setTargetAtTime(off ? Math.min(0.5, v / 40) : 0, t, 0.05);
-    this.kerb.g.gain.setTargetAtTime(on && st.kerb && v > 5 ? 0.25 : 0, t, 0.02);
+    this.grass.g.gain.setTargetAtTime(off ? Math.min(0.5, v / 40) * bike : 0, t, 0.05);
+    this.kerb.g.gain.setTargetAtTime(on && st.kerb && v > 5 ? 0.25 * bike : 0, t, 0.02);
     this.kerb.o.frequency.setTargetAtTime(Math.max(8, v / 1.2), t, 0.02);
     if (!this.cheerUntil || t > this.cheerUntil) this.crowd.g.gain.setTargetAtTime(crowd * 0.12, t, 0.3);
     this.ambience.g.gain.setTargetAtTime(ambient * 0.012, t, 0.5);
     // exhaust crackle on decel
-    if (on && thr < 0.2 && rpm > TUNE.redline * 0.4 && Math.random() < 0.28) this.pop(0.5 + Math.random() * 0.5);
+    if (on && thr < 0.2 && rpm > TUNE.redline * 0.4 && Math.random() < 0.28 * bike) this.pop(0.5 + Math.random() * 0.5);
   }
 
   upshift() {
@@ -253,13 +257,95 @@ export class Audio {
 
   click() { this.beep(1400, 0.05, 0.08); }
 
-  cheer(sec = 3) {
+  // The crowd going up as a lap ends: a roar that swells and settles, applause and a few whistles. It is made
+  // once, ahead of time, so the finish line doesn't stall a phone building hundreds of sound nodes. It plays on its
+  // own path, so the announcer's ducking doesn't bury it.
+  cheer(power = 1) {
     if (!this.ctx) return;
-    const t = this.ctx.currentTime;
-    const g = this.crowd.g.gain;
-    this.cheerUntil = t + sec;
-    g.cancelScheduledValues(t);
-    g.setTargetAtTime(0.35, t, 0.2);
-    g.setTargetAtTime(0.05, t + sec * 0.7, 0.6);
+    const c = this.ctx, t = c.currentTime;
+    this.cheerUntil = t + 4;
+    const bed = this.crowd.g.gain; // the trackside crowd bed swells with it
+    bed.cancelScheduledValues(t);
+    bed.setTargetAtTime(0.2 * power, t, 0.3);
+    bed.setTargetAtTime(0.04, t + 3, 0.8);
+    const g = c.createGain(); g.gain.value = power * CHEER_GAIN;
+    g.connect(this.out);
+    if (this.cheerBuf) {
+      const s = c.createBufferSource(); s.buffer = this.cheerBuf;
+      s.connect(g); s.start(t + 0.05);
+      s.onended = () => g.disconnect();
+    } else this.#cheerGraph(c, g, t + 0.05); // not rendered yet: play it live
+  }
+
+  #renderCheer() {
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OAC) return;
+    try {
+      const rate = this.ctx.sampleRate, off = new OAC(2, Math.round(rate * CHEER_S), rate);
+      this.#cheerGraph(off, off.destination, 0);
+      const done = (buf) => { this.cheerBuf = buf; };
+      const p = off.startRendering();
+      if (p && p.then) p.then(done, () => {}); else off.oncomplete = (e) => done(e.renderedBuffer); // older Safari
+    } catch { /* plays live instead */ }
+  }
+
+  #cheerGraph(c, dest, t) {
+    const R = Math.random, pan = (node, x) => {
+      if (!c.createStereoPanner) return node;
+      const p = c.createStereoPanner(); p.pan.value = x; node.connect(p); return p;
+    };
+    // roar: bands of noise with an uneven swell, like many voices
+    const roar = (f, q, peak, x) => {
+      const s = c.createBufferSource(); s.buffer = this.noise; s.loop = true;
+      const flt = c.createBiquadFilter(); flt.type = 'bandpass'; flt.frequency.value = f; flt.Q.value = q;
+      const am = c.createGain(); am.gain.value = 1;
+      const wob = c.createOscillator(); wob.frequency.value = 1.6 + R() * 1.6;
+      const wg = c.createGain(); wg.gain.value = 0.3;
+      wob.connect(wg).connect(am.gain);
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t + 0.8);
+      g.gain.setTargetAtTime(peak * 0.7, t + 1.4, 0.7);
+      g.gain.setTargetAtTime(0.0001, t + 3.2, 0.9);
+      s.connect(flt).connect(am);
+      pan(am, x).connect(g).connect(dest);
+      s.start(t, R()); s.stop(t + CHEER_S); wob.start(t); wob.stop(t + CHEER_S);
+    };
+    roar(420, 0.8, 0.16, -0.3);
+    roar(900, 0.7, 0.26, 0.25);
+    roar(1800, 0.9, 0.09, 0);
+    // applause: short bursts of noise, building quickly then thinning out
+    for (let i = 0; i < 240; i++) {
+      const at = t + 0.3 + Math.pow(R(), 1.7) * 5;
+      const s = c.createBufferSource(); s.buffer = this.noise;
+      const flt = c.createBiquadFilter(); flt.type = 'bandpass'; flt.frequency.value = 1000 + R() * 1800; flt.Q.value = 1.2;
+      const g = c.createGain(), amp = (0.04 + R() * 0.07) * (1 - (at - t) / 6.5);
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(amp, at + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.025 + R() * 0.045);
+      s.connect(flt).connect(g);
+      pan(g, R() * 1.6 - 0.8).connect(dest);
+      s.start(at, R() * 1.8); s.stop(at + 0.1);
+    }
+    // finger whistles from the stands
+    for (const w0 of [0.5 + R() * 0.4, 1.4 + R() * 0.5, 2.5 + R() * 0.6]) {
+      const at = t + w0, len = 0.45 + R() * 0.5, f = 1900 + R() * 600;
+      const o = c.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(f * 0.75, at);
+      o.frequency.exponentialRampToValueAtTime(f, at + 0.12);
+      o.frequency.setValueAtTime(f, at + len - 0.12);
+      o.frequency.exponentialRampToValueAtTime(f * 0.85, at + len);
+      const vib = c.createOscillator(); vib.frequency.value = 5 + R() * 2;
+      const vg = c.createGain(); vg.gain.value = 25;
+      vib.connect(vg).connect(o.frequency);
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(0.035 + R() * 0.02, at + 0.04);
+      g.gain.setValueAtTime(0.03, at + len - 0.08);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+      o.connect(g);
+      pan(g, R() * 1.4 - 0.7).connect(dest);
+      o.start(at); o.stop(at + len + 0.02); vib.start(at); vib.stop(at + len + 0.02);
+    }
   }
 }

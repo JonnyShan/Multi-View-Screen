@@ -20,6 +20,8 @@ const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
 const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const FINISH_S = 3.2;                              // finish-line replay before the results (s)
+const bikeFade = (t) => 1 - ss(0.3, 5, t);         // the bike's sound over the seconds after the line
 const dampAngle = (a, b, k, dt) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * (1 - Math.exp(-k * dt)); };
 const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 const START_S = -18;
@@ -273,7 +275,6 @@ class Game {
     this.finalT = this.raceT;
     this.#setState('finish');
     this.ghost.root.visible = false;
-    this.audio.cheer(4);
     const t = this.finalT;
     const splits = this.split.map((v, i) => v - (i ? this.split[i - 1] : 0));
     this.result = { t, splits, st: { top: this.st.topSpeed, lean: this.st.maxLean, off: this.st.offTime } };
@@ -282,6 +283,7 @@ class Game {
     this.result.pb = pb;
     this.result.prevBest = prevBest;
     this.celebrate = pb || t <= this.medals.gold;
+    this.audio.cheer(this.celebrate ? 1.15 : 0.9);
     const bs = this.bestSectors || [Infinity, Infinity, Infinity];
     this.result.sectorCls = splits.map((v, i) => v < bs[i] ? 'purple' : ((this.ghostSplits && v < this.ghostSplits[i]) ? 'green' : 'yellow'));
     this.bestSectors = splits.map((v, i) => Math.min(v, bs[i]));
@@ -386,7 +388,8 @@ class Game {
     this.#emitFx(st, dt);
     this.#tvCam(dt, st);
     this.#fx(st.v, 0);
-    this.audio.update(st, { ambient: 0.5, crowd: 0.3, active: true });
+    // results: the bike rolls on behind the menu, its sound fading out after the line
+    this.audio.update(st, { ambient: 0.5, crowd: 0.3, active: true, bike: cooldown ? bikeFade(FINISH_S + this.stateT) : 1 });
   }
 
   #updateIntro(dt) {
@@ -506,9 +509,9 @@ class Game {
     this.#emitFx(st, dt);
     this.#tvCam(dt, st, true);
     this.#fx(st.v, 0);
-    this.audio.update(st, { crowd: 0.8, active: true });
+    this.audio.update(st, { crowd: 0.8, active: true, bike: bikeFade(this.stateT) });
     this.hud.brakeHint(false);
-    if (this.stateT > 3.2) this.#setState('results');
+    if (this.stateT > FINISH_S) this.#setState('results');
   }
 
   #sector(i) {
