@@ -60,6 +60,15 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 - Swipe speed adds power: a faster swipe hits a perfect six further.
 - Crossing the line before the ball is bowled is ignored, so you can retry.
 - A bounce marker flashes where the ball pitches, as a learning aid.
+- **The batter's technique.** The batter's poses were taken from 10 AI reference photos of real batting technique (stance, backlift, straight drive, lofted-drive finish, pull, pull finish, square cut, forward defence, leave and slog finish). Each photo shows one moment from two camera angles. MediaPipe Pose measured the joints, and the keyframes were tuned against the photos side by side. The photos and the joint measurements are in `assets/players/batting-refs/`.
+  - The batter strides as your thumb starts up the screen: forward to a full ball, back to a short one.
+  - At the line he plays the shot that matches where the ball goes:
+    - a vertical-bat drive for straight and cover;
+    - a square cut behind point;
+    - a pull through the leg side;
+    - a forward block for defence.
+  - Lofted hits finish with the bat high over the shoulder; along-the-ground hits finish lower.
+  - The boots are planted by IK, and both gloves are solved onto the bat handle with the fingers wrapped round it.
 
 ### Ball physics and fielding
 - The flight sim uses gravity, light drag, bounce and roll. A six is a ball that crosses the 66 m rope on the full; a four crosses it after bouncing.
@@ -96,8 +105,9 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 
 ### Performance
 - The crowd is one draw call of instanced cards, and twinkling phone torches are one more.
-- Off-screen 3D players are culled, so they skip both the main and the shadow pass.
+- Off-screen 3D players are culled, so they skip both the main and the shadow pass. Each player is tested as a 1.5 m sphere around their waist.
 - The game measures its frame rate. Below 45 fps it drops bloom, render resolution and shadow resolution, and draws 60% of the crowd.
+- An on-screen readout in the bottom-right corner shows the current frame rate, the average since Play, the slowest frame of the last 2 s, and the quality tier (HQ or LQ). It is there for phone testing; add `?nofps` to the URL to hide it.
 
 ## Livewire branding (first branded edition)
 
@@ -105,7 +115,7 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 - **Logos:** the wordmark, lockup and logomark were cut from the brand sheet as white masks (`assets/livewire/*-mask.png`). They are embedded in `cricket.html` and tinted in code to any brand colour.
 - **Top ring:** an LED band under the roof edge runs neon Livewire logomarks and wordmarks, with neon light strips above and below. It strobes when a six is hit.
 - **Bottom ring:** the boundary boards and the band between the two tiers cycle Livewire wordmark, lockup and "Super Over Showdown" panels. They switch to SIX, FOUR and WICKET boards on those events.
-- **Kits:** your team (Livewire) wears onyx with neon, and the rivals wear ivory with onyx.
+- **Kits:** your team (Livewire) wears onyx with neon, and the rivals wear royal blue (`#2563EB`) with onyx trim and white pads. The umpire wears a pink shirt.
 - **Rest of the stadium:** the crowd wears the brand colours, the big screen has a Livewire header, and the title screen shows the Livewire lockup.
 
 ## 3D player pipeline
@@ -121,7 +131,7 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
    - The existing capsule rig still runs every animation (swing keyframes and arm IK) but is hidden. Each frame, the model's skeleton copies it:
      - the hips, spine and head copy their orientation;
      - the arms and legs are aimed along the capsule's limbs.
-   - The bat stays on the capsule's grip.
+   - The bat stays on the capsule's grip. The batters' arms are solved onto the handle with their own arm lengths, and their legs onto the pose's foot positions.
    - If the model fails to load, the capsule players are used instead.
    - **Motion capture.** Four clips from the Meshy animation library, applied through Higgsfield's rigging tool at 8 credits each: Idle, RunFast, Over_Shoulder_Throw and Victory_Cheer. `assets/players/motions.json` (400 KB, 120 KB gzipped) holds each clip's rig and keys. At load, every clip is retargeted onto every model: each bone keeps the clip's change in world orientation from its bind pose, and the hips' movement is scaled to the player's height.
      - Fielders stand in the idle clip between balls, sprint (speed-matched) when they chase, and throw the ball in after fielding it, holding it until the arm whips through.
@@ -134,14 +144,20 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 | Model | Plays while you bat | Plays while you bowl |
 |---|---|---|
 | `livewire-batter.glb` (onyx and neon, logomark on the chest) | your striker and non-striker | your keeper |
-| `rival-batter.glb` (ivory and onyx) | the rivals' keeper | their striker and non-striker |
-| `rival-bowler.glb` (ivory and onyx, no helmet or pads) | the bowler and the 9 fielders | |
+| `rival-batter.glb` (royal blue and onyx, white pads) | the rivals' keeper | their striker and non-striker |
+| `rival-bowler.glb` (royal blue and onyx, no helmet or pads) | the bowler and the 9 fielders | |
 | `livewire-fielder.glb` (onyx and neon, logomark on the chest) | | your bowler and the 9 fielders |
-| `umpire.glb` (charcoal shirt, white hat) | the umpire | the umpire |
+| `umpire.glb` (pink shirt, white hat) | the umpire | the umpire |
 
    The later concepts used the Livewire batter or rival bowler as a style reference, so all five match. The fielder and umpire models are lighter (about 10k triangles) because they are usually far from the camera.
 
-**Cost:** about 234 Higgsfield credits for the five player models (46.75 each: concept image 2.75, 3D model 44), plus 32 for the four motion clips.
+   **Recolouring.** The rivals were first generated in ivory, which read as plain white on the field. Their kit was recoloured in the texture instead of regenerating the models, which keeps their rigs and costs nothing.
+   - Each texture pixel is labelled with the body part it belongs to, using each triangle's strongest bone.
+   - The cloth-white pixels on the shirt, sleeves and trousers (and the umpire's grey shirt) take the new colour, scaled by their old brightness so the folds stay.
+   - Pads below the knee, gloves, boots, skin and black trim are left alone.
+   - The scripts are in `assets/players/kit-recolor/`.
+
+**Cost:** about 234 Higgsfield credits for the five player models (46.75 each: concept image 2.75, 3D model 44), plus 32 for the four motion clips and 27.5 for the ten batting reference photos.
 
 ## Crowd
 
@@ -179,7 +195,7 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 
 ## Known prototype limits
 
-- Every player is a generated 3D model. Fielding, running, throwing and celebrating use motion capture, but the batting swing and the bowling stride are still code-driven.
+- Every player is a generated 3D model. Fielding, running, throwing and celebrating use motion capture. The batting swing is keyframed from reference photos rather than captured, and the bowling stride is still code-driven.
 - The crowd is flat cards. They hold up at broadcast distance but look flat if the camera gets within a few metres of the stands.
 - There are no running animations between wickets, no LBW, no no-balls or free hits, and no left-handers.
 - Timing feel was verified headless (SwiftShader) for logic only, with real touch events checked separately. It needs tuning on real phones: touch latency, the speed-to-km/h curve, and how big the stumps target should be.

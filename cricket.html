@@ -20,7 +20,7 @@
     --gold-deep: #7d9c00;
     --onyx: #1a1a1a;
     --you: #ccff00;
-    --rival: #f1f1f1;
+    --rival: #2563eb;
     --four: #f1f1f1;
     --good: #3ddc84;
     --warn: #ffb020;
@@ -40,6 +40,9 @@
   html.desk #stage { top:2vh; bottom:2vh; left:50%; right:auto; width:min(96vw, 50vh); transform:translateX(-50%);
     border-radius:20px; box-shadow:0 0 0 1px rgba(255,255,255,.1), 0 30px 90px rgba(0,0,0,.65); }
   html.desk #game { cursor:grab; }
+  #fps { position:fixed; right:8px; bottom:calc(env(safe-area-inset-bottom, 0px) + 6px); z-index:40; pointer-events:none; text-align:right;
+    font:600 10px/1.25 ui-monospace, Menlo, Consolas, monospace; color:rgba(241,241,241,.85); background:rgba(26,26,26,.6);
+    padding:2px 6px; border-radius:6px; white-space:pre; }
   html.desk #game:active { cursor:grabbing; }
   #game { position:fixed; inset:0; width:100%; height:100%; display:block; }
   button { font-family:var(--display); cursor:pointer; }
@@ -50,7 +53,7 @@
     display:flex; flex-direction:column; align-items:flex-start; gap:6px; pointer-events:none; }
   .bug { display:flex; align-items:stretch; background:var(--panel); border-radius:5px; overflow:hidden;
     box-shadow:0 8px 24px rgba(0,0,0,.35); font-family:var(--display); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
-  .bug .team { display:flex; align-items:center; padding:0 10px; background:var(--teamc, var(--you)); color:var(--onyx);
+  .bug .team { display:flex; align-items:center; padding:0 10px; background:var(--teamc, var(--you)); color:var(--teamink, var(--onyx));
     font-weight:800; letter-spacing:.08em; font-size:15px; }
   .bug .score { padding:2px 12px 0; font-size:30px; font-weight:800; line-height:1.15; font-variant-numeric:tabular-nums; }
   .bug .overs { display:flex; flex-direction:column; justify-content:center; padding:0 10px; border-left:1px solid var(--line);
@@ -194,6 +197,7 @@
   <div class="need" id="hudNeed"></div>
 </div>
 <div id="speed"></div>
+<div id="fps" hidden></div>
 
 <div id="banner"><div class="big" id="bannerBig"></div><div class="small" id="bannerSmall"></div></div>
 
@@ -298,8 +302,8 @@ const INPUT_LAG = 0.02;
 const WIN = { perfect: 45, great: 90, good: 140, edge: 190 };   // timing windows, ms
 const LW = { onyx: "#1A1A1A", ivory: "#F1F1F1", neon: "#CCFF00" };
 const TEAMS = {
-  you:   { name: "YOU",    shirt: 0x1a1a1a, pants: 0x1a1a1a, helmet: 0xccff00, css: "#CCFF00" },
-  rival: { name: "RIVALS", shirt: 0xf1f1f1, pants: 0xf1f1f1, helmet: 0x1a1a1a, css: "#F1F1F1" },
+  you:   { name: "YOU",    shirt: 0x1a1a1a, pants: 0x1a1a1a, helmet: 0xccff00, css: "#CCFF00", ink: "#1A1A1A" },
+  rival: { name: "RIVALS", shirt: 0x2563eb, pants: 0x2563eb, helmet: 0x1a1a1a, css: "#2563EB", ink: "#F1F1F1" },   // royal blue kit
 };
 // Livewire marks (white-on-transparent masks cut from the brand sheet), tinted on demand
 const LOGO_SRC = { wordmark: "data:image/png;base64,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",
@@ -1178,38 +1182,111 @@ function setKits(battingTeam) {
 }
 
 // =====================================================================
-// batter animation: keyframed grip + bat direction, arms solved by IK
+// batter animation. The key poses were measured from AI reference photos of real batting technique (Higgsfield,
+// each shot from two camera angles, joints found with MediaPipe Pose). The batter's frame: +x down the pitch toward
+// the bowler, +z where his chest faces in his stance (the off side), y up. Each key sets the pelvis, the spine,
+// where each foot is planted (x, heel lift, z, toe turn), the bat handle and which way the toe of the bat points.
+// Feet and arms are solved by IK, so the boots stay planted and both gloves stay on the handle.
 // =====================================================================
 const BK = {
-  stance: { g: [-0.06, 0.8, 0.28], d: [0.0, -0.97, 0.24], sy: 0.0, cr: 1, st: 0 },
-  back:   { g: [-0.3, 1.14, 0.2], d: [-0.62, 0.74, 0.18], sy: -0.12, cr: 0.85, st: 0.25 },
-  impact: { g: [0.22, 0.86, 0.33], d: [0.32, -0.92, 0.2], sy: 0.38, cr: 0.95, st: 1 },
-  follow: { g: [0.06, 1.42, 0.06], d: [-0.35, 0.5, -0.8], sy: 0.9, cr: 0.6, st: 1 },
-  block:  { g: [0.18, 0.84, 0.3], d: [0.18, -0.97, 0.12], sy: 0.18, cr: 1, st: 0.8 },
-  leave:  { g: [-0.05, 1.42, 0.14], d: [-0.25, 0.95, 0.1], sy: 0.05, cr: 0.8, st: 0.4 },
-  walk:   { g: [0.12, 0.95, 0.12], d: [0.15, -0.98, 0.0], sy: 0.0, cr: 0, st: 0 },
+  stance:  { P: [0, 0.86, 0], pr: [0, 0, 0], sp: [0.3, 0, 0], fl: [0.22, 0, 0, 0.2], fr: [-0.24, 0, 0, 0],
+             g: [-0.04, 0.8, 0.27], d: [0.05, -0.97, 0.22], ep: [-0.4, -1, -0.5] },
+  back:    { P: [-0.04, 0.82, 0], pr: [0, 0.05, 0], sp: [0.25, 0.1, 0], fl: [0.28, 0, 0, 0.25], fr: [-0.26, 0, 0.03, 0],
+             g: [-0.24, 1.1, 0.18], d: [-0.3, 0.94, 0.15], ep: [0.5, -1, -0.3] },
+  // front foot: drive, defence, leave, and the follow-throughs of a drive and a lofted drive
+  drive:   { P: [0.3, 0.7, 0], pr: [0, 0.3, 0], sp: [0.22, 0.3, -0.62], fl: [0.66, 0, 0.04, 0.6], fr: [-0.32, 0.05, 0, 0.2],
+             g: [0.62, 0.92, 0.22], d: [0.08, -0.99, -0.05], ep: [0.8, -0.2, -0.2] },
+  drivefin:{ P: [0.28, 0.78, 0], pr: [0, 0.5, 0], sp: [0.1, 0.5, -0.2], fl: [0.66, 0, 0.04, 0.6], fr: [-0.28, 0.12, 0.02, 0.6],
+             g: [0.5, 1.5, 0.05], d: [-0.3, 0.85, -0.4], ep: [0.7, -0.6, 0.2] },
+  loft:    { P: [0.3, 0.92, -0.02], pr: [0, 0.9, 0], sp: [-0.1, 0.5, 0], fl: [0.66, 0, 0, 0.7], fr: [-0.25, 0.2, 0.05, 1.2],
+             g: [0.3, 1.78, -0.12], d: [-0.75, -0.45, -0.3], ep: [0.6, 0.2, 0.4] },
+  defend:  { P: [0.2, 0.72, 0], pr: [0, 0.2, 0], sp: [0.3, 0.3, -0.6], fl: [0.58, 0, 0.04, 0.5], fr: [-0.3, 0.03, 0, 0.15],
+             g: [0.62, 1.0, 0.2], d: [-0.15, -0.98, 0.05], ep: [0.8, -0.2, -0.2] },
+  leave:   { P: [0.04, 0.86, 0], pr: [0, 0.05, 0], sp: [0.1, 0.1, 0], fl: [0.36, 0, 0, 0.3], fr: [-0.26, 0, 0, 0],
+             g: [-0.1, 1.62, 0.05], d: [-0.7, 0.68, -0.1], ep: [0.5, 0.2, 0.3] },
+  // back foot: pull, cut, and the leg-side slog
+  pull:    { P: [-0.12, 0.88, 0.06], pr: [0, 0.6, 0], sp: [0.05, 0.45, 0.1], fl: [0.2, 0, -0.12, 0.9], fr: [-0.36, 0, 0.16, 0.5],
+             g: [0.42, 1.25, 0.12], d: [0.15, 0.05, 0.99], ep: [0.3, -1, 0.2] },
+  pullfin: { P: [-0.12, 0.92, 0.06], pr: [0, 1.1, 0], sp: [0, 0.8, 0.15], fl: [0.15, 0.05, -0.15, 1.0], fr: [-0.36, 0, 0.16, 0.8],
+             g: [-0.05, 1.5, -0.2], d: [-0.85, -0.35, 0.2], ep: [0.6, 0, 0.3] },
+  slogfin: { P: [0.2, 0.92, -0.04], pr: [0, 1.2, 0], sp: [-0.05, 0.6, 0], fl: [0.5, 0, -0.12, 1.0], fr: [-0.3, 0.22, 0.05, 1.3],
+             g: [0.15, 1.6, -0.22], d: [-0.9, -0.25, 0.15], ep: [0.6, 0.2, 0.3] },
+  cut:     { P: [-0.05, 0.84, 0.14], pr: [0, 0.15, 0], sp: [0.35, 0.2, 0], fl: [0.2, 0, 0.02, 0.3], fr: [-0.12, 0, 0.38, 0.3],
+             g: [0.15, 1.05, 0.62], d: [0.85, -0.15, 0.5], ep: [0.2, -1, 0.3] },
+  cutfin:  { P: [-0.05, 0.86, 0.14], pr: [0, 0.4, 0], sp: [0.2, 0.6, 0], fl: [0.2, 0, 0.02, 0.3], fr: [-0.12, 0, 0.38, 0.4],
+             g: [0.1, 1.4, 0.1], d: [-0.8, 0, -0.6], ep: [0.5, -0.3, 0.3] },
 };
-for (const k of Object.values(BK)) { k.g = new V3(...k.g); k.d = new V3(...k.d).normalize(); }
-const batAnim = { mode: "stance", t: 0 };
-function batterAnim(mode) { batAnim.mode = mode; batAnim.t = 0; }
-const _bp = { g: new V3(), d: new V3(), sy: 0, cr: 0, st: 0 };
+const BK_V = ["P", "pr", "sp", "g", "d", "ep"], BK_F = ["fl", "fr"];
+function makeKey(src) {
+  const k = {};
+  for (const n of BK_V) k[n] = new V3(...src[n]);
+  for (const n of BK_F) k[n] = new THREE.Vector4(...src[n]);
+  k.d.normalize();
+  return k;
+}
+for (const n in BK) BK[n] = makeKey(BK[n]);
+// the stride starts as the thumb starts its swipe: legs from the shot, hands still up in the backlift
+function strideKey(legs, arms) {
+  const k = makeKey(BK.stance);
+  for (const n of ["P", "pr"]) k[n].copy(legs[n]).lerp(arms[n], 0.25);
+  for (const n of BK_F) k[n].copy(legs[n]).lerp(arms[n], 0.15);
+  for (const n of ["sp", "g", "d", "ep"]) k[n].copy(arms[n]);
+  k.g.x += 0.1; k.sp.y += 0.1;
+  return k;
+}
+BK.strideFront = strideKey(BK.drive, BK.back);
+BK.strideBack = strideKey(BK.pull, BK.back);
+// which shot the batter plays, from where the ball is going: [contact pose, finish pose]
+function shotKeys(aimDeg, elDeg, q) {
+  if (q === "block") return [BK.defend, BK.defend];
+  if (q === "edge" || q === "miss") return [BK.drive, BK.drivefin];
+  if (aimDeg > 62) return [BK.cut, BK.cutfin];
+  if (aimDeg < -28) return [BK.pull, elDeg > 14 ? BK.slogfin : BK.pullfin];
+  return [BK.drive, elDeg > 14 ? BK.loft : BK.drivefin];
+}
+function velKeys(v, q) {
+  if (!v) return shotKeys(0, 0, q);
+  const sp = v.length() || 1;
+  return shotKeys(Math.atan2(v.x, -v.z) / DEG, Math.asin(clamp(v.y / sp, -1, 1)) / DEG, q);
+}
+const batAnim = { mode: "stance", t: 0, from: makeKey(BK.stance), to: BK.stance, fin: null, dur: 0.3 };
+const _bp = makeKey(BK.stance);
+function batterAnim(mode, keys) {
+  if (batAnim.mode === mode && mode !== "stance") return;
+  for (const n of BK_V) batAnim.from[n].copy(_bp[n]);         // blend on from wherever the batter is now
+  for (const n of BK_F) batAnim.from[n].copy(_bp[n]);
+  batAnim.mode = mode; batAnim.t = 0; batAnim.fin = null;
+  switch (mode) {
+    case "stance": batAnim.to = BK.stance; batAnim.dur = 0.001; break;
+    case "back": batAnim.to = BK.back; batAnim.dur = 0.32; break;
+    case "stride": batAnim.to = keys; batAnim.dur = 0.2; break;
+    case "swing": batAnim.to = keys[0]; batAnim.fin = keys[1]; batAnim.dur = 0.08; break;
+    case "block": batAnim.to = BK.defend; batAnim.dur = 0.12; break;
+    case "leave": batAnim.to = BK.leave; batAnim.dur = 0.15; break;
+  }
+}
 function blendKey(a, b, t) {
   t = smooth(t);
-  _bp.g.lerpVectors(a.g, b.g, t);
-  _bp.d.lerpVectors(a.d, b.d, t).normalize();
-  _bp.sy = lerp(a.sy, b.sy, t); _bp.cr = lerp(a.cr, b.cr, t); _bp.st = lerp(a.st, b.st, t);
+  for (const n of BK_V) _bp[n].lerpVectors(a[n], b[n], t);
+  for (const n of BK_F) _bp[n].lerpVectors(a[n], b[n], t);
+  _bp.d.normalize();
   return _bp;
 }
 const _m4 = new THREE.Matrix4(), _xa = new V3(), _ya = new V3(), _za = new V3(), _hint = new V3(1, 0, 0.35).normalize();
-const _gw = new V3(), _gw2 = new V3(), _pole = new V3();
+const _gw = new V3(), _gw2 = new V3(), _pole = new V3(), _ft = new V3(), _kp = new V3(), _look = new V3(), _hq0 = new THREE.Quaternion();
+const _hdF = new V3(0, 0, 1), BATTER_EYE = new V3(0, 1.9, -10);
+// the batter's feet, in his frame: ground point under the ankle, heel lift, and toe turn (yaw) for the knee to follow
+function footTarget(p, f, ankleY, out) {
+  return p.root.localToWorld(out.set(f.x, ankleY + f.y, f.z));
+}
+function kneePole(p, f, out) {
+  return out.set(Math.sin(f.w), -0.1, Math.cos(f.w)).applyQuaternion(p.root.quaternion);
+}
 function applyBatPose(p, k, time) {
-  const cr = k.cr;
-  setLimbs(p, {
-    py: 0.93 - 0.08 * cr, sx: 0.12 * cr, sy: k.sy,
-    hlx: -0.28 * cr, hrx: -0.28 * cr, klx: 0.5 * cr, krx: 0.5 * cr,
-    hlz: 0.12 + 0.32 * k.st, hrz: -0.14,
-    hy: Math.PI / 2 - k.sy * 0.9, hx: -0.1,
-  });
+  p.pelvis.position.copy(k.P);
+  p.pelvis.rotation.set(k.pr.x, k.pr.y, k.pr.z);
+  p.spine.rotation.set(k.sp.x, k.sp.y, k.sp.z);
+  for (const s of [p.hipL, p.hipR, p.kneeL, p.kneeR]) s.rotation.set(0, 0, 0);
   const tap = batAnim.mode === "stance" ? Math.max(0, Math.sin(time * 5)) * 0.03 : 0;
   p.grip.position.copy(k.g); p.grip.position.y += tap;
   _ya.copy(k.d).negate();                                     // bat local +y points from toe to handle
@@ -1218,24 +1295,31 @@ function applyBatPose(p, k, time) {
   _m4.makeBasis(_xa, _ya, _za);
   p.grip.quaternion.setFromRotationMatrix(_m4);
   p.root.updateMatrixWorld(true);
+  // legs: plant the boots
+  ik2(p.hipL, p.kneeL, footTarget(p, k.fl, 0.04, _ft), kneePole(p, k.fl, _kp), 0.47, 0.46);
+  ik2(p.hipR, p.kneeR, footTarget(p, k.fr, 0.04, _ft), kneePole(p, k.fr, _kp), 0.47, 0.46);
+  // head: watch the ball once it's bowled, otherwise the bowler
+  p.head.rotation.set(0, 0, 0); p.head.updateMatrixWorld(true);
+  _look.copy(ball.visible && state !== "runup" ? ball.position : BATTER_EYE);
+  p.head.getWorldPosition(_gw2); _look.sub(_gw2).normalize();
+  p.head.parent.getWorldQuaternion(_hq0).invert(); _look.applyQuaternion(_hq0);
+  _look.y = clamp(_look.y, -0.7, 0.75); _look.z = Math.max(_look.z, -0.15); _look.normalize();   // no owl turns
+  p.head.quaternion.setFromUnitVectors(_hdF, _look);
+  // arms: top hand at the end of the handle, bottom hand just below it
+  p.root.updateMatrixWorld(true);
   p.grip.getWorldPosition(_gw);
   _gw2.copy(k.d).multiplyScalar(0.12).add(p.grip.position); p.root.localToWorld(_gw2);
-  _pole.set(-0.4, -1, -0.5).applyQuaternion(p.root.quaternion);
+  _pole.copy(k.ep).normalize().applyQuaternion(p.root.quaternion);
   ik2(p.shL, p.elL, _gw, _pole);
   ik2(p.shR, p.elR, _gw2, _pole);
+  p.batKey = k;
 }
 function updateBatter(dt, time) {
-  batAnim.t += dt;
-  const t = batAnim.t;
+  if (!batAnim.frozen) batAnim.t += dt;
+  const a = batAnim, t = a.t;
   let k;
-  switch (batAnim.mode) {
-    case "back": k = blendKey(BK.stance, BK.back, t / 0.32); break;
-    case "swing":
-      k = t < 0.08 ? blendKey(BK.back, BK.impact, t / 0.08) : blendKey(BK.impact, BK.follow, (t - 0.08) / 0.36); break;
-    case "block": k = blendKey(BK.back, BK.block, t / 0.12); break;
-    case "leave": k = blendKey(BK.back, BK.leave, t / 0.15); break;
-    default: k = BK.stance;
-  }
+  if (a.mode === "swing" && t >= a.dur) k = blendKey(a.to, a.fin, (t - a.dur) / 0.42);
+  else k = blendKey(a.from, a.to, t / a.dur);
   applyBatPose(batter, k, time);
 }
 
@@ -1289,12 +1373,14 @@ function makeHero(template, driver, clips) {
   if (B.hips) B.spine = B.hips.children.find((c) => c.isBone && /spine/i.test(c.name)) || null;
   const missing = Object.entries(B).filter(([, b]) => !b).map(([k]) => k);
   if (missing.length) { console.warn("3D player: missing bones", missing); return null; }
+  root.position.set(0, 0, 0); root.quaternion.identity(); root.updateMatrixWorld(true);
   root.traverse((o) => {
     if (!o.isMesh) return;
     o.castShadow = true;
-    // cull on a padded copy of the bind-pose bounds so off-screen players skip both the main and shadow passes
-    if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
-    o.boundingSphere = o.geometry.boundingSphere.clone(); o.boundingSphere.radius *= 1.6;
+    // cull on a fixed sphere round the whole player (1.5 m about waist height, so a raised bat or a long stride
+    // stays inside), kept in the mesh's own space, so off-screen players skip both the main and shadow passes
+    const inv = o.matrixWorld.clone().invert();
+    o.boundingSphere = new THREE.Sphere(new V3(0, 0.95, 0).applyMatrix4(inv), 1.5 / o.matrixWorld.getMaxScaleOnAxis());
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     for (const m of mats) {
       if (!m.isMeshStandardMaterial) continue;
@@ -1306,13 +1392,14 @@ function makeHero(template, driver, clips) {
   // rest snapshot: root at the origin facing +z like the capsule rigs
   root.position.set(0, 0, 0); root.quaternion.identity(); root.updateMatrixWorld(true);
   const rest = []; root.traverse((o) => { if (o.isBone) rest.push({ b: o, q: o.quaternion.clone(), p: o.position.clone() }); });
-  const restW = {}; for (const k of ["hips", "spine", "head"]) restW[k] = B[k].getWorldQuaternion(new THREE.Quaternion());
-  const hipsRest = B.hips.getWorldPosition(new V3());
+  const restW = {}; for (const k of ["hips", "spine", "head", "footL", "footR"]) restW[k] = B[k].getWorldQuaternion(new THREE.Quaternion());
+  const hipsRest = B.hips.getWorldPosition(new V3()), ankleY = B.footL.getWorldPosition(new V3()).y;
+  const gripK = template.userData.gripK || (template.userData.gripK = { L: gripRest(root, B.foreL, B.handL), R: gripRest(root, B.foreR, B.handR) });
   scene.add(root);
   // hide the capsule body but keep the bat
   const capsules = []; driver.root.traverse((o) => { if (o.isMesh) capsules.push(o); });
   const keep = new Set(); if (driver.grip) driver.grip.traverse((o) => keep.add(o));
-  const h = { root, B, rest, restW, hipsRest, driver, capsules: capsules.filter((m) => !keep.has(m)),
+  const h = { root, B, rest, restW, hipsRest, ankleY, gripK, driver, capsules: capsules.filter((m) => !keep.has(m)),
     fielder: fielders.find((f) => f.rig === driver) || null, mode: "puppet", fade: 1, speed: 0, lastP: driver.root.position.clone(),
     snapQ: rest.map(() => new THREE.Quaternion()), snapP: rest.map(() => new V3()), mixer: null, acts: null };
   if (clips && clips.length) {
@@ -1329,6 +1416,7 @@ function driveHero(h) {
   h.root.updateMatrixWorld(true);
   // hips: height follows the puppet's crouch, orientation copies the pelvis
   _ha.copy(h.hipsRest); _ha.y += (d.pelvis.position.y - 0.93) * (h.hipsRest.y / 0.93);
+  _ha.x += d.pelvis.position.x; _ha.z += d.pelvis.position.z;
   d.root.localToWorld(_ha);
   h.B.hips.parent.worldToLocal(_ha); h.B.hips.position.copy(_ha);
   setBoneWorldQ(h.B.hips, d.pelvis.getWorldQuaternion(_hq).multiply(h.restW.hips));
@@ -1343,6 +1431,98 @@ function driveHero(h) {
   aimBone(h.B.foreL, h.B.handL, segDir(d.elL, d.handL, new V3()));
   aimBone(h.B.foreR, h.B.handR, segDir(d.elR, d.handR, new V3()));
   setBoneWorldQ(h.B.head, d.head.getWorldQuaternion(_hq).multiply(h.restW.head));
+  // the striker's boots stay where his pose plants them, toes turned the way the pose says
+  if (d.batKey) {
+    const k = d.batKey;
+    heroReach(h.B.legL, h.B.shinL, h.B.footL, footTarget(d, k.fl, h.ankleY, _ft), kneePole(d, k.fl, _kp), 0);
+    heroReach(h.B.legR, h.B.shinR, h.B.footR, footTarget(d, k.fr, h.ankleY, _ft), kneePole(d, k.fr, _kp), 0);
+    plantFoot(h, h.B.footL, h.restW.footL, k.fl); plantFoot(h, h.B.footR, h.restW.footR, k.fr);
+  }
+  // batters: the model's own arms reach for the bat handle (its arms aren't the capsule's length, so copying
+  // directions alone leaves the bat floating beside the gloves). Top hand near the end, bottom hand just below.
+  if (d.grip && d.grip.visible) {
+    d.grip.updateMatrixWorld(true);
+    _batAx.set(0, -1, 0).transformDirection(d.grip.matrixWorld);                     // handle -> toe
+    _pole.copy(d.batKey ? d.batKey.ep : _hpole.set(-0.4, -1, -0.5)).normalize().applyQuaternion(d.root.quaternion);
+    if (d !== nonStriker) heroGrip(h.B.armL, h.B.foreL, h.B.handL, h.gripK.L, d.grip.localToWorld(_gripT.set(0, -0.045, 0)), _batAx, _pole);
+    heroGrip(h.B.armR, h.B.foreR, h.B.handR, h.gripK.R, d.grip.localToWorld(_gripT.set(0, d === nonStriker ? -0.05 : -0.14, 0)), _batAx, _pole);
+  }
+}
+// A glove on the handle: the hand comes in from the shoulder's side with its fingers wrapped across the handle
+// and the thumb pointing down it, the way a batter holds a bat; the forearm reaches the wrist that leaves.
+const _batAx = new V3(), _hpole = new V3(), _gS = new V3(), _gu = new V3(), _gt = new V3(), _gn = new V3(), _gT = new V3();
+const _gm = new THREE.Matrix4(), _gq = new THREE.Quaternion();
+function heroGrip(arm, fore, hand, K, T, axis, pole) {
+  arm.getWorldPosition(_gS);
+  _gu.copy(T).sub(_gS); _gu.addScaledVector(axis, -_gu.dot(axis));
+  if (_gu.lengthSq() < 1e-4) _gu.copy(pole).addScaledVector(axis, -pole.dot(axis));
+  _gu.normalize();
+  heroReach(arm, fore, hand, _gT.copy(T).addScaledVector(_gu, -0.065), pole, 0);
+  _gt.copy(axis).addScaledVector(_gu, -axis.dot(_gu)).normalize();
+  _gn.crossVectors(_gu, _gt);
+  _gq.setFromRotationMatrix(_gm.makeBasis(_gu, _gt, _gn));
+  setBoneWorldQ(hand, _gq.multiply(K));
+}
+// per hand, at rest: (the hand's basis of fingers, thumb, palm)^-1 * its rest rotation. Measured from the skinned
+// mesh: the fingers point from the wrist to the middle of the hand, and the thumb lies along the hand's widest
+// spread, on the forward side (the models stand in an A-pose, palms in, thumbs forward).
+function gripRest(root, fore, hand) {
+  let mesh = null; root.traverse((o) => { if (o.isSkinnedMesh && !mesh) mesh = o; });
+  const w = hand.getWorldPosition(new V3()), pts = [], c = new V3(), v = new V3();
+  const bi = mesh ? mesh.skeleton.bones.indexOf(hand) : -1;
+  if (bi >= 0) {
+    const si = mesh.geometry.attributes.skinIndex, sw = mesh.geometry.attributes.skinWeight;
+    for (let i = 0; i < si.count; i++) {
+      const wt = (si.getX(i) === bi ? sw.getX(i) : 0) + (si.getY(i) === bi ? sw.getY(i) : 0) + (si.getZ(i) === bi ? sw.getZ(i) : 0) + (si.getW(i) === bi ? sw.getW(i) : 0);
+      if (wt < 0.5) continue;
+      mesh.getVertexPosition(i, v).applyMatrix4(mesh.matrixWorld); pts.push(v.clone()); c.add(v);
+    }
+  }
+  const f = new V3(), t = new V3(0, 0, 1);
+  if (pts.length > 20) {
+    c.divideScalar(pts.length); f.copy(c).sub(w).normalize();
+    // widest spread across the fingers: try directions round the finger axis
+    const a = new V3(0, 0, 1).addScaledVector(f, -f.z).normalize(), b = new V3().crossVectors(f, a);
+    let best = -1;
+    for (let k = 0; k < 36; k++) {
+      const ang = (k / 36) * Math.PI, dir = a.clone().multiplyScalar(Math.cos(ang)).addScaledVector(b, Math.sin(ang));
+      let s2 = 0; for (const p of pts) { const d = v.copy(p).sub(c).dot(dir); s2 += d * d; }
+      if (s2 > best) { best = s2; t.copy(dir); }
+    }
+    if (t.z < 0) t.negate();
+  } else f.copy(w).sub(fore.getWorldPosition(v)).normalize();
+  t.addScaledVector(f, -t.dot(f)).normalize();
+  const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(f, t, new V3().crossVectors(f, t)));
+  return q.invert().multiply(hand.getWorldQuaternion(new THREE.Quaternion()));
+}
+// 2-bone IK on a model's limb so its end lands on T. For arms that end is the middle of the palm, a hand's width
+// past the wrist; for legs it is the ankle.
+const PALM = 0.075, _gripT = new V3(), _rS = new V3(), _rE = new V3(), _rW = new V3(), _ru = new V3(), _rp = new V3(), _rd = new V3();
+function heroReach(arm, fore, hand, T, pole, reach = PALM) {
+  arm.getWorldPosition(_rS); fore.getWorldPosition(_rE); hand.getWorldPosition(_rW);
+  const a = _rS.distanceTo(_rE), b = _rE.distanceTo(_rW) + reach;
+  _ru.copy(T).sub(_rS);
+  let dist = _ru.length(); _ru.divideScalar(dist || 1);
+  dist = clamp(dist, 0.08, a + b - 0.003);
+  const cosA = clamp((a * a + dist * dist - b * b) / (2 * a * dist), -1, 1), sinA = Math.sqrt(1 - cosA * cosA);
+  _rp.copy(pole).addScaledVector(_ru, -pole.dot(_ru)).normalize();
+  _rd.copy(_ru).multiplyScalar(cosA).addScaledVector(_rp, sinA);           // upper-arm direction
+  aimBone(arm, fore, _rd);
+  fore.getWorldPosition(_rE);
+  aimBone(fore, hand, _rd.copy(T).sub(_rE).normalize());
+}
+// the middle of a model's right palm: a hand's width on from the wrist, along the forearm
+const _pw = new V3();
+function palmPos(h, out) {
+  h.B.handR.getWorldPosition(out); h.B.foreR.getWorldPosition(_pw);
+  return out.addScaledVector(_pw.sub(out).normalize(), -0.07);
+}
+// a planted boot: flat on the ground, turned by the pose's toe yaw, rolled onto the toes as the heel lifts
+const _fq = new THREE.Quaternion(), _fq2 = new THREE.Quaternion(), _fx = new V3(1, 0, 0), _fy = new V3(0, 1, 0);
+function plantFoot(h, foot, rest, f) {
+  _fq.setFromAxisAngle(_fy, f.w).premultiply(h.root.quaternion);
+  _fq2.setFromAxisAngle(_fx.set(1, 0, 0).applyQuaternion(_fq), Math.min(0.9, f.y * 4.5));
+  setBoneWorldQ(foot, _fq2.multiply(_fq).multiply(rest));
 }
 const _kn = new V3();
 function kneeDir(knee) {
@@ -1467,7 +1647,7 @@ function loadHeroes() {
       try { if (mo) clips = Object.keys(mo).map((n) => bakeMotion(gltf.scene, n)); } catch (e) { console.warn("3D player: motion clips skipped", e); }
       for (const R of M.roles) for (const drv of R.drivers()) { const h = makeHero(gltf.scene, drv, clips); if (h) { h.when = R.when; heroes.push(h); } }
       onKits(battingTeam);
-    }).catch(() => { /* this model is missing: that role keeps its capsule player */ });
+    }).catch((e) => console.warn("3D player: skipped", M.url, e));   // that role keeps its capsule player
   }
 }
 
@@ -1833,6 +2013,7 @@ function updateHUD() {
   const bat = game.innings === "bat";
   ui.team.textContent = bat ? TEAMS.you.name : TEAMS.rival.name;
   ui.team.style.setProperty("--teamc", bat ? TEAMS.you.css : TEAMS.rival.css);
+  ui.team.style.setProperty("--teamink", bat ? TEAMS.you.ink : TEAMS.rival.ink);
   ui.score.textContent = `${game.runs}/${game.wkts}`;
   ui.overs.textContent = `${Math.floor(game.legal / 6)}.${game.legal % 6}`;
   ui.target.innerHTML = bat ? (best ? `BEST<b>${best}</b>` : "") : `TARGET<b>${game.target}</b>`;
@@ -1971,11 +2152,14 @@ function playerSwing(tsAbs, nx, power) {
   showTiming(delta, q);
   ui.strike.classList.remove("on", "hit");                 // the hit zone and bounce ring clear as soon as you swing
   bounceMark.material.opacity = 0;
-  if (q === "miss") { batterAnim("swing"); cur.missDelta = delta; return true; }
+  if (q === "miss") { batterAnim("swing", shotKeys(0, 0, "miss")); cur.missDelta = delta; return true; }
   const launchT = gone ? tTap : clamp(tTap, ideal, Math.min(ideal + 0.05, P.tStumps - 0.005));
-  cur.hit = { q, delta, nx, power, launchT };
+  // the shot this swipe will play, so the swing matches where the ball goes (see launchFromTiming)
+  const aim = nx * 46 + clamp(delta * 1000 * 0.2, -28, 28) - (cur.del.len > 8 ? 14 : 0);
+  const keys = shotKeys(aim, q === "perfect" ? 33 : q === "great" ? 25 : 5, q);
+  cur.hit = { q, delta, nx, power, launchT, keys };
   cur.swingAt = Math.max(tTap, launchT - 0.08);
-  if (cur.swingAt <= delT + 0.001) batterAnim("swing");
+  if (cur.swingAt <= delT + 0.001) batterAnim("swing", keys);
   return true;
 }
 
@@ -2045,7 +2229,7 @@ function doHit() {
   else { sim = simFlight(cp, launchFromTiming(h.q, h.delta, h.nx, cur.del, h.power)); res = resolveShot(sim); }
   cur.sim = sim; cur.res = res; cur.out = outcomeOf(res);
   flightT = 0;
-  if (batAnim.mode !== "swing") batterAnim(h.q === "block" ? "block" : "swing");
+  if (batAnim.mode !== "swing") batterAnim(h.q === "block" ? "block" : "swing", h.keys || velKeys(h.vel, h.q));
   if (h.q === "block") SFX.thud();
   else if (h.q === "edge") SFX.edge();
   else SFX.crack(h.q === "perfect" || cur.out.runs === 6 ? 1.2 : 0.8);
@@ -2335,11 +2519,12 @@ function updateNonStriker() {
 function updateDelivery() {
   const P = cur.path;
   delT = (frameNow - releaseNow) / 1000;
-  if (cur.swingAt && delT >= cur.swingAt && batAnim.mode !== "swing") batterAnim("swing");
+  if (cur.swingAt && delT >= cur.swingAt && batAnim.mode !== "swing") batterAnim("swing", cur.hit.keys);
   if (cur.ai && !cur.ai.anim) {
     const a = cur.ai;
-    if (a.act === "hit" && delT >= P.tContact - (cur.hit.q === "block" ? 0.12 : 0.08)) { batterAnim(cur.hit.q === "block" ? "block" : "swing"); a.anim = true; }
-    if (a.act === "miss" && delT >= P.tContact - 0.05) { batterAnim("swing"); a.anim = true; cur.swung = true; }
+    if (a.act !== "leave" && !a.stride && delT >= P.tContact - 0.28) { batterAnim("stride", cur.del.len > 8 ? BK.strideBack : BK.strideFront); a.stride = true; }
+    if (a.act === "hit" && delT >= P.tContact - (cur.hit.q === "block" ? 0.12 : 0.08)) { batterAnim(cur.hit.q === "block" ? "block" : "swing", velKeys(cur.hit.vel, cur.hit.q)); a.anim = true; }
+    if (a.act === "miss" && delT >= P.tContact - 0.05) { batterAnim("swing", shotKeys(0, 0, "miss")); a.anim = true; cur.swung = true; }
     if (a.act === "leave" && delT >= P.tContact - 0.3) { batterAnim("leave"); a.anim = true; }
   }
   if (cur.hit && !cur.hit.done && delT >= cur.hit.launchT) {
@@ -2414,9 +2599,24 @@ function perfCheck(rdt) {
   }
 }
 
+// frame-rate readout for phone testing (hide with ?nofps): now, average since Play, the slowest single frame of
+// the last 2 s, and the quality tier (LQ once the game has dropped bloom, resolution and 40% of the crowd)
+const fpsEl = $("fps"), fps = { on: !/[?&]nofps\b/.test(location.search), n: 0, t: 0, worst: 0, worstT: 0, sumN: 0, sumT: 0, shown: 0 };
+if (fps.on) fpsEl.hidden = false;
+function fpsTick(ms) {
+  if (!fps.on || ms <= 0 || ms > 1000) return;                  // skip tab switches
+  fps.n++; fps.t += ms; fps.sumN++; fps.sumT += ms;
+  fps.worstT += ms; if (ms > fps.worst) fps.worst = ms;
+  if (fps.t < 500) return;
+  const now = (1000 * fps.n / fps.t).toFixed(0), avg = (1000 * fps.sumN / fps.sumT).toFixed(0), low = (1000 / fps.worst).toFixed(0);
+  fpsEl.textContent = `${now} fps · avg ${avg}\nlow ${low} · ${perfDone && !useBloom ? "LQ" : "HQ"}`;
+  fps.n = 0; fps.t = 0;
+  if (fps.worstT > 2000) { fps.worst = 0; fps.worstT = 0; }
+}
 let last = performance.now(), lastVW = 0, lastVH = 0;
 function frame(now) {
   requestAnimationFrame(frame);
+  fpsTick(now - last);
   const rdt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
   frameNow = now;
   clock += rdt;
@@ -2447,13 +2647,13 @@ function frame(now) {
   updateUmpire(dt);
   updateNonStriker();
   for (const h of heroes) if (h.root.visible) animateHero(h, dt);
-  if (state === "runup") {                         // a running bowler model carries the ball in its own hand
-    const h = heroes.find((x) => x.root.visible && x.driver === bowler && x.mode !== "puppet");
-    if (h) h.B.handR.getWorldPosition(ball.position);
+  if (state === "runup") {                         // the bowler model carries the ball in its own palm, run-up and stride
+    const h = heroes.find((x) => x.root.visible && x.driver === bowler);
+    if (h) palmPos(h, ball.position);
   } else if (state === "result" && ball.visible) {   // a fielder throwing it in holds it until the arm whips through
     const h = heroes.find((x) => x.root.visible && x.mode === "throw");
     if (h) {
-      const hand = h.B.handR.getWorldPosition(_tmp);
+      const hand = palmPos(h, _tmp);
       const v = h.lastHand ? hand.distanceTo(h.lastHand) / Math.max(dt, 1e-4) : 0;
       h.lastHand = (h.lastHand || new V3()).copy(hand);
       if (v > 7 && h.acts.throw.time > 0.6) ball.visible = false; else ball.position.copy(hand);
@@ -2496,6 +2696,9 @@ function swipeMove(e) {
     const prev = swipe.pts[swipe.pts.length - 1];
     swipe.pts.push(p); trailPts2d.push(p);
     const mid = SH / 2;
+    // the batter starts his stride as the thumb starts up: forward to a full ball, back to a short one
+    if (game.innings === "bat" && !swipe.crossed && state === "delivery" && batAnim.mode === "back" && swipe.pts[0].y - p.y > SH * 0.05)
+      batterAnim("stride", cur.del.len > 8 ? BK.strideBack : BK.strideFront);
     if (game.innings === "bat" && !swipe.crossed && prev.y > mid && p.y <= mid) {
       swipe.crossed = true;
       if (!batSwipeOpen()) continue;
@@ -2539,7 +2742,7 @@ $("playBtn").addEventListener("click", () => {
   // best effort: go fullscreen and hold portrait (Android); ignored where not allowed
   try { const r = coarse && document.documentElement.requestFullscreen && document.documentElement.requestFullscreen({ navigationUI: "hide" });
     if (r && r.then) r.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock("portrait").catch(() => {})).catch(() => {}); } catch (e) { /* not available */ }
-  $("title").hidden = true; startMatch();
+  $("title").hidden = true; fps.sumN = fps.sumT = 0; startMatch();
 });
 $("toBowlBtn").addEventListener("click", () => { SFX.init(); startBowlInnings(); });
 $("againBtn").addEventListener("click", () => { SFX.init(); $("end").hidden = true; startMatch(); });
@@ -2573,7 +2776,9 @@ setTimeout(loadHeroes, 200);
 // test hooks (harmless in production)
 window.__game = { heroes, game, get state() { return state; }, get cur() { return cur; }, camera, scene, startMatch, startBowlInnings,
   playerSwing, swipeDown, swipeMove, swipeUp, bowlFromSwipe, simFlight, resolveShot, outcomeOf, dirVec, buildDelivery, aiDelivery, fielders,
-  setCam: (m) => { camMode = m; }, setCamPose: (p, l) => { camMode = "fixed"; tPos.set(...p); tLook.set(...l); }, get delT() { return delT; }, get releaseNow() { return releaseNow; }, get flightT() { return flightT; }, get bowlerT() { return bowlerT; } };
+  setCam: (m) => { camMode = m; }, setCamPose: (p, l) => { camMode = "fixed"; tPos.set(...p); tLook.set(...l); }, get delT() { return delT; }, get releaseNow() { return releaseNow; }, get flightT() { return flightT; }, get bowlerT() { return bowlerT; },
+  batAt: (from, to, fin, t) => { batterAnim("stride", BK[from]); batterAnim("swing", [BK[to], BK[fin]]); batAnim.t = t; batAnim.frozen = true; },
+  umpire, batPose: (n) => { batterAnim("stride", BK[n]); batAnim.mode = "hold"; batAnim.t = 1; }, BK, batter };
 </script>
 </body>
 </html>
