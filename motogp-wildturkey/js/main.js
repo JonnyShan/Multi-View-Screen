@@ -1202,7 +1202,7 @@ async function boot() {
   // the product bottle turning on the loading screen (brand.js product.spin)
   const spin = BRAND.product?.spin ? startLoaderBottle($('loadSpin'), BRAND.product.img) : null;
   const pack = $('product');
-  if (pack && BRAND.product) { // title pack shot: shown only once the image has loaded
+  if (pack && BRAND.product && BRAND.product.title !== false) { // title pack shot: shown only once the image has loaded
     const img = $('productImg');
     img.onload = () => pack.classList.add('on');
     img.alt = BRAND.product.alt;

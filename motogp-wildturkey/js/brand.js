@@ -42,8 +42,8 @@ export const BRAND = {
   // Full-colour logo for the dark menus, HUD and results screen. null = text wordmark.
   logoUi: 'assets/brand/logo-ui.webp',
   // Title-screen product shot, bottom right (transparent, upright, tightly cropped). null = none.
-  // spin: also show it small and slowly turning on the loading screen (for a round bottle).
-  product: { img: 'assets/brand/bottle.webp', alt: 'Wild Turkey 101 Kentucky Straight Bourbon Whiskey', spin: true },
+  // title: show it on the title screen. spin: show it small and slowly turning on the loading screen (a round bottle).
+  product: { img: 'assets/brand/bottle.webp', alt: 'Wild Turkey 101 Kentucky Straight Bourbon Whiskey', title: false, spin: true },
 
   // Page title and link-preview text.
   title: 'Wild Turkey Wild Ride',
