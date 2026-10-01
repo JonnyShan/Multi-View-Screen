@@ -69,6 +69,18 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
     - a forward block for defence.
   - Lofted hits finish with the bat high over the shoulder; along-the-ground hits finish lower.
   - The boots are planted by IK, and both gloves are solved onto the bat handle with the fingers wrapped round it.
+  - The bat travels in arcs through in-between poses:
+    - on the backlift the toe goes back toward the slips before it rises;
+    - on the downswing it lags behind the hands;
+    - after contact it carries on forward and up.
+  - Each shot is a short run of poses with its own easing, accelerating into contact and slowing into the finish. The contact pose always lands 0.08 s in, when the ball arrives. The bat's face (the side with the sticker) points at the ball.
+
+### The bowler's action
+- Keyed from five AI reference photos of a right-arm fast bowler, each from side-on and from the batter's end and measured with MediaPipe Pose: the bound, back-foot contact, front-foot contact, release and follow-through. The photos are in `assets/players/bowling-refs/`.
+- **Run-up:** a 1.45 s run-up building from 4.6 to 8 m/s, on the motion-captured sprint.
+- **Delivery:** the pace carries into the bound, then a planted back foot and a braced front leg behind the popping crease. The bowling arm stays straight and swings over the top in a true arc to release at 2.1 m, then sweeps down across the body.
+- **Afterwards:** he jogs to a stop.
+- The ball sits in the bowler's palm until release.
 
 ### Ball physics and fielding
 - The flight sim uses gravity, light drag, bounce and roll. A six is a ball that crosses the 66 m rope on the full; a four crosses it after bouncing.
@@ -98,6 +110,14 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 ### Stadium and crowd
 - **Crowd:** about 34k seated fans drawn as camera-facing cards from an AI-generated atlas (see "Crowd" below). On sixes, fours and wickets they jump out of their seats to cheer, then sit back down a few at a time. On the title screen they stand as the wave passes.
 - **Stands:** seat rows and aisle steps are painted onto the terraces in a shader, so empty seats read as seats.
+- **TV screens:** the sightscreens behind each set of stumps are LED screens carrying a live TV feed. A second camera renders the scene at 448 × 206 and cuts between shots by the state of play:
+  - the striker face-on;
+  - the bowler running in;
+  - a long lens on the ball or the chasing fielder;
+  - the fans where a six lands;
+  - the bowler or catcher celebrating a wicket.
+  
+  It carries a LIVE tag, the Livewire wordmark and the score. Like real LED sightscreens, the screens go black while the ball is on its way down the pitch. The feed updates at about 30 fps (15 fps once the game has dropped quality) and only while a screen is in view.
 - **Sky and lights:** a navy night sky with a haze lit by the floodlights just above the roof, and faint beams from each floodlight bank to the middle.
 - **Pitch:** an AI-generated, tileable photo of rolled clay (fine cracks and dry grass) is multiplied over the painted pitch as surface detail, about 1.5 m per tile (`assets/pitch/pitch-detail.webp`, 70 KB).
 - **Bat and stumps:** the bat is a shaped willow blade (flat face, rounded edges, a spine down the back, sloping shoulders) with a Livewire sticker running down the face, a rubber grip and a few red ball marks. The LED stumps carry the Livewire wordmark with neon bands.
@@ -158,7 +178,7 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
    - Pads below the knee, gloves, boots, skin and black trim are left alone.
    - The scripts are in `assets/players/kit-recolor/`.
 
-**Cost:** about 234 Higgsfield credits for the five player models (46.75 each: concept image 2.75, 3D model 44), plus 32 for the four motion clips and 27.5 for the ten batting reference photos.
+**Cost:** about 234 Higgsfield credits for the five player models (46.75 each: concept image 2.75, 3D model 44), plus 32 for the four motion clips, 27.5 for the ten batting reference photos and 13.75 for the five bowling ones.
 
 ## Crowd
 
@@ -196,7 +216,7 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 
 ## Known prototype limits
 
-- Every player is a generated 3D model. Fielding, running, throwing and celebrating use motion capture. The batting swing is keyframed from reference photos rather than captured, and the bowling stride is still code-driven.
+- Every player is a generated 3D model. Fielding, running, throwing and celebrating use motion capture. The batting swing and the bowling action are keyframed from reference photos rather than captured.
 - The crowd is flat cards. They hold up at broadcast distance but look flat if the camera gets within a few metres of the stands.
 - There are no running animations between wickets, no LBW, no no-balls or free hits, and no left-handers.
 - Timing feel was verified headless (SwiftShader) for logic only, with real touch events checked separately. It needs tuning on real phones: touch latency, the speed-to-km/h curve, and how big the stumps target should be.
