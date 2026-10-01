@@ -69,7 +69,18 @@ An F1 car version, `f1-livewire/`, was retired, and its link now redirects to `m
     node tools/compress-models.mjs bike.glb motogp-acme/assets/bike-ai.glb
     ```
     Run the same two commands for `rider-ai.glb`.
-  - `motogp-livewire/` was made this way.
+  - `motogp-livewire/`'s rider was made this way.
+- **A new, photoreal bike.** `motogp-livewire/` has its own generated bike instead of a repainted one:
+  1. In Higgsfield, make a photoreal concept image of the bike in the brand colours: no rider, no text, three-quarter view, plain background.
+  2. Turn it into a 3D model with image-to-3D and PBR materials (Hunyuan3D v3 gave the cleanest shapes).
+  3. Fit it to the game, fix the paint colour if needed, and compress it:
+     ```sh
+     node tools/fit-bike.mjs model.glb fit.glb --front +x     # --front: the axis the bike's nose points along
+     node tools/recolour-model.mjs fit.glb paint.glb --map lime=#CBFE00
+     node tools/compress-models.mjs paint.glb motogp-acme/assets/bike-ai.glb
+     ```
+  4. Paste the wheel centres that `fit-bike.mjs` prints into `AI.wheels` in `js/bike.js`.
+  5. Check the rider's hands, feet and the decals with `?auto=bike&ang=1.57&q=high`.
 - **New or bigger 3D models.** Run them through the compressor. It resizes the textures and compresses the geometry. It took the bike from 10.2 MB to 3.6 MB and the rider from 3.5 MB to 1.8 MB.
   ```sh
   node tools/compress-models.mjs big.glb motogp-acme/assets/model.glb

@@ -14,11 +14,11 @@ let AI_BIKE = null;
 const AI = {
   scale: 1.073, xMid: 0.006, yGround: -0.4987,               // model units: length on x (front = -x), up on y
   // Wheel centres in model units. The model is one fused mesh and the mudguard, hugger, belly pan, brake ducts
-  // and chain crowd the wheels, so only the spokes and hub spin (inside `rim`, within the z band). Tyre, rim lip
-  // and discs stay put; being round, it doesn't show.
+  // and chain crowd the wheels, so only the rim, spokes and hub spin (inside `rim`, within the z band). Tyre and
+  // discs stay put; being round, it doesn't show. The tyre (between `rim` and `tyre`, within ±tz) gets matte rubber.
   wheels: [
-    { cx: -0.656, cy: -0.209, rim: 0.232, z: [-0.05, 0.04], bodyZ: 0.7, key: 'frontWheel' },
-    { cx: 0.668, cy: -0.214, rim: 0.232, z: [-0.085, 0.06], bodyZ: -0.72, key: 'rearWheel' },
+    { cx: -0.656, cy: -0.207, rim: 0.235, z: [-0.045, 0.045], tyre: 0.3, tz: 0.075, bodyZ: 0.7, key: 'frontWheel' },
+    { cx: 0.667, cy: -0.202, rim: 0.235, z: [-0.075, 0.075], tyre: 0.3, tz: 0.11, bodyZ: -0.72, key: 'rearWheel' },
   ],
   grip: { l: V(0.28, 0.785, 0.49), r: V(-0.28, 0.785, 0.49) },
   pegs: { l: V(0.18, 0.41, -0.33), r: V(-0.18, 0.41, -0.33) },
@@ -100,15 +100,22 @@ function splitAIBike() {
   AI_BIKE.scene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
   const g = mesh.geometry, pos = g.attributes.position;
   const idx = g.index ? g.index.array : [...Array(pos.count).keys()];
-  const lists = [[], [], []];
+  const lists = [[], [], [], []]; // body, front wheel, rear wheel, tyres
   const onWheel = (w, v) => {
     const z = pos.getZ(v);
     return z > w.z[0] && z < w.z[1] && Math.hypot(pos.getX(v) - w.cx, pos.getY(v) - w.cy) < w.rim;
   };
+  const onTyre = (w, v) => {
+    const r = Math.hypot(pos.getX(v) - w.cx, pos.getY(v) - w.cy);
+    return w.tyre && r > w.rim && r < w.tyre && Math.abs(pos.getZ(v)) < w.tz;
+  };
   for (let t = 0; t < idx.length; t += 3) {
     const a = idx[t], b = idx[t + 1], c = idx[t + 2];
     let k = 0;
-    AI.wheels.forEach((w, i) => { if (onWheel(w, a) && onWheel(w, b) && onWheel(w, c)) k = i + 1; });
+    AI.wheels.forEach((w, i) => {
+      if (onWheel(w, a) && onWheel(w, b) && onWheel(w, c)) k = i + 1;
+      else if (onTyre(w, a) && onTyre(w, b) && onTyre(w, c)) k = 3;
+    });
     lists[k].push(a, b, c);
   }
   const part = (list) => {
@@ -124,7 +131,10 @@ function splitAIBike() {
   const gloss = BRAND.look?.gloss || 0;
   mat.roughness *= 1 - 0.35 * gloss;
   mat.envMapIntensity = 1 + 0.8 * gloss;
-  AI_BIKE.split = { body: part(lists[0]), wheels: [part(lists[1]), part(lists[2])], mat };
+  // rubber: the generated maps make the tyres as glossy as the paint
+  const tyreMat = mat.clone();
+  tyreMat.roughnessMap = null; tyreMat.metalnessMap = null; tyreMat.roughness = 0.82; tyreMat.metalness = 0; tyreMat.envMapIntensity = 0.6;
+  AI_BIKE.split = { body: part(lists[0]), wheels: [part(lists[1]), part(lists[2])], tyres: lists[3].length ? part(lists[3]) : null, mat, tyreMat };
   return AI_BIKE.split;
 }
 const XA = V(1, 0, 0), ZA = V(0, 0, 1);
@@ -796,6 +806,11 @@ export class BikeModel {
     body.updateMatrix();
     addDecals(body.material, BIKE_DECALS, body.matrix);
     this.body.add(body);
+    if (sp.tyres) {
+      const tyres = place(new THREE.Mesh(sp.tyres, sp.tyreMat));
+      tyres.position.copy(body.position);
+      this.body.add(tyres);
+    }
     AI.wheels.forEach((w, i) => {
       const hub = new THREE.Group();
       hub.position.set(0, (w.cy - AI.yGround) * S, -(w.cx - AI.xMid) * S - 0.01);
