@@ -1119,11 +1119,22 @@ let heroEnv = null;
 function loadHeroes() {
   const pm = new THREE.PMREMGenerator(renderer);
   heroEnv = pm.fromScene(new RoomEnvironment(), 0.04).texture;
-  new GLTFLoader().load(HERO_URL, (gltf) => {
+  const onLoad = (gltf) => {
     const t = gltf.scene;
     for (const drv of [batter, nonStriker]) { const h = makeHero(t, drv); if (h) heroes.push(h); }
     onKits(heroesWanted ? "you" : "rival");
-  }, undefined, () => { /* no model: keep the capsule players */ });
+  };
+  const onFail = () => { /* no model: keep the capsule players */ };
+  const loader = new GLTFLoader();
+  // single-file builds can carry the model inline as base64 instead of a separate .glb
+  const inline = document.getElementById("hero-glb");
+  if (inline) {
+    try {
+      const str = atob(inline.textContent.trim()), bytes = new Uint8Array(str.length);
+      for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
+      loader.parse(bytes.buffer, "", onLoad, onFail);
+    } catch (e) { onFail(); }
+  } else loader.load(HERO_URL, onLoad, undefined, onFail);
 }
 
 // =====================================================================
