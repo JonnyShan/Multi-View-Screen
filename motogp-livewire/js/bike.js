@@ -1540,7 +1540,9 @@ class AIRider {
         const m = o.material = o.material.clone();
         m.emissiveMap = null; m.emissive && m.emissive.set(0);
         const gloss = BRAND.look?.gloss || 0;
-        m.roughness = 0.55 * (1 - 0.25 * gloss); m.metalness = 0.05; m.envMapIntensity = 1 + 0.3 * gloss;
+        // a suit with its own roughness map keeps it (scaled a touch by gloss); otherwise satin leather all over
+        m.roughness = m.roughnessMap ? 1 - 0.2 * gloss : 0.55 * (1 - 0.25 * gloss);
+        m.metalness = m.metalnessMap ? 1 : 0.05; m.envMapIntensity = 1 + 0.3 * gloss;
         addDecals(m, RIDER_DECALS); // geometry is already in model-space metres
         this.mesh = o;
       }

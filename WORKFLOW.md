@@ -70,6 +70,13 @@ An F1 car version, `f1-livewire/`, was retired, and its link now redirects to `m
     ```
     Run the same two commands for `rider-ai.glb`.
   - `motogp-livewire/`'s rider was made this way.
+- **A new rider suit.** Retexture the rider with Higgsfield (Meshy retexture), giving it a text description of the suit. Then copy the new textures back onto the rigged original:
+  ```sh
+  node tools/transfer-textures.mjs wild-turkey-redline/assets/rider-ai.glb retextured.glb rider.glb
+  node tools/compress-models.mjs rider.glb motogp-acme/assets/rider-ai.glb
+  ```
+  The retexture drops the skeleton, but keeps the mesh triangle for triangle, which is what the transfer needs.
+- **Worldwide leaderboard.** Deploy `tools/leaderboard-worker` (its README has the steps) and set `leaderboard.url` in `brand.js`.
 - **A new, photoreal bike.** `motogp-livewire/` has its own generated bike instead of a repainted one:
   1. In Higgsfield, make a photoreal concept image of the bike in the brand colours: no rider, no text, three-quarter view, plain background.
   2. Turn it into a 3D model with image-to-3D and PBR materials (Hunyuan3D v3 gave the cleanest shapes).

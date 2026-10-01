@@ -72,5 +72,5 @@ export const AGE_GATE = PARAMS.get('gate') === '0' ? false : PARAMS.get('gate') 
 // Background blur during the race: scenery beyond `start` metres softens, fully blurred by `end`, keeping the eye on
 // the bike. Graphics tiers with depth of field only (Ultra, High, Balanced). ?blur=0 turns it off.
 export const BACKDROP_BLUR = PARAMS.get('blur') === '0' ? null : { start: 100, end: 360, amount: 0.85 };
-// Race announcer voice lines. Muted for the client demo; add ?voice=1 to hear them, or set true to switch them back on.
-export const ANNOUNCER = PARAMS.get('voice') === '1';
+// Race announcer voice lines (assets/voice/). On when BRAND.announcer is true; ?voice=1 / ?voice=0 overrides.
+export const ANNOUNCER = PARAMS.has('voice') ? PARAMS.get('voice') === '1' : !!BRAND.announcer;

@@ -2,7 +2,7 @@
 // Plus a race announcer: short pre-recorded lines in assets/voice/<key>-<n>.mp3.
 import { ANNOUNCER, TUNE } from './config.js';
 
-const VOICE = { intro: 1, go: 1, purple: 2, green: 2, yellow: 2, wall: 2, off: 1, first: 1, gold: 1, pb: 2, silver: 1, bronze: 1, none: 1 };
+const VOICE = { intro: 2, go: 1, purple: 2, green: 2, yellow: 2, wall: 2, off: 1, first: 1, gold: 1, pb: 2, silver: 1, bronze: 1, none: 1 };
 // 0.1 s of silent 8 kHz mono WAV, for the older-iOS silent-switch workaround below.
 const SILENT_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACA' + 'gICA'.repeat(266) + 'gA==';
 

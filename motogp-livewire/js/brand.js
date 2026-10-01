@@ -69,6 +69,17 @@ export const BRAND = {
   // Loading-screen line while the scenery is built.
   loadingScenery: 'Wiring up the circuit',
 
+  // Lap sharing: the link on the lap card and the kiosk QR code, and the message that goes with a shared card.
+  share: { url: 'https://livewire.gamify.com/livewire/', text: 'I just lapped Livewire Raceway in {time}. Beat that: https://livewire.gamify.com/livewire/' },
+  // Worldwide leaderboard: the address of tools/leaderboard-worker once it is deployed. null = this device only.
+  leaderboard: { url: null },
+
+  // Show the bike small and slowly turning on the loading screen.
+  loaderBike: true,
+
+  // Race announcer (assets/voice/, recorded for Livewire Raceway). false = muted unless ?voice=1.
+  announcer: true,
+
   // No age gate: nothing age-restricted in this build.
   gate: { on: false },
 

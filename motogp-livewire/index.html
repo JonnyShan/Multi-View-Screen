@@ -53,6 +53,10 @@ body.kiosk{cursor:none}
 #loader .bar{width:min(360px,70vw);height:3px;background:rgba(var(--light-rgb),.12);overflow:hidden;border-radius:2px}
 #loader .bar i{display:block;height:100%;width:0;background:var(--primary-hot);transition:width .25s}
 #loader .small{font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:var(--light-2)}
+#loader .spin{display:none;width:240px;height:130px;margin:-8px 0 -10px;opacity:0;transition:opacity .8s}
+#loader .spin.on{display:block}
+#loader .spin.lit{opacity:1}
+#loader .spin canvas{display:block;width:100%;height:100%}
 
 /* ---------- age gate ---------- */
 #gate,#denied{align-items:center;justify-content:center;z-index:40;background:radial-gradient(ellipse at 50% 30%,rgba(var(--glow-rgb),.55),rgba(var(--bg-rgb),.88));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
@@ -125,6 +129,11 @@ body.kiosk{cursor:none}
 .keys kbd{font-family:var(--cond);font-weight:700;font-size:13px;border:1px solid rgba(var(--light-rgb),.4);padding:3px 8px;border-radius:3px}
 .tip{margin-top:18px;font-family:var(--display);font-size:18px;color:var(--accent)}
 table.lb{width:100%;border-collapse:collapse;margin-top:14px;font-size:20px}
+.lb-h{margin-top:12px;font-size:12px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--light-2)}
+.lb-h + table.lb{margin-top:6px}
+.res-qr{display:flex;align-items:center;gap:16px;margin-top:18px}
+.res-qr .qr canvas{display:block;width:120px;height:120px;border-radius:6px}
+.res-qr p{margin:0;font-size:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--light)}
 #results table.lb td{padding:6px 10px}
 #results table.lb{font-size:18px;margin-top:10px}
 table.lb td{padding:8px 10px;border-bottom:1px solid rgba(var(--light-rgb),.08)}
@@ -270,6 +279,7 @@ body.cine .lbx{height:9vh}
 body.is-touch.landscape .hud-bc{bottom:calc(24px + var(--safe-b))}
 /* short screens: keep the logo, title and menu inside the viewport */
 @media (max-height: 640px) and (min-height: 521px) and (min-aspect-ratio: 1/1){.tleft{gap:9px}.tleft .wm img{height:1.9em}.tleft .game-title{font-size:clamp(60px,9vw,92px)}.tleft .menu{margin-top:10px}.tleft .btn{padding:10px 24px;font-size:19px}}
+@media (max-height: 520px){#loader{gap:14px}#loader .spin{width:170px;height:92px}}
 @media (max-height: 520px){.tleft{gap:6px}.tleft .wm img{height:1.5em}.tleft .game-title{font-size:60px}.tleft .game-title br{display:none}.tleft .menu{gap:8px;margin-top:4px}.tleft .btn{padding:8px 20px;font-size:16px}.tleft .tog{padding:5px 9px;font-size:12px}}
 </style>
 </head>
@@ -280,6 +290,7 @@ body.is-touch.landscape .hud-bc{bottom:calc(24px + var(--safe-b))}
 <section id="loader" class="screen show">
   <div class="wm"></div>
   <div class="game-title"></div>
+  <div class="spin" id="loadSpin" aria-hidden="true"></div>
   <div class="bar"><i id="loadbar"></i></div>
   <div class="small" id="loadtxt">Loading</div>
 </section>
@@ -350,6 +361,7 @@ body.is-touch.landscape .hud-bc{bottom:calc(24px + var(--safe-b))}
   <div class="panel">
     <div class="kicker" data-b="circuit"></div>
     <h3>Leaderboard</h3>
+    <div class="lb-h"></div>
     <table class="lb" id="boardTable"></table>
     <button class="btn primary" id="boardClose"><span>Back</span><kbd>ESC</kbd></button>
   </div>
@@ -424,6 +436,7 @@ body.is-touch.landscape .hud-bc{bottom:calc(24px + var(--safe-b))}
     <div class="res-btns">
       <button class="btn primary" id="rAgain"><span>Ride again</span><kbd>ENTER</kbd></button>
       <button class="btn" id="rMenu"><span>Menu</span><kbd>ESC</kbd></button>
+      <button class="btn" id="rShare"><span>Share lap</span></button>
     </div>
   </div>
   <div class="res-side">
@@ -432,7 +445,9 @@ body.is-touch.landscape .hud-bc{bottom:calc(24px + var(--safe-b))}
       <div class="slots" id="rSlots"></div>
       <button class="btn primary" id="rSave"><span>Save</span></button>
     </div>
+    <div class="lb-h"></div>
     <table class="lb" id="rBoard"></table>
+    <div class="res-qr" id="rQr" hidden><div class="qr"></div><p>Scan to play on your phone</p></div>
   </div>
 </section>
 

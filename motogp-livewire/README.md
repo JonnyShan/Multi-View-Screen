@@ -27,10 +27,25 @@ python3 -m http.server 8131 --directory motogp-livewire
     node tools/compress-models.mjs lime.glb motogp-livewire/assets/bike-ai.glb
     ```
   - Its wheel centres are in `AI.wheels` in `js/bike.js`. The tyres get a matte rubber material there, because the generated maps made them as glossy as the paint.
-- **Rider paint (`assets/rider-ai.glb`):** repainted from Wild Turkey red and cream to lime and black with `tools/recolour-model.mjs`:
-  ```bash
-  node tools/recolour-model.mjs wild-turkey-redline/assets/rider-ai.glb rider.glb --map red=#CBFE00 --map cream=#1A1A1A --map gold=#CBFE00
-  ```
+- **Rider (`assets/rider-ai.glb`):** a Livewire race suit.
+  - The original rider was retextured with Higgsfield (Meshy retexture): lime and black leathers, black gloves and boots, and a black helmet with a lime stripe.
+  - The retexture came back without the rider's skeleton, but triangle for triangle the same mesh, so `tools/transfer-textures.mjs` copied its colour, roughness and normal maps back onto the rigged original:
+    ```bash
+    node tools/transfer-textures.mjs wild-turkey-redline/assets/rider-ai.glb retextured.glb rider.glb
+    node tools/compress-models.mjs rider.glb motogp-livewire/assets/rider-ai.glb
+    ```
+- **Loading screen:** the bike, small and slowly turning (`loaderBike` in `brand.js`, drawn by `js/loaderbike.js`).
+  - The bike and rider now start downloading straight away, while the scenery is built, so the game also loads sooner.
+- **Announcer:** on by default (`announcer` in `brand.js`; `?voice=0` mutes it).
+  - There are 19 lines in `assets/voice/`, recorded for Livewire Raceway with ElevenLabs. The voice is "British Football Announcer".
+- **Sharing:**
+  - **Share lap** on the results screen makes a lap card from the bike on screen: a 1080 × 1350 image with the time, medal, top speed and a QR code to the game.
+  - Phones open the share sheet; desktops save the image.
+  - In kiosk mode (`?kiosk=1`), the results show a QR code to play on your phone instead.
+  - The link and the message are `share` in `brand.js`.
+- **Worldwide leaderboard:** set `leaderboard.url` in `brand.js` to the deployed `tools/leaderboard-worker` (see its README).
+  - The results screen and the Leaderboard menu then show the worldwide top 10, and saved laps are sent to it.
+  - Until it is set, or whenever it can't be reached, the board stays on the device.
 - **Picture look:** the `look` block in `js/brand.js` makes the picture brighter, glossier and crisper than the Wild Turkey build.
 - **Fonts:** Barlow Condensed (free). Livewire's own fonts, GT Flexa and Aktiv Grotesk, are commercial; see `fonts/LICENSE.md`.
 

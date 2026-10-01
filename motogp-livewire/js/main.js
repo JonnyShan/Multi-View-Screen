@@ -12,6 +12,9 @@ import { newState, step, Autopilot, simulateLap } from './physics.js';
 import { Audio } from './audio.js';
 import { Post, Particles } from './fx.js';
 import { Hud } from './hud.js';
+import { startLoaderBike } from './loaderbike.js';
+import * as Online from './online.js';
+import { lapCard, cardFile, shareFile, qrCanvas } from './share.js';
 import * as Store from './store.js';
 import { track } from './analytics.js';
 
@@ -56,6 +59,18 @@ function bakeQuantized(root) {
   return root;
 }
 
+// Start downloading the generated bike and rider straight away (boot), so they arrive while the scenery is built.
+// Returns [bike, rider] promises; a model that fails to load resolves to null, and the game uses its built-in one.
+function loadModels() {
+  if (QUALITY.tier === 'low' || PARAMS.get('bike') === 'code') return null;
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+  return ['assets/bike-ai.glb', 'assets/rider-ai.glb'].map(u => loadModel(loader, u).catch(e => {
+    console.error('Model failed to load, using the built-in one:', u, e);
+    (window.__assetErr ||= []).push(`${u}: ${e && e.message}`);
+    return null;
+  }));
+}
+
 async function loadModel(loader, url) {
   if (!url.endsWith('.json')) { const gltf = await loader.loadAsync(url); bakeQuantized(gltf.scene); return gltf; }
   const res = await fetch(url);
@@ -85,7 +100,7 @@ class Game {
     this.region = guessRegion();
   }
 
-  async build(progress) {
+  async build(progress, models) {
     const frame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 9000);
@@ -96,13 +111,8 @@ class Game {
     this.world = new World(this.scene, this.renderer, this.track);
     this.dressing = buildDressing(this.scene, this.track, this.world);
     progress(0.72, 'Rolling out the bike'); await frame();
-    if (QUALITY.tier !== 'low' && PARAMS.get('bike') !== 'code') {
-      const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-      const [bikeG, riderG] = await Promise.all(['assets/bike-ai.glb', 'assets/rider-ai.glb'].map(u => loadModel(loader, u).catch(e => {
-        console.error('Model failed to load, using the built-in one:', u, e);
-        (window.__assetErr ||= []).push(`${u}: ${e && e.message}`);
-        return null;
-      })));
+    if (models) {
+      const [bikeG, riderG] = await Promise.all(models);
       if (bikeG) setBikeAsset(bikeG.scene);
       if (riderG && PARAMS.get('rider') !== 'code') setRiderAsset(riderG.scene);
     }
@@ -299,6 +309,7 @@ class Game {
     this.hud.msg(pb ? 'Personal best' : 'Lap complete', Store.fmtTime(t), 2600);
     const m = this.medals;
     const medal = t <= m.gold ? 'gold' : t <= m.silver ? 'silver' : t <= m.bronze ? 'bronze' : 'none';
+    this.result.medal = medal;
     this.#say(medal === 'gold' ? 'gold' : prevBest == null ? 'first' : pb ? 'pb' : medal, 3);
     if (!this.autoplay) {
       track('lap_complete', {
@@ -365,7 +376,8 @@ class Game {
     this.camera.fov = portrait ? 58 : 40;
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(tgt);
-    if (this.state === 'title') this.#viewOffset(portrait ? 0 : -0.2, portrait ? 0.22 : 0);
+    // phones: the bike sits a quarter of the screen right of centre, clear of the title text
+    if (this.state === 'title') this.#viewOffset(portrait ? -0.25 : -0.2, portrait ? 0.22 : 0);
     else this.#viewOffset(0, 0);
     this.camera.updateProjectionMatrix();
     this.#fx(0, 0);
@@ -825,7 +837,16 @@ class Game {
       this.post.setDof(this._dof, focus, Math.max(1.2, focus * 0.12), B ? [B.start, B.end, B.amount * this._far] : null);
     }
     this.post.render(dt);
+    if (this._grab) { // copy this frame now, while the WebGL drawing buffer still holds it
+      const src = this.renderer.domElement, c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      c.getContext('2d').drawImage(src, 0, 0);
+      this._grab(c); this._grab = null;
+    }
   }
+
+  // A copy of the next rendered frame (for the lap card).
+  #captureFrame() { return new Promise(res => { this._grab = res; setTimeout(() => { if (this._grab === res) { this._grab = null; res(null); } }, 1500); }); }
 
   // Adaptive resolution: keep the frame rate up on phones and kiosks.
   #perf(dt) {
@@ -984,7 +1005,11 @@ class Game {
     this.menuIdx = 0;
     this.menuBtns.forEach((b, i) => b.addEventListener('mouseenter', () => this.#focusMenu(i)));
     $('btnRide').addEventListener('click', () => this.#ride());
-    $('btnBoard').addEventListener('click', () => { this.#renderBoard($('boardTable')); this.#modal('board', true); });
+    $('btnBoard').addEventListener('click', () => {
+      this.#renderBoard($('boardTable')); this.#modal('board', true);
+      if (Online.enabled) Online.top().then(list => { if (list) { this.globalBoard = list; this.#renderBoard($('boardTable')); } });
+    });
+    $('rShare').addEventListener('click', () => this.#shareLap());
     $('btnHow').addEventListener('click', () => this.#modal('how', true));
     $('howClose').addEventListener('click', () => this.#modal('how', false));
     $('boardClose').addEventListener('click', () => this.#modal('board', false));
@@ -1118,6 +1143,49 @@ class Game {
     this.pendingEntry = qualifies ? { t: r.t } : null;
     this.#renderSlots();
     this.#renderBoard($('rBoard'), qualifies ? r.t : null, null, qualifies ? 6 : 10);
+    if (Online.enabled) Online.top().then(list => {
+      if (!list || this.state !== 'results') return;
+      this.globalBoard = list;
+      this.#renderBoard($('rBoard'), this.pendingEntry ? r.t : null, null, this.pendingEntry ? 6 : 10);
+    });
+    $('rShare').hidden = KIOSK;
+    this.cardFile = null;
+    if (!KIOSK) this.cardJob = this.#prepareCard(r);
+    const qrBox = $('rQr');
+    qrBox.hidden = !KIOSK;
+    if (KIOSK && !qrBox.dataset.done) qrCanvas(BRAND.share?.url || location.href.split(/[?#]/)[0], 360).then(c => { qrBox.querySelector('.qr').replaceChildren(c); qrBox.dataset.done = '1'; });
+  }
+
+  // The lap card is made in the background once the results camera has settled on the bike, so a tap on Share can
+  // open the phone's share sheet straight away.
+  async #prepareCard(r) {
+    await new Promise(res => setTimeout(res, 1200));
+    if (this.result !== r) return null;
+    const shot = await this.#captureFrame();
+    const card = await lapCard({ t: r.t, medal: r.medal, pb: r.pb, prevBest: r.prevBest, top: r.st.top, lean: r.st.lean * 180 / Math.PI }, shot);
+    const file = await cardFile(card);
+    if (this.result === r) this.cardFile = file;
+    return file;
+  }
+
+  // Share the lap card (the share sheet on phones, a saved PNG on desktop).
+  async #shareLap() {
+    const r = this.result, btn = $('rShare');
+    if (!r || btn.disabled) return;
+    btn.disabled = true;
+    const label = btn.querySelector('span'), was = label.textContent;
+    const text = (BRAND.share?.text || 'My lap: {time}').replace('{time}', Store.fmtTime(r.t));
+    try {
+      let file = this.cardFile; // normally ready: share from this tap
+      if (!file) { label.textContent = 'Making your card'; file = await this.cardJob; }
+      if (!file) throw new Error('no lap card');
+      const how = await shareFile(file, text);
+      track('lap_shared', { how, lap_time: +r.t.toFixed(3) });
+      label.textContent = how === 'saved' ? 'Card saved' : how === 'shared' ? 'Shared' : was;
+    } catch (e) {
+      console.error(e); label.textContent = was;
+    }
+    setTimeout(() => { label.textContent = was; btn.disabled = false; }, 2500);
   }
 
   #renderSlots() {
@@ -1164,11 +1232,20 @@ class Game {
     this.pendingEntry = null;
     $('rInit').classList.add('hidden');
     this.#renderBoard($('rBoard'), null, entry);
+    if (Online.enabled) Online.submit(n, entry.t).then(() => Online.top()).then(list => {
+      if (!list) return;
+      this.globalBoard = list;
+      if (this.state === 'results') this.#renderBoard($('rBoard'), null, entry);
+    });
     this.audio.click();
   }
 
   #renderBoard(table, pendingT = null, highlight = null, limit = 10) {
-    const list = this.board.map(e => ({ ...e, ref: e }));
+    // the worldwide board when it has loaded (online.js), otherwise this device's
+    const global = this.globalBoard;
+    const head = table.previousElementSibling;
+    if (head && head.classList.contains('lb-h')) head.textContent = global ? 'Worldwide' : 'On this device';
+    const list = (global || this.board).map(e => ({ ...e, ref: global && highlight && e.n === highlight.n && Math.abs(e.t - highlight.t) < 0.0005 ? highlight : e }));
     if (pendingT != null) {
       const pos = list.filter(e => e.t <= pendingT).length;
       list.splice(pos, 0, { n: 'YOU', t: pendingT, me: true });
@@ -1208,6 +1285,9 @@ function guessRegion() {
 async function boot() {
   const bar = $('loadbar'), txt = $('loadtxt');
   const progress = (p, t) => { bar.style.width = (p * 100).toFixed(0) + '%'; if (t) txt.textContent = t; };
+  const models = loadModels();
+  // the bike turning on the loading screen as soon as it has downloaded (brand.js loaderBike)
+  const spin = BRAND.loaderBike && models ? startLoaderBike($('loadSpin'), models[0]) : null;
   const pack = $('product');
   if (pack && BRAND.product) { // title pack shot: shown only once the image has loaded
     const img = $('productImg');
@@ -1240,7 +1320,8 @@ async function boot() {
   TX.setAnisotropy(Math.min(QUALITY.tier === 'ultra' || QUALITY.tier === 'high' ? 16 : 8, renderer.capabilities.getMaxAnisotropy()));
   const game = new Game(renderer);
   window.__game = game;
-  await game.build(progress);
+  await game.build(progress, models);
+  if (spin) setTimeout(() => spin.stop(), 700); // after the loader has faded out
 }
 
 boot().catch((e) => {
