@@ -90,6 +90,34 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 - About 14k instanced fans that bob in a vertex shader, and twinkling phone torches.
 - The game measures its frame rate. Below 45 fps it drops bloom, render resolution and shadow resolution.
 
+## Livewire branding (first branded edition)
+
+- **Palette:** Onyx `#1A1A1A`, Ivory `#F1F1F1` and Neon `#CCFF00`, sampled from the Livewire brand sheet. Neon is the accent throughout the UI: buttons, the hit line, the crosshair and sixes.
+- **Logos:** the wordmark, lockup and logomark were cut from the brand sheet as white masks (`assets/livewire/*-mask.png`). They are embedded in `cricket.html` and tinted in code to any brand colour.
+- **Top ring:** an LED band under the roof edge runs neon Livewire logomarks and wordmarks, with neon light strips above and below. It strobes when a six is hit.
+- **Bottom ring:** the boundary boards and the band between the two tiers cycle Livewire wordmark, lockup and "Super Over Showdown" panels. They switch to SIX, FOUR and WICKET boards on those events.
+- **Kits:** your team (Livewire) wears onyx with neon, and the rivals wear ivory with onyx.
+- **Rest of the stadium:** the crowd wears the brand colours, the big screen has a Livewire header, and the title screen shows the Livewire lockup.
+
+## 3D player pipeline (tested on one player)
+
+1. **Concept image.** Generated on Higgsfield with GPT Image 2.5, using the Livewire logomark as a reference. The result is a front-view, A-pose batter in Livewire kit with the logomark on the chest (`assets/players/livewire-batter-concept.jpg`).
+2. **3D model.** Meshy 7 image-to-3D on Higgsfield, with textures, PBR and an automatic humanoid skeleton. Settings: A-pose, about 15k triangles, 1.8 m tall. It produces a 24-bone, Mixamo-style rig (Hips, Spine, LeftArm and so on).
+3. **Optimisation** with gltf-transform:
+   - The material's metalness is set to 0 and its emissive map removed, because Meshy exported it fully metallic and self-lit.
+   - The texture goes from 2048 px PNG to 1024 px WebP.
+   - File size drops from 6.9 MB to 1.4 MB (`assets/players/livewire-batter.glb`).
+4. **In the game:**
+   - The model loads after the first frame, so the title screen isn't held up.
+   - The existing capsule rig still runs every animation (swing keyframes and arm IK) but is hidden. Each frame, the model's skeleton copies it:
+     - the hips, spine and head copy their orientation;
+     - the arms and legs are aimed along the capsule's limbs.
+   - The bat stays on the capsule's grip.
+   - If the model fails to load, the capsule players are used instead.
+5. **Scope of the test:** the model is used for your batters (striker and non-striker) while you bat. The rivals' batters use ivory capsules until a rival-kit variant is generated.
+
+**Cost:** 46.75 Higgsfield credits (concept image 2.75, 3D model 44).
+
 ## Recommendations to make it great
 
 1. **Keep perfect sacred.** A perfect hit is always a big, guaranteed six. Use replays to show players why a "great" hit got caught, because that is the top complaint in the category.
@@ -106,6 +134,6 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 
 ## Known prototype limits
 
-- Characters are capsule rigs, not skinned and motion-captured. The crowd is boxes.
+- Only your batters use the generated 3D model. Fielders, the bowler, the umpire and the rival batters are still capsule rigs. Swings are code-driven, not motion-captured. The crowd is boxes.
 - There are no running animations between wickets, no LBW, no no-balls or free hits, and no left-handers.
 - Timing feel was verified headless (SwiftShader) for logic only, with real touch events checked separately. It needs tuning on real phones: touch latency, the speed-to-km/h curve, and how big the stumps target should be.
