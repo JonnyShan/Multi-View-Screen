@@ -1,18 +1,16 @@
 // Shared helpers for turning generated GLBs into game assets (see ASSETS.md).
 // Game conventions: metres, Y up, forward +Z, pivot at ground centre.
 import { NodeIO } from '@gltf-transform/core';
-import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { clearNodeTransform, compactPrimitive, dedup, prune, textureCompress, transformPrimitive } from '@gltf-transform/functions';
+import { ALL_EXTENSIONS, EXTMeshoptCompression } from '@gltf-transform/extensions';
+import { clearNodeTransform, compactPrimitive, dedup, prune, quantize, reorder, textureCompress, transformPrimitive } from '@gltf-transform/functions';
+import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
 import sharp from 'sharp';
 
-/**
- * Luma (0 to 1) of a primitive's base colour at the centre of a triangle's UVs,
- * to tell dark rubber from paint when cutting wheels out.
- */
-export async function lumaSampler(prim) {
+/** sRGB bytes [r, g, b] of a primitive's base colour at the centre of a triangle's UVs. */
+export async function colourSampler(prim) {
   const tex = prim.getMaterial()?.getBaseColorTexture();
   const uv = prim.getAttribute('TEXCOORD_0');
-  if (!tex || !uv) return () => 0.5;
+  if (!tex || !uv) return () => [128, 128, 128];
   const { data, info } = await sharp(Buffer.from(tex.getImage())).removeAlpha().raw().toBuffer({ resolveWithObject: true });
   const t = [0, 0];
   return (i0, i1, i2) => {
@@ -25,11 +23,24 @@ export async function lumaSampler(prim) {
     const x = Math.min(info.width - 1, Math.max(0, Math.floor((u - Math.floor(u)) * info.width)));
     const y = Math.min(info.height - 1, Math.max(0, Math.floor((v - Math.floor(v)) * info.height)));
     const k = (y * info.width + x) * 3;
-    return (0.2126 * data[k] + 0.7152 * data[k + 1] + 0.0722 * data[k + 2]) / 255;
+    return [data[k], data[k + 1], data[k + 2]];
   };
 }
 
-export const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
+/**
+ * Luma (0 to 1) of a primitive's base colour at the centre of a triangle's UVs,
+ * to tell dark rubber from paint when cutting wheels out.
+ */
+export async function lumaSampler(prim) {
+  const colour = await colourSampler(prim);
+  return (i0, i1, i2) => {
+    const [r, g, b] = colour(i0, i1, i2);
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  };
+}
+
+await Promise.all([MeshoptDecoder.ready, MeshoptEncoder.ready]);
+export const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder, 'meshopt.encoder': MeshoptEncoder });
 
 /** Column-major 4x4 helpers (glTF order). */
 export const mat = {
@@ -192,13 +203,33 @@ export async function paintMetalRough(doc, material, pick) {
   material.setMetallicFactor(1).setRoughnessFactor(1);
 }
 
-/** Shrink and re-encode every texture as JPEG. */
+/** Shrink and re-encode every texture as JPEG: colour maps at `size`, the rest (normal, metal and roughness) at half. */
 export async function shrinkTextures(doc, size = 1024, quality = 84) {
-  await doc.transform(textureCompress({ encoder: sharp, targetFormat: 'jpeg', resize: [size, size], quality }));
+  await doc.transform(
+    textureCompress({ encoder: sharp, targetFormat: 'jpeg', resize: [size, size], quality, slots: /^baseColorTexture$/ }),
+    textureCompress({ encoder: sharp, targetFormat: 'jpeg', resize: [size / 2, size / 2], quality, slots: /^(?!baseColorTexture$)/ }),
+  );
 }
 
+/**
+ * Prune, then write with meshopt compression (EXT_meshopt_compression; the
+ * game's loader has the decoder). Normals, UVs and skin weights are quantized;
+ * positions stay float so node transforms (axles, mount points) are untouched.
+ */
 export async function finish(doc, file) {
   // keep empty nodes: they mark axles, lamps, the seat and the rider's grips and pegs
-  await doc.transform(prune({ keepLeaves: true }), dedup());
+  await doc.transform(
+    prune({ keepLeaves: true }),
+    dedup(),
+    reorder({ encoder: MeshoptEncoder, target: 'size' }),
+    quantize({ pattern: /^(NORMAL|TEXCOORD_0|JOINTS_0|WEIGHTS_0)$/, quantizeNormal: 8, quantizeTexcoord: 12 }),
+  );
+  for (const mesh of doc.getRoot().listMeshes()) {
+    for (const prim of mesh.listPrimitives()) {
+      const idx = prim.getIndices();
+      if (idx && idx.getArray() instanceof Uint32Array && prim.getAttribute('POSITION').getCount() < 65536) idx.setArray(new Uint16Array(idx.getArray()));
+    }
+  }
+  doc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.QUANTIZE });
   await io.write(file, doc);
 }

@@ -8,6 +8,7 @@
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { gameAssetFiles } from 'virtual:game-assets';
 import { UNITS_PER_METRE, type CarModel } from '../config/tuning';
@@ -87,7 +88,8 @@ export class AssetRegistry {
   }
 
   async load(): Promise<void> {
-    const loader = new GLTFLoader();
+    // generated models ship meshopt compressed (tools/art)
+    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
     const expected = ['models/bike/bike.glb', 'models/rider/rider.glb', ...Object.values(CAR_FILES)];
     for (const p of expected) if (!this.has(p)) this.missing.push(p);
     const files = gameAssetFiles.filter((f) => f.startsWith('models/') && f.endsWith('.glb'));

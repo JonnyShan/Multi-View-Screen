@@ -59,14 +59,15 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] Handler voice: drop `audio/voice/<id>.mp3` files in (script in ASSETS.md) and the calls are spoken through a phone line filter, with music and engine dipping under the voice. No voice files ship yet
 - [x] The single-page build inlines everything in assets/ (models, sounds, voice) so dropped-in art works there too
 - [x] Generated models (Higgsfield test batch, about 170 credits): a rigged rider with six clips, the bike and the sedan, processed by `tools/art` (scale, ground, wheels on axles, mount points, far versions, painted metal and roughness maps, 1024 JPEG textures). The rider rides with two-bone IK on the grips and pegs; sedans take their paint as a tint and draw their own wheels and lamps
-- [ ] The other six cars (SUV, limo, police, hatch, ute, van): about 230 more credits, waiting on the owner's OK
+- [x] Five more generated cars (SUV, limo, hatch, ute, van; 113 credits): measured with `tools/art/measure.mjs`, processed by `tools/art/car.mjs`. All generated models ship meshopt compressed, so the eight of them make the single-page build smaller than the first three did (10.8 MB)
+- [ ] The police car: its concept image is made, but the 3D step was stopped by the session's permission check, so it waits on the owner. It stays code-built until then
 - [x] Hit markers where your rounds land (white ticks, red when the round kills) with a tick sound, and a red glow on the screen edge facing whoever hurt you (every edge for damage with no direction, like a hard landing)
 - [x] Slow motion on wheel cut and roof strike (0.3x for 0.6 s), hit stop, screen shake, sparks, skid marks, tyre smoke, fire
 - [x] Settings menu (quality, weather, clock, volumes, haptics, debug, button layout), save/load (e2e test)
 
 ## M7 Ship to phones
 - [x] Quality presets auto-picked by device (Low/Medium/High/Ultra: recent phone GPUs get High, strong desktop GPUs Ultra), adaptive pixel ratio that drops when frames run long and climbs back once they hold
-- [x] Mobile budgets: emulated iPhone (Medium) about 96 to 135 draw calls and 80k to 145k triangles after CPU instance culling and lighter palms and fences. The generated rider, bike and sedans raise the start scene to about 107 draw calls and 215k triangles
+- [x] Mobile budgets: emulated iPhone (Medium) about 96 to 135 draw calls and 80k to 145k triangles after CPU instance culling and lighter palms and fences. The generated rider, bike and cars raise the start scene to about 110 draw calls and 245k triangles
 - [x] Rain is an occasional shower (starts dry, about one short shower every 20 minutes) with a lighter drop count, and plays at half the volume it launched with
 - [x] PWA: manifest, generated icons (192, 512, maskable, apple touch), service worker registered in production web builds
 - [x] Capacitor iOS and Android projects: landscape only, fullscreen, screen kept on, generated app icons and splash screens (`node tools/icons.mjs`)

@@ -8,7 +8,11 @@ import { MeshoptSimplifier } from 'meshoptimizer';
 import { compactPrimitive, simplifyPrimitive, weld } from '@gltf-transform/functions';
 import { countTris, finish, io, lumaSampler, mat, plainMaterials, shrinkTextures, splitPrimitive, transformAll } from './lib.mjs';
 
-/** Measured on each raw model, in its own units (+Z forward, ground at y = 0). */
+/**
+ * Measured on each raw model with tools/art/measure.mjs, in its own units after
+ * `rotY` (+Z forward, ground at y = 0). `scale` takes the length to the car's
+ * physics length (tuning `car.specs`).
+ */
 const CARS = {
   sedan: {
     file: 'sedan',
@@ -20,6 +24,62 @@ const CARS = {
     head: [0.17, 0.145, 0.575],
     tail: [0.17, 0.2, -0.545],
     bodyTris: 6500,
+  },
+  suv: {
+    file: 'suv',
+    scale: 4.286, // 1.1666 -> 5 m
+    centreX: 0.0028,
+    axleFront: 0.3285,
+    axleRear: -0.3399,
+    wheel: { r: 0.1203, y: 0.1203, x: 0.1955, xIn: 0.1414 },
+    head: [0.187, 0.272, 0.503],
+    tail: [0.21, 0.251, -0.586],
+    bodyTris: 6500,
+  },
+  limo: {
+    file: 'limo',
+    rotY: Math.PI / 2, // generated facing -X
+    scale: 6.0935, // 1.1898 -> 7.25 m
+    centreX: 0.0077,
+    axleFront: 0.457,
+    axleRear: -0.3934,
+    wheel: { r: 0.0689, y: 0.0689, x: 0.1251, xIn: 0.0941 },
+    head: [0.12, 0.096, 0.569],
+    tail: [0.127, 0.134, -0.581],
+    bodyTris: 8000,
+  },
+  hatch: {
+    file: 'civ-hatch',
+    scale: 3.4765, // 1.1506 -> 4 m
+    centreX: -0.0052,
+    axleFront: 0.3167,
+    axleRear: -0.3864,
+    wheel: { r: 0.1167, y: 0.1167, x: 0.2084, xIn: 0.1559 },
+    head: [0.189, 0.215, 0.515],
+    tail: [0.195, 0.268, -0.544],
+    bodyTris: 6000,
+  },
+  ute: {
+    file: 'civ-ute',
+    scale: 4.5084, // 1.1645 -> 5.25 m
+    centreX: 0.0008,
+    axleFront: 0.3493,
+    axleRear: -0.3378,
+    wheel: { r: 0.1085, y: 0.1085, x: 0.1653, xIn: 0.1165 },
+    head: [0.166, 0.238, 0.514],
+    tail: [0.187, 0.224, -0.587],
+    bodyTris: 6500,
+  },
+  van: {
+    file: 'civ-van',
+    scale: 4.6435, // 1.1306 -> 5.25 m
+    centreX: -0.0001,
+    axleFront: 0.33,
+    axleRear: -0.3708,
+    wheel: { r: 0.0907, y: 0.0907, x: 0.1713, xIn: 0.1304 },
+    head: [0.17, 0.21, 0.488],
+    tail: [0.197, 0.215, -0.591],
+    bodyTris: 6000,
   },
 };
 
@@ -44,7 +104,7 @@ const root = doc.getRoot();
 const { bakeNodes } = await import('./lib.mjs');
 const prims = bakeNodes(doc);
 if (prims.length !== 1) throw new Error(`expected one primitive, got ${prims.length}`);
-transformAll(prims, mat.mul(mat.scale(S), mat.translate(-c.centreX, 0, -midZ)));
+transformAll(prims, mat.mul(mat.scale(S), mat.mul(mat.translate(-c.centreX, 0, -midZ), mat.rotY(c.rotY ?? 0))));
 const luma = await lumaSampler(prims[0]);
 // inside 0.8 R: wheel (rim, spokes, hub). Out to the tread (1.04 R): wheel unless it is
 // paint-bright, so the arch lip stays on the body; the dark arch lining beyond stays too.

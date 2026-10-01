@@ -10,8 +10,13 @@ Every file shipped with the game, its source and licence.
 | `models/rider/rider.glb` | Generated for this game with Higgsfield on the owner's account (30 Sep 2026). Concept image: GPT Image 2.5 (job `7f4b1d5a`). Mesh, rig and idle: Meshy v7 image to 3D (job `33cb4a31`). Clips: Meshy rigging, run `82c5235d`, walk `df7ce4dd`, jump `8683e3f5`, slash `3fef6de1`, fall `60a61888`. Processed with `tools/art/rider.mjs` | Higgsfield generation, see note below |
 | `models/bike/bike.glb` | Generated with Higgsfield as above. Concept image: GPT Image 2.5 (job `5e127cff`). Mesh: Tripo H3.1 image to 3D (job `0a7593bd`). Processed with `tools/art/bike.mjs` | Higgsfield generation, see note below |
 | `models/cars/sedan.glb` | Generated with Higgsfield as above. Concept image: GPT Image 2.5 (job `769be4b5`). Mesh: Hunyuan3D v3 image to 3D (job `3322d796`). Processed with `tools/art/car.mjs sedan` | Higgsfield generation, see note below |
+| `models/cars/suv.glb` | Generated with Higgsfield (1 Oct 2026). Concept image: GPT Image 2.5 (job `b59ced40`). Mesh: Hunyuan3D v3 image to 3D (job `a8fd974c`). Processed with `tools/art/car.mjs suv` | Higgsfield generation, see note below |
+| `models/cars/limo.glb` | Generated with Higgsfield (1 Oct 2026). Concept image: GPT Image 2.5 (job `fec61211`). Mesh: Hunyuan3D v3 image to 3D (job `809112ef`). Processed with `tools/art/car.mjs limo` | Higgsfield generation, see note below |
+| `models/cars/civ-hatch.glb` | Generated with Higgsfield (1 Oct 2026). Concept image: GPT Image 2.5 (job `c038ecbe`). Mesh: Hunyuan3D v3 image to 3D (job `e0c9c909`). Processed with `tools/art/car.mjs hatch` | Higgsfield generation, see note below |
+| `models/cars/civ-ute.glb` | Generated with Higgsfield (1 Oct 2026). Concept image: GPT Image 2.5 (job `92315e5b`). Mesh: Hunyuan3D v3 image to 3D (job `0b823d3e`). Processed with `tools/art/car.mjs ute` | Higgsfield generation, see note below |
+| `models/cars/civ-van.glb` | Generated with Higgsfield (1 Oct 2026). Concept image: GPT Image 2.5 (job `ee3368c6`). Mesh: Hunyuan3D v3 image to 3D (job `fc04cd85`). Processed with `tools/art/car.mjs van` | Higgsfield generation, see note below |
 
-The three generated models are original designs: the prompts asked for an original character and, for the bike and sedan, no logos, badges or text. Their use is governed by Higgsfield's terms for the owner's plan: confirm those allow commercial use before a store release. Everything else (buildings, props, people, other cars, sounds) is generated in code at runtime. No third-party audio ships.
+The generated models are original designs: the prompts asked for an original character and, for the bike and cars, no logos, badges or text. The 3D generator invented the backs of the cars, which carry blank-looking plates with made-up marks and small plain round dots (no real brand). The police car is still the code-built one. Their use is governed by Higgsfield's terms for the owner's plan: confirm those allow commercial use before a store release. Everything else (buildings, props, people, the police car, sounds) is generated in code at runtime. No third-party audio ships.
 
 ## Making models (`tools/art`)
 
@@ -21,9 +26,10 @@ The raw generator files are not committed (tens of MB each). Re-run a script on 
 |---|---|
 | `node tools/art/bike.mjs raw.glb` | scales to metres, stands it on the ground, cuts the wheels out onto their axles (`wheel_f`, `wheel_r`), adds `seat`, `light_head_l`, `light_tail_l`, `grip_l/r`, `peg_l/r` |
 | `node tools/art/rider.mjs base.glb idle run=run.glb walk=walk.glb ...` | keeps the base file's mesh and skeleton and retargets each clip file onto it (clips from different auto rigs line up by bone name) |
-| `node tools/art/car.mjs sedan raw.glb` | scales and centres, cuts one wheel out as a template plus four axle empties, adds lamp empties and far versions (`body_lod1`, `wheel_lod1`) |
+| `node tools/art/car.mjs <model> raw.glb` | scales and centres, cuts one wheel out as a template plus four axle empties, adds lamp empties and far versions (`body_lod1`, `wheel_lod1`). Each model's numbers live in the script's `CARS` table |
+| `node tools/art/measure.mjs raw.glb [rotY] [headY]` | measures a raw car for that table: length, centre, axles and wheel size from the tyres touching the ground, tail lamps from the red at the back, the nose at headlight height |
 
-All three replace the generated metal and roughness maps with ones painted from the colour map (the generated ones made the rider solid chrome and the bike patchy mirror metal), drop material extensions that need the costlier physical material, and shrink textures to 1024 JPEG. `node tools/glbview.mjs model.glb out` renders a model from six angles.
+The bike and rider scripts replace the generated metal and roughness maps with ones painted from the colour map (the generated ones made the rider solid chrome and the bike patchy mirror metal). Every script drops material extensions that need the costlier physical material, shrinks colour maps to 1024 JPEG and the other maps to 512, and writes meshopt compressed geometry (EXT_meshopt_compression, decoded by the game's loader; normals, UVs and skin weights quantized, positions kept as floats so axles and mount points stay put). `node tools/glbview.mjs model.glb out` renders a model from six angles.
 
 ## Dropping in art
 

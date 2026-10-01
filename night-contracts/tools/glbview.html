@@ -7,6 +7,7 @@
   // Dev page for tools/glbview.mjs: renders a GLB from a few angles and hands back PNGs.
   import * as THREE from 'three';
   import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
   import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
   const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -18,12 +19,14 @@
   scene.add(sun);
   window.renderGlb = async (b64, opts = {}) => {
     const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-    const gltf = await new GLTFLoader().parseAsync(bin.buffer, '');
+    const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(bin.buffer, '');
     const root = gltf.scene;
     scene.add(root);
     // optional checks: spin wheel_* nodes, and mark empty nodes with small spheres
     root.traverse((o) => {
       if (opts.spin && /^wheel/i.test(o.name)) o.rotation.x += opts.spin;
+      // far versions overlap the near ones; a car's wheel template sits at the origin
+      if (/_lod\d+$/i.test(o.name) || (o.name === 'wheel' && root.getObjectByName('wheel_fl'))) o.visible = false;
     });
     // optional: pose a clip at a time (seconds) before rendering
     if (opts.clip) {
@@ -32,6 +35,18 @@
         const mixer = new THREE.AnimationMixer(root);
         mixer.clipAction(clip).play();
         mixer.setTime(opts.time ?? 0);
+      }
+    }
+    // a car's wheel template is drawn at each axle, as the game does (right side turned round)
+    const tpl = root.getObjectByName('wheel');
+    if (tpl && root.getObjectByName('wheel_fl')) {
+      for (const n of ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr']) {
+        const axle = root.getObjectByName(n);
+        const w = tpl.clone();
+        w.visible = true;
+        w.position.copy(axle.position);
+        if (axle.position.x < 0) w.rotation.y = Math.PI;
+        axle.parent.add(w);
       }
     }
     const marks = [];
