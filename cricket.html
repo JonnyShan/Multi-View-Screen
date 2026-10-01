@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>Super Over Showdown</title>
+<title>Livewire Cricket</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=Saira:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800;900&family=Saira:wght@400;600&display=swap">
 <style>
   /* Layout: full-bleed WebGL night stadium; broadcast scorebug pinned top-left, thumb controls pinned bottom */
   :root {
@@ -177,8 +177,48 @@
   .best b { color:var(--gold); }
   #err .inner { justify-content:center; }
 
+  /* ---------- intro: full-bleed key art (Higgsfield) with the title set low-left in its shadows ---------- */
+  .intro { background:var(--night); padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 30px); transition:opacity .45s ease; }
+  .intro.out { opacity:0; pointer-events:none; }
+  .intro-art { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:58% 20%; opacity:0;
+    transform:scale(1.06); transition:opacity .9s ease, transform 9s cubic-bezier(.2,.6,.2,1); }
+  .intro-art.ready { opacity:1; transform:none; }
+  .intro::before { content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+    background:linear-gradient(0deg, rgba(10,10,10,.97) 0%, rgba(10,10,10,.8) 26%, rgba(10,10,10,.2) 48%, rgba(10,10,10,0) 60%),
+      linear-gradient(90deg, rgba(10,10,10,.55) 0%, rgba(10,10,10,0) 62%); }
+  .intro .inner { position:relative; z-index:2; gap:14px; }
+  .intro .logo { display:flex; flex-direction:column; font:italic 900 clamp(64px, 25cqw, 116px)/.8 var(--display);
+    letter-spacing:-.005em; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,.45); }
+  .intro .logo .l1 { font-size:.45em; letter-spacing:.015em; color:var(--gold); margin:0 0 .08em .04em; }
+  .intro .logo .l2 { color:var(--ink); }
+  .intro .tag { display:flex; align-items:center; gap:10px; font:700 13px var(--display); letter-spacing:.2em; text-transform:uppercase;
+    color:rgba(241,241,241,.82); }
+  .intro .tag i { width:5px; height:5px; background:var(--gold); transform:rotate(45deg); }
+  /* START: a neon parallelogram, the label kept upright */
+  .start { position:relative; isolation:isolate; align-self:flex-start; min-width:176px; height:54px; margin:8px 0 2px 8px; padding:0 36px;
+    border:none; background:none; font:800 20px/54px var(--display); letter-spacing:.2em; text-transform:uppercase; color:var(--onyx); }
+  .start::before { content:""; position:absolute; inset:0; z-index:-1; border-radius:3px; background:var(--gold); transform:skewX(-14deg);
+    box-shadow:0 10px 34px rgba(204,255,0,.25); transition:transform .15s, filter .2s; }
+  .start:active::before { transform:skewX(-14deg) scale(.95); }
+  .start[disabled] { color:rgba(26,26,26,.55); }
+  .start[disabled]::before { filter:saturate(.35) brightness(.75); box-shadow:none; }
+  .how summary { display:inline-flex; align-items:center; gap:9px; padding:4px 0; list-style:none; cursor:pointer;
+    font:700 12px var(--display); letter-spacing:.2em; text-transform:uppercase; color:var(--muted); }
+  .how summary::-webkit-details-marker { display:none; }
+  .how summary::after { content:""; width:6px; height:6px; border-right:2px solid currentColor; border-bottom:2px solid currentColor;
+    transform:translateY(-2px) rotate(45deg); transition:transform .2s; }
+  .how[open] summary::after { transform:translateY(1px) rotate(-135deg); }
+  .how .lede { margin:8px 0 10px; font-size:14px; }
+  .intro .inner > * { animation:introIn .7s cubic-bezier(.2,.7,.2,1) both; }
+  .intro .inner > :nth-child(2) { animation-delay:.07s; }
+  .intro .inner > :nth-child(3) { animation-delay:.14s; }
+  .intro .inner > :nth-child(n+4) { animation-delay:.2s; }
+  @keyframes introIn { from { opacity:0; transform:translateX(-20px); } }
+
   @media (prefers-reduced-motion: reduce) {
     #banner.show .big, #banner.show .small { animation-duration:.01s; }
+    .intro .inner > * { animation:none; }
+    .intro-art { transform:none; transition:opacity .3s; }
   }
 </style>
 </head>
@@ -214,18 +254,21 @@
 <div id="guide" hidden><div class="lane"><i class="dot"></i></div><b id="guideText">Swipe up</b></div>
 <div id="readout"></div>
 
-<div id="title" class="screen">
+<div id="title" class="screen intro">
+  <img class="intro-art" id="introArt" src="assets/intro/livewire-cricket.webp" alt="" decoding="async" fetchpriority="high">
   <div class="inner">
-    <div class="brand" role="img" aria-label="Livewire"></div>
-    <div class="eyebrow">Livewire Night Series · Super Over</div>
-    <h1>Super Over <em>Showdown</em></h1>
-    <p class="lede">Six balls, two wickets. <b>Bat first</b> and post a score, then <b>bowl</b> to defend it.</p>
-    <dl class="howto">
-      <dt>BAT</dt><dd id="howBat">Swipe up from the bottom so your thumb reaches the neon line just as the ball does. Swipe left or right to aim.</dd>
-      <dt>BOWL</dt><dd id="howBowl">Swipe up to the stumps as fast as you can and stop right on them. A faster swipe bowls a faster ball.</dd>
-    </dl>
+    <h1 class="logo"><span class="l1">Livewire</span><span class="l2">Crick<em>et</em></span></h1>
+    <div class="tag"><i></i>Super Over Showdown</div>
+    <button type="button" class="start" id="playBtn" disabled>Loading</button>
     <div class="best" id="bestLine"></div>
-    <button type="button" class="cta" id="playBtn" disabled>Loading stadium</button>
+    <details class="how">
+      <summary>How to play</summary>
+      <p class="lede">Six balls, two wickets. <b>Bat first</b> and post a score, then <b>bowl</b> to defend it.</p>
+      <dl class="howto">
+        <dt>BAT</dt><dd id="howBat">Swipe up from the bottom so your thumb reaches the neon line just as the ball does. Swipe left or right to aim.</dd>
+        <dt>BOWL</dt><dd id="howBowl">Swipe up to the stumps as fast as you can and stop right on them. A faster swipe bowls a faster ball.</dd>
+      </dl>
+    </details>
   </div>
 </div>
 
@@ -264,6 +307,9 @@
   // Watchdog: if the module below fails to start (offline CDN, no WebGL), show the error screen.
   window.__ok = false;
   setTimeout(function () { if (!window.__ok) document.getElementById("err").hidden = false; }, 9000);
+  // the intro art fades in once it has decoded
+  (function (art) { function ready() { art.classList.add("ready"); }
+    if (art.complete && art.naturalWidth) ready(); else art.addEventListener("load", ready); })(document.getElementById("introArt"));
 </script>
 
 <script type="importmap">
@@ -459,7 +505,7 @@ function makeDotTexture() {
 const BOARD_SETS = {
   idle: [
     { logo: "wordmark", bg: LW.onyx, fg: LW.neon },
-    { t: "SUPER OVER SHOWDOWN", bg: LW.neon, fg: LW.onyx },
+    { t: "LIVEWIRE CRICKET", bg: LW.neon, fg: LW.onyx },
     { logo: "lockup", bg: LW.onyx, fg: LW.ivory },
     { logo: "wordmark", bg: LW.neon, fg: LW.onyx },
   ],
@@ -876,11 +922,11 @@ function drawScreen(lines) {
   g.fillStyle = LW.onyx; g.font = 'italic 800 26px "Saira Condensed", "Arial Narrow", sans-serif'; g.textBaseline = "middle"; g.textAlign = "right";
   g.fillText(lines[0], 498, 21);
   g.textAlign = "center";
-  g.fillStyle = LW.ivory; g.font = '800 76px "Saira Condensed", "Arial Narrow", sans-serif'; g.fillText(lines[1], 256, 106);
+  g.fillStyle = LW.ivory; g.font = '800 76px "Saira Condensed", "Arial Narrow", sans-serif'; g.fillText(lines[1], 256, 106, 484);
   g.fillStyle = "#9a9a9a"; g.font = '700 30px "Saira Condensed", "Arial Narrow", sans-serif'; g.fillText(lines[2], 256, 180);
   screenTex.needsUpdate = true;
 }
-drawScreen(["SUPER OVER SHOWDOWN", "NIGHT SERIES", "6 BALLS · 2 WICKETS"]);
+drawScreen(["SUPER OVER SHOWDOWN", "LIVEWIRE CRICKET", "6 BALLS · 2 WICKETS"]);
 
 // =====================================================================
 // The sightscreens are LED screens carrying the TV feed. A second camera cuts between close-ups of the play: the
@@ -2980,7 +3026,8 @@ $("playBtn").addEventListener("click", () => {
   // best effort: go fullscreen and hold portrait (Android); ignored where not allowed
   try { const r = coarse && document.documentElement.requestFullscreen && document.documentElement.requestFullscreen({ navigationUI: "hide" });
     if (r && r.then) r.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock("portrait").catch(() => {})).catch(() => {}); } catch (e) { /* not available */ }
-  $("title").hidden = true; fps.sumN = fps.sumT = 0; startMatch();
+  const t = $("title"); t.classList.add("out"); setTimeout(() => { t.hidden = true; t.classList.remove("out"); }, 450);   // fade to the stadium
+  fps.sumN = fps.sumT = 0; startMatch();
 });
 $("toBowlBtn").addEventListener("click", () => { SFX.init(); startBowlInnings(); });
 $("againBtn").addEventListener("click", () => { SFX.init(); $("end").hidden = true; startMatch(); });
@@ -2992,7 +3039,7 @@ document.addEventListener("visibilitychange", () => { last = performance.now(); 
 resetBallScene();
 setKits("you");
 resize();
-const TITLE_SCREEN = ["SUPER OVER SHOWDOWN", "NIGHT SERIES", "6 BALLS · 2 WICKETS"];
+const TITLE_SCREEN = ["SUPER OVER SHOWDOWN", "LIVEWIRE CRICKET", "6 BALLS · 2 WICKETS"];
 function redrawScreen() { if (state === "title") drawScreen(TITLE_SCREEN); else if (state !== "end" && state !== "break") updateHUD(); }
 logosReady.then(() => { drawBoards(); redrawScreen(); drawBat(); drawStumpTex(); drawTVGfx(); });
 if (document.fonts && document.fonts.load) {
@@ -3005,7 +3052,7 @@ if (mouse) {
   $("howBowl").textContent = "Drag up to the stumps as fast as you can and let go right on them. A faster drag bowls a faster ball.";
 }
 const playBtn = $("playBtn");
-playBtn.disabled = false; playBtn.textContent = "Play";
+playBtn.disabled = false; playBtn.textContent = "Start";
 window.__ok = true;
 requestAnimationFrame(frame);
 setTimeout(loadCrowdCards, 50);   // both after the first frame so the title shows immediately

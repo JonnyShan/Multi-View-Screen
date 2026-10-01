@@ -1,4 +1,4 @@
-# Super Over Showdown: Mobile Cricket Game Design Spec
+# Livewire Cricket (Super Over Showdown): Mobile Cricket Game Design Spec
 
 **Date:** 2026-10-01
 **Status:** Playable prototype (`cricket.html`), design open for review
@@ -134,9 +134,14 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 - **Palette:** Onyx `#1A1A1A`, Ivory `#F1F1F1` and Neon `#CCFF00`, sampled from the Livewire brand sheet. Neon is the accent throughout the UI: buttons, the hit line, the crosshair and sixes.
 - **Logos:** the wordmark, lockup and logomark were cut from the brand sheet as white masks (`assets/livewire/*-mask.png`). They are embedded in `cricket.html` and tinted in code to any brand colour.
 - **Top ring:** an LED band under the roof edge runs neon Livewire logomarks and wordmarks, with neon light strips above and below. It strobes when a six is hit.
-- **Bottom ring:** the boundary boards and the band between the two tiers cycle Livewire wordmark, lockup and "Super Over Showdown" panels. They switch to SIX, FOUR and WICKET boards on those events.
+- **Bottom ring:** the boundary boards and the band between the two tiers cycle Livewire wordmark, lockup and "Livewire Cricket" panels. They switch to SIX, FOUR and WICKET boards on those events.
 - **Kits:** your team (Livewire) wears onyx with neon, and the rivals wear royal blue (`#2563EB`) with onyx trim and white pads. The umpire wears a pink shirt.
-- **Rest of the stadium:** the crowd wears the brand colours, the big screen has a Livewire header, and the title screen shows the Livewire lockup.
+- **Rest of the stadium:** the crowd wears the brand colours, and the big screen has a Livewire header and reads "Livewire Cricket" before the match.
+- **Intro screen:** the game is called **Livewire Cricket**. Its intro follows the Livewire Hoops title screen:
+  - Full-bleed key art is made with Higgsfield (`gpt_image_2_5`, referenced on the Livewire batter concept so the kit matches the game). It shows a Livewire batter from behind at the end of a six, with LIVEWIRE 7 on his back, under floodlights. The file is `assets/intro/livewire-cricket.webp`: 1080×1910, about 130 KB.
+  - The title sits low-left over the image's shadows. "LIVEWIRE" is in neon above "CRICK**ET**", which is in ivory with the last two letters in neon, all in Saira Condensed Black italic. Below it are "Super Over Showdown" and a neon parallelogram START button.
+  - "How to play" folds open underneath.
+  - The art fades in once it has loaded. Pressing Start fades the screen out to reveal the stadium, where the camera is already moving to the first ball.
 
 ## 3D player pipeline
 
