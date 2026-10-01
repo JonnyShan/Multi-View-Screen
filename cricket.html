@@ -1248,6 +1248,7 @@ function fetchModel(url) {
 }
 let heroEnv = null;
 function loadHeroes() {
+  if (location.protocol === "file:") return;      // fetch can't read file:// pages: keep the capsule players
   const pm = new THREE.PMREMGenerator(renderer);
   heroEnv = pm.fromScene(new RoomEnvironment(), 0.04).texture;
   const loader = new GLTFLoader();
