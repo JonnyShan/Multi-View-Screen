@@ -5,13 +5,15 @@
 const MIN_T = 40, MAX_T = 900, PER_MINUTE = 6;
 const ALLOW = /^https:\/\/livewire\.gamify\.com$|^http:\/\/localhost(:\d+)?$/; // pages allowed to call it
 
-const json = (body, status, origin) => new Response(JSON.stringify(body), {
+const json = (body, status, origin) => new Response(status === 204 ? null : JSON.stringify(body), { // 204 must have no body
   status,
   headers: {
     'content-type': 'application/json',
     'access-control-allow-origin': origin && ALLOW.test(origin) ? origin : 'https://livewire.gamify.com',
     'access-control-allow-methods': 'GET, POST, OPTIONS',
     'access-control-allow-headers': 'content-type',
+    'access-control-max-age': '86400',
+    vary: 'origin',
     'cache-control': 'no-store',
   },
 });
@@ -19,7 +21,7 @@ const json = (body, status, origin) => new Response(JSON.stringify(body), {
 export default {
   async fetch(req, env) {
     const url = new URL(req.url), origin = req.headers.get('origin');
-    if (req.method === 'OPTIONS') return json({}, 204, origin);
+    if (req.method === 'OPTIONS') return json(null, 204, origin);
     const gameOk = (g) => typeof g === 'string' && /^[a-z0-9_]{1,40}$/.test(g);
 
     if (req.method === 'GET' && url.pathname === '/top') {

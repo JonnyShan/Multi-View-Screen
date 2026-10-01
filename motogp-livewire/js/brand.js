@@ -72,7 +72,7 @@ export const BRAND = {
   // Lap sharing: the link on the lap card and the kiosk QR code, and the message that goes with a shared card.
   share: { url: 'https://livewire.gamify.com/livewire/', text: 'I just lapped Livewire Raceway in {time}. Beat that: https://livewire.gamify.com/livewire/' },
   // Worldwide leaderboard: the address of tools/leaderboard-worker once it is deployed. null = this device only.
-  leaderboard: { url: null },
+  leaderboard: { url: 'https://redline-leaderboard.jonny-13a.workers.dev' },
 
   // Show the bike small and slowly turning on the loading screen.
   loaderBike: true,

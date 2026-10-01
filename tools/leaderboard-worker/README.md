@@ -17,6 +17,12 @@ The server checks each lap before storing it:
 
 It runs on Cloudflare's free tier.
 
+## Live
+
+- **Address:** `https://redline-leaderboard.jonny-13a.workers.dev`, used by `motogp-livewire/js/brand.js`.
+- **Database:** D1 `redline-leaderboard`, Oceania region, in the jonny@jonnyshannon.com Cloudflare account.
+- **Updating it:** after changing `worker.js`, run `npx wrangler deploy` here, or paste it into the Worker's Edit code page and Deploy.
+
 ## Deploy with the dashboard (no tools)
 
 1. **Create the database.** Cloudflare dashboard → Storage & Databases → D1 → Create → name it `redline-leaderboard`.
