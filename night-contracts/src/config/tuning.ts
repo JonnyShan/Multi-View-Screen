@@ -369,8 +369,14 @@ export const tuning = {
   },
 
   time: {
-    /** One real minute is one game hour: one real second is one game minute. */
+    /** At night one real minute is one game hour: one real second is one game minute. */
     gameMinutesPerSecond: 1,
+    /**
+     * Full daylight (these hours) runs this much faster, so most play is at night:
+     * a 17 minute cycle with about 11 minutes of night, 2 of dusk and dawn, 4 of day.
+     */
+    dayRate: 3,
+    dayHours: [7, 18] as [number, number],
     startHour: 21.5,
   },
 

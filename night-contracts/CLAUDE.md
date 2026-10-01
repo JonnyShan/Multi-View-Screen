@@ -16,6 +16,7 @@ pnpm typecheck
 pnpm build      # dist/ (PWA)
 pnpm cap:sync   # build + copy into the Capacitor iOS/Android projects
 pnpm build:artifact  # one self-contained page (dist-artifact/night-contracts.html) for hosting where only a single page is served
+node tools/artifact-check.mjs  # boots that page under a strict content security policy (no fetches, like a sandboxed host), fails on console errors or untextured models
 ```
 
 Dev helpers: `node tools/shot.mjs out.png [seconds]` rides and screenshots, `node tools/title.mjs out.png [phone]` shoots the title screen (dev server on port 5199). `node tools/fx.mjs` and `node tools/combat.mjs` capture explosions and gunfire (`__nc.slow(0.04)` slows time for inspection). `node tools/peds.mjs out.png [hour] [rain] [distance]` lines pedestrians up in front of a fixed camera, `node tools/whistle.mjs out` steps off, walks away and whistles the bike over. `node tools/hits.mjs out` captures hit markers and the red damage edges. `node tools/onfoot.mjs out` shoots the rider on foot (idle, moving, whistle, shooting, slash), `node tools/cars.mjs out [model]` parks painted cars by day and night, `node tools/glbview.mjs model.glb out` renders a GLB from six angles. Generated models are rebuilt with the scripts in `tools/art` (see ASSETS.md). URL params: `?q=low|medium|high|ultra` forces quality, `?e2e=1` lets the sim keep real time under slow software rendering.

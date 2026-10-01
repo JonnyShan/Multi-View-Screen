@@ -222,7 +222,9 @@ export class Sim {
     this.tick++;
     this.time += this.dt;
     const dt = this.dt;
-    const hours = this.clockPaused ? 0 : (this.t.time.gameMinutesPerSecond * dt) / 60;
+    const { gameMinutesPerSecond, dayRate, dayHours } = this.t.time;
+    const rate = this.clock >= dayHours[0] && this.clock < dayHours[1] ? dayRate : 1;
+    const hours = this.clockPaused ? 0 : (gameMinutesPerSecond * rate * dt) / 60;
     this.clock = (this.clock + hours) % 24;
     if (this.weather.update(dt, hours)) this.emit({ type: 'lightning' });
     this.raining = this.weather.raining;

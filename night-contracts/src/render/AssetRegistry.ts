@@ -7,7 +7,7 @@
  * Models are rescaled to game units (8 units = 1 metre) on load.
  */
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFLoader, type GLTFLoaderPlugin, type GLTFParser } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { gameAssetFiles } from 'virtual:game-assets';
@@ -79,6 +79,75 @@ export function findNode(root: THREE.Object3D, ...names: string[]): THREE.Object
   return found;
 }
 
+/** Decode image bytes without a URL where the browser can; a data: then a blob: URL otherwise. */
+async function decodeImage(blob: Blob): Promise<ImageBitmap | HTMLImageElement> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      return await createImageBitmap(blob, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+    } catch {
+      try {
+        return await createImageBitmap(blob);
+      } catch {
+        // fall back to an <img>
+      }
+    }
+  }
+  const img = (src: string): Promise<HTMLImageElement> =>
+    new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = src;
+    });
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+  try {
+    return await img(dataUrl);
+  } catch {
+    const url = URL.createObjectURL(blob);
+    try {
+      return await img(url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+}
+
+/**
+ * GLTFLoader reads images embedded in a GLB through blob: URLs, which sandboxed
+ * hosts refuse to fetch: every model then renders untextured, white and fully
+ * metallic. Decode them from the bytes instead (filling the parser's image
+ * cache, so its usual texture setup still runs).
+ */
+class InlineImages implements GLTFLoaderPlugin {
+  readonly name = 'nc_inline_images';
+  constructor(private readonly parser: GLTFParser) {}
+
+  loadTexture(textureIndex: number): Promise<THREE.Texture> | null {
+    const parser = this.parser as GLTFParser & { sourceCache: Record<number, Promise<THREE.Texture>> };
+    const sourceIndex: number = parser.json.textures[textureIndex].source;
+    const def = parser.json.images[sourceIndex];
+    if (def.bufferView === undefined) return null;
+    parser.sourceCache[sourceIndex] ??= parser
+      .getDependency('bufferView', def.bufferView)
+      .then(async (view: ArrayBuffer) => {
+        const texture = new THREE.Texture(await decodeImage(new Blob([view], { type: def.mimeType })));
+        texture.needsUpdate = true;
+        texture.userData.mimeType = def.mimeType;
+        return texture;
+      })
+      .catch((err: unknown) => {
+        console.error(`Couldn't decode embedded image ${sourceIndex}`, err);
+        throw err;
+      });
+    return parser.loadTextureImage(textureIndex, sourceIndex, parser.textureLoader);
+  }
+}
+
 export class AssetRegistry {
   private readonly scenes = new Map<string, THREE.Group>();
   private readonly clips = new Map<string, THREE.AnimationClip[]>();
@@ -92,7 +161,7 @@ export class AssetRegistry {
 
   async load(): Promise<void> {
     // generated models ship meshopt compressed (tools/art)
-    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).register((parser) => new InlineImages(parser));
     const expected = ['models/bike/bike.glb', 'models/rider/rider.glb', ...Object.values(CAR_FILES)];
     for (const p of expected) if (!this.has(p)) this.missing.push(p);
     const files = gameAssetFiles.filter((f) => f.startsWith('models/') && f.endsWith('.glb'));

@@ -50,7 +50,7 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] A loud contract kill brings the police
 
 ## M6 Juice
-- [x] 24 hour cycle (1 real minute = 1 game hour, pausable), sky dome with sun, moon and stars, warm haze by day, blue fog at night
+- [x] 24 hour cycle (1 real minute = 1 game hour at night, daylight 3 times faster so night is most of play, pausable), sky dome with sun, moon and stars, warm haze by day, blue fog at night
 - [x] Rain as a random weather event: streaks, splashes, wet asphalt with puddles, lamp reflection streaks, lightning with thunder
 - [x] Post FX: bloom (quarter resolution on phones), per time of day LUT grade blend, vignette, hurt flash; desktop ambient occlusion option (off by default)
 - [x] Pedestrians walk footpath loops, cross streets, scatter from gunfire, get knocked down. They are instanced people built from parts (four hairstyles, two builds, jackets, belts, shorts or skirts, trainers) with a walk and run cycle, a per-person palette, umbrellas in the rain and the odd phone call
@@ -62,6 +62,8 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] Five more generated cars (SUV, limo, hatch, ute, van; 113 credits): measured with `tools/art/measure.mjs`, processed by `tools/art/car.mjs`. All generated models ship meshopt compressed, so the eight of them make the single-page build smaller than the first three did (10.8 MB)
 - [x] The generated police car (19 credits once the owner OKed it): two-tone livery, push bar and a roof light bar; the flashers light the modelled bar's lenses
 - [x] Made-up plate text, lettering and badge dots painted off the generated car backs; the katana is shorter (just under a metre sheathed), its sheath ends at the hip and lies along the back when riding instead of sticking out behind
+- [x] Model textures load on sandboxed hosts: embedded GLB images are decoded straight from their bytes instead of through blob: URLs, which sandboxed hosts can refuse (every generated model had rendered white and chrome for the owner). `node tools/artifact-check.mjs` boots the single page under a strict content security policy and fails on untextured models
+- [x] Night is most of play: full daylight (07:00 to 18:00) runs three times faster, so a 17 minute cycle has about 11 minutes of night, 2 of dusk and dawn and 4 of day
 - [x] Hit markers where your rounds land (white ticks, red when the round kills) with a tick sound, and a red glow on the screen edge facing whoever hurt you (every edge for damage with no direction, like a hard landing)
 - [x] Slow motion on wheel cut and roof strike (0.3x for 0.6 s), hit stop, screen shake, sparks, skid marks, tyre smoke, fire
 - [x] Settings menu (quality, weather, clock, volumes, haptics, debug, button layout), save/load (e2e test)
@@ -90,5 +92,6 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - The player has 2x armour (`player.armor`): every hit does half damage. A heavy car hit does a full health bar of damage before armour, so it now takes half your health instead of killing outright.
 - The art deco building kit is procedural (plinth, window bands, cornices, fins, balconies, roof kit, merged per chunk). GLB city kit pieces are not wired in yet; props, palms, lamps, cars, bike and rider are.
 - A rigged rider GLB needs no `ride` clip: riding and the roof crouch are solved in code with two-bone IK against the bike's grips, pegs and seat, and aiming, the whistle and the lean are layered on top.
+- Sandboxed hosts can refuse fetches of data: and blob: URLs, so nothing in the single page loads through a URL: GLB bytes and synthesised sounds are decoded in place, and embedded textures go through `createImageBitmap` on the bytes (data: URL images only as a fallback). Missed textures had made every generated model white and fully metallic for the owner while local checks (no such policy) looked right.
 - Generated models came with metal maps that made the rider solid chrome and the bike patchy mirror metal (bronze statues under the warm night sky), so `tools/art` paints metal and roughness from the colour map. At night the player's rider and bike also get a stronger share of the environment and a cool rim so black leather and black paint keep their shape.
 - Render maps sim (x, y, z) to three (x, z, y) as the brief asks. This is a mirror, so "left" and "right" go through helpers in `core/math.ts`.
