@@ -1,0 +1,83 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>GLB view</title>
+<style>html,body{margin:0;background:#888}</style>
+<canvas id="c" width="640" height="480"></canvas>
+<script type="module">
+  // Dev page for tools/glbview.mjs: renders a GLB from a few angles and hands back PNGs.
+  import * as THREE from 'three';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+  const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true });
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x9aa0a8);
+  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+  const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+  sun.position.set(3, 5, 4);
+  scene.add(sun);
+  window.renderGlb = async (b64, opts = {}) => {
+    const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const gltf = await new GLTFLoader().parseAsync(bin.buffer, '');
+    const root = gltf.scene;
+    scene.add(root);
+    // optional checks: spin wheel_* nodes, and mark empty nodes with small spheres
+    root.traverse((o) => {
+      if (opts.spin && /^wheel/i.test(o.name)) o.rotation.x += opts.spin;
+    });
+    // optional: pose a clip at a time (seconds) before rendering
+    if (opts.clip) {
+      const clip = gltf.animations.find((a) => a.name === opts.clip);
+      if (clip) {
+        const mixer = new THREE.AnimationMixer(root);
+        mixer.clipAction(clip).play();
+        mixer.setTime(opts.time ?? 0);
+      }
+    }
+    const marks = [];
+    if (opts.marks) {
+      root.updateMatrixWorld(true);
+      root.traverse((o) => {
+        if (!o.isMesh && o.children.length === 0 && o !== root) {
+          const s = new THREE.Mesh(new THREE.SphereGeometry(opts.marks, 12, 8), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+          o.getWorldPosition(s.position);
+          scene.add(s);
+          marks.push(s);
+        }
+      });
+    }
+    const box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const grid = new THREE.GridHelper(Math.max(size.x, size.z) * 2, 20, 0x333333, 0x666666);
+    grid.position.y = box.min.y;
+    scene.add(grid);
+    // axes: red +X, green +Y, blue +Z
+    const axes = new THREE.AxesHelper(Math.max(size.x, size.y, size.z) * 0.8);
+    axes.position.set(box.min.x, box.min.y, box.min.z);
+    scene.add(axes);
+    const r = size.length() * (opts.zoom ?? 0.9);
+    const cam = new THREE.PerspectiveCamera(35, 640 / 480, r / 100, r * 10);
+    const out = [];
+    const views = opts.views ?? [['+x', [1, 0.25, 0]], ['+z', [0, 0.25, 1]], ['-x', [-1, 0.25, 0]], ['-z', [0, 0.25, -1]], ['3q', [0.8, 0.5, 0.8]], ['top', [0.001, 1, 0]]];
+    for (const [name, d] of views) {
+      const dir = new THREE.Vector3(...d).normalize();
+      cam.position.copy(center).addScaledVector(dir, r * 1.6);
+      cam.lookAt(center);
+      renderer.render(scene, cam);
+      out.push([name, renderer.domElement.toDataURL('image/png')]);
+    }
+    let tris = 0;
+    const meshes = [];
+    root.traverse((o) => {
+      if (o.isMesh) {
+        const g = o.geometry;
+        tris += (g.index ? g.index.count : g.attributes.position.count) / 3;
+        meshes.push(o.name);
+      }
+    });
+    scene.remove(root, grid, axes, ...marks);
+    return { out, size: size.toArray(), min: box.min.toArray(), max: box.max.toArray(), tris, meshes: meshes.slice(0, 20), clips: gltf.animations.map((a) => `${a.name} ${a.duration.toFixed(2)}s`) };
+  };
+  window.glbReady = true;
+</script>

@@ -170,7 +170,22 @@ export function wheelPositions(spec: CarSpec): THREE.Vector3[] {
 
 interface ModelMeshes {
   bodies: THREE.InstancedMesh[];
+  /** Far bodies from a GLB that has them. */
+  far: THREE.InstancedMesh[];
+  /** A GLB's own wheels (near and far) and axles; code-built cars share `CarView.wheels`. */
+  wheelNear: THREE.InstancedMesh | null;
+  wheelFar: THREE.InstancedMesh | null;
+  axles: THREE.Vector3[] | null;
+  head: THREE.Vector3 | null;
+  tail: THREE.Vector3 | null;
+  nNear: number;
+  nFar: number;
+  wNear: number;
+  wFar: number;
 }
+
+/** Past this distance a GLB car uses its far body and wheels. */
+const LOD_DISTANCE = 360;
 
 export class CarView {
   readonly group = new THREE.Group();
@@ -203,16 +218,26 @@ export class CarView {
   ) {
     this.group.name = 'cars';
     const paintMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.55, envMapIntensity: 1.2 });
+    const instanced = (part: { geometry: THREE.BufferGeometry; material: THREE.Material }, cap: number, shadow: boolean, name: string): THREE.InstancedMesh => {
+      const im = new THREE.InstancedMesh(part.geometry, part.material, cap);
+      im.count = 0;
+      im.castShadow = shadow;
+      im.frustumCulled = false;
+      im.name = name;
+      return im;
+    };
     for (const model of MODELS) {
       const asset: CarAsset | null = assets.car(model);
       const bodies: THREE.InstancedMesh[] = [];
+      const far: THREE.InstancedMesh[] = [];
+      let wheelNear: THREE.InstancedMesh | null = null;
+      let wheelFar: THREE.InstancedMesh | null = null;
       if (asset) {
-        for (const part of asset.parts) {
-          const im = new THREE.InstancedMesh(part.geometry, part.material, CAP);
-          im.count = 0;
-          im.castShadow = castShadow;
-          im.frustumCulled = false;
-          bodies.push(im);
+        for (const part of asset.parts) bodies.push(instanced(part, CAP, castShadow, `car-${model}`));
+        for (const part of asset.far ?? []) far.push(instanced(part, CAP, false, `car-${model}-far`));
+        if (asset.wheel) {
+          wheelNear = instanced(asset.wheel.near, CAP * 4, castShadow, `car-${model}-wheels`);
+          if (asset.wheel.far) wheelFar = instanced(asset.wheel.far, CAP * 4, false, `car-${model}-wheels-far`);
         }
       } else {
         const im = new THREE.InstancedMesh(buildCarBody(model, t.car.specs[model]), paintMat, CAP);
@@ -223,8 +248,22 @@ export class CarView {
         im.name = `car-${model}`;
         bodies.push(im);
       }
-      for (const b of bodies) this.group.add(b);
-      this.meshes.set(model, { bodies });
+      for (const b of [...bodies, ...far]) this.group.add(b);
+      if (wheelNear) this.group.add(wheelNear);
+      if (wheelFar) this.group.add(wheelFar);
+      this.meshes.set(model, {
+        bodies,
+        far,
+        wheelNear,
+        wheelFar,
+        axles: asset?.wheel?.axles ?? null,
+        head: asset?.lights?.head ?? null,
+        tail: asset?.lights?.tail ?? null,
+        nNear: 0,
+        nFar: 0,
+        wNear: 0,
+        wFar: 0,
+      });
     }
     const wheelGeo = new THREE.CylinderGeometry(2.8, 2.8, 1.8, 12).rotateZ(Math.PI / 2);
     this.wheels = new THREE.InstancedMesh(wheelGeo, new THREE.MeshStandardMaterial({ color: srgb(0x141414), roughness: 0.85 }), CAP * 4 * 2);
@@ -324,6 +363,7 @@ export class CarView {
     let sb = 0;
     const lightsOn = night > 0.25;
     this.poolOpacity.value = THREE.MathUtils.smoothstep(night, 0.2, 0.7);
+    for (const mm of this.meshes.values()) mm.nNear = mm.nFar = mm.wNear = mm.wFar = 0;
     for (const car of sim.cars) {
       const k = counts.get(car.model)!;
       if (k >= CAP) continue;
@@ -344,47 +384,57 @@ export class CarView {
       this.p.set(x, z, y);
       this.m.compose(this.p, this.q, this.s.set(1, 1, 1));
       const mm = this.meshes.get(car.model)!;
-      for (const body of mm.bodies) {
-        body.setMatrixAt(k, this.m);
-        if (car.dead) this.c.setRGB(0.05, 0.045, 0.04);
-        else this.c.setHex(car.color, THREE.SRGBColorSpace);
-        body.setColorAt(k, this.c);
+      const near = !mm.far.length || camPos.distanceToSquared(this.p) < LOD_DISTANCE * LOD_DISTANCE;
+      const slot = near ? mm.nNear++ : mm.nFar++;
+      if (car.dead) this.c.setRGB(0.05, 0.045, 0.04);
+      else this.c.setHex(car.color, THREE.SRGBColorSpace);
+      for (const body of near ? mm.bodies : mm.far) {
+        body.setMatrixAt(slot, this.m);
+        body.setColorAt(slot, this.c);
       }
-      // wheels
-      const wpos = wheelPositions(car.spec);
+      // wheels: the model's own (right-hand ones turned round), or the shared code-built ones
+      const own = mm.axles ? (near || !mm.wheelFar ? mm.wheelNear : mm.wheelFar) : null;
+      const wpos = mm.axles ?? wheelPositions(car.spec);
       for (let w = 0; w < 4; w++) {
-        if (wi >= this.wheels.instanceMatrix.count) break;
+        const target = own ?? this.wheels;
+        const idx = own ? (own === mm.wheelNear ? mm.wNear : mm.wFar) : wi;
+        if (idx >= target.instanceMatrix.count) break;
         const lp = wpos[w].clone();
         if (car.blown[w]) lp.y -= 1.1;
         lp.applyQuaternion(this.q).add(this.p);
         const wq = this.q.clone();
         if (w < 2 && !car.dead) wq.multiply(this.q2.setFromAxisAngle(this.yAxis, -car.steer * 0.8));
-        wq.multiply(this.q2.setFromAxisAngle(this.xAxis, car.wheelSpin));
+        const flip = own !== null && wpos[w].x < 0;
+        if (flip) wq.multiply(this.q2.setFromAxisAngle(this.yAxis, Math.PI));
+        wq.multiply(this.q2.setFromAxisAngle(this.xAxis, flip ? -car.wheelSpin : car.wheelSpin));
         this.m.compose(lp, wq, this.s.set(1, car.blown[w] ? 0.7 : 1, car.blown[w] ? 0.7 : 1));
-        this.wheels.setMatrixAt(wi++, this.m);
+        target.setMatrixAt(idx, this.m);
+        if (!own) wi++;
+        else if (own === mm.wheelNear) mm.wNear++;
+        else mm.wFar++;
       }
       // lights
-      const near = camPos.distanceToSquared(this.p) < 1400 * 1400;
+      const beamsNear = camPos.distanceToSquared(this.p) < 1400 * 1400;
       const hl = car.spec.hl;
       const hw = car.spec.hw;
       if (!car.dead) {
         for (const s of [-1, 1]) {
-          const hp = new THREE.Vector3(s * (hw - 2.4), 5.0, hl + 0.1).applyQuaternion(this.q).add(this.p);
+          const hp = (mm.head ? new THREE.Vector3(s * Math.abs(mm.head.x), mm.head.y, mm.head.z + 0.1) : new THREE.Vector3(s * (hw - 2.4), 5.0, hl + 0.1)).applyQuaternion(this.q).add(this.p);
           this.m.compose(hp, this.q, this.s.set(1, 1, 1));
           this.heads.setMatrixAt(hi, this.m);
           const hk = lightsOn ? 4.5 : 0.8;
           this.heads.setColorAt(hi++, this.c.setRGB(hk, hk * 0.97, hk * 0.9));
-          const tp = new THREE.Vector3(s * (hw - 2.2), car.spec.roof * 0.5, -hl - 0.1).applyQuaternion(this.q).add(this.p);
+          const tp = (mm.tail ? new THREE.Vector3(s * Math.abs(mm.tail.x), mm.tail.y, mm.tail.z - 0.1) : new THREE.Vector3(s * (hw - 2.2), car.spec.roof * 0.5, -hl - 0.1)).applyQuaternion(this.q).add(this.p);
           this.m.compose(tp, this.q, this.s.set(1, 1, 1));
           this.tails.setMatrixAt(ti, this.m);
           const tk = car.brakeLight ? 4 : lightsOn ? 1.6 : 0.5;
           this.tails.setColorAt(ti++, this.c.setRGB(tk, tk * 0.04, tk * 0.03));
-          if (lightsOn && near && bi < this.beams.instanceMatrix.count) {
+          if (lightsOn && beamsNear && bi < this.beams.instanceMatrix.count) {
             this.m.compose(hp, this.q, this.s.set(1, 1, 1));
             this.beams.setMatrixAt(bi++, this.m);
           }
         }
-        if (lightsOn && near && pi < CAP) {
+        if (lightsOn && beamsNear && pi < CAP) {
           const pp = new THREE.Vector3(0, 0.6, hl + 34).applyQuaternion(this.q).add(this.p);
           this.m.compose(pp, this.q, this.s.set(34, 1, 60));
           this.pools.setMatrixAt(pi++, this.m);
@@ -406,20 +456,18 @@ export class CarView {
         }
       }
     }
-    for (const model of MODELS) {
-      const mm = this.meshes.get(model)!;
-      const n = counts.get(model)!;
-      for (const body of mm.bodies) {
-        body.count = n;
-        body.instanceMatrix.needsUpdate = true;
-        if (body.instanceColor) body.instanceColor.needsUpdate = true;
-      }
-    }
     const finish = (im: THREE.InstancedMesh, n: number): void => {
       im.count = n;
+      im.visible = n > 0;
       im.instanceMatrix.needsUpdate = true;
       if (im.instanceColor) im.instanceColor.needsUpdate = true;
     };
+    for (const mm of this.meshes.values()) {
+      for (const body of mm.bodies) finish(body, mm.nNear);
+      for (const body of mm.far) finish(body, mm.nFar);
+      if (mm.wheelNear) finish(mm.wheelNear, mm.wNear);
+      if (mm.wheelFar) finish(mm.wheelFar, mm.wFar);
+    }
     finish(this.wheels, wi);
     finish(this.heads, hi);
     finish(this.tails, ti);

@@ -24,6 +24,9 @@ export interface BikeModel {
   taillight: THREE.Mesh;
   /** Where the rider's pelvis sits, in lean-pivot space. */
   seat: THREE.Vector3;
+  /** Hand grips and foot pegs (left, right) in lean-pivot space, for a rigged rider. */
+  grips: [THREE.Vector3, THREE.Vector3];
+  pegs: [THREE.Vector3, THREE.Vector3];
   /** Extra x rotation on the front wheel to undo the fork rake (code model only). */
   frontRake: number;
 }
@@ -45,28 +48,26 @@ export function bikeFromGlb(scene: THREE.Object3D): BikeModel {
   const frontWheel = findNode(scene, 'wheel_f', 'wheel_front', 'wheel_fl') ?? new THREE.Object3D();
   const rearWheel = findNode(scene, 'wheel_r', 'wheel_rear', 'wheel_rl', 'wheel_rr') ?? new THREE.Object3D();
   const steer = findNode(scene, 'fork', 'steer', 'handlebar') ?? new THREE.Object3D();
-  const lamp = (names: string[], color: THREE.Color, fallback: THREE.Vector3): THREE.Mesh => {
+  /** A named node's position in lean-pivot space, or the fallback. */
+  const point = (names: string[], fallback: THREE.Vector3): THREE.Vector3 => {
     const node = findNode(scene, ...names);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 0.25), new THREE.MeshBasicMaterial({ color }));
-    if (node) {
-      node.updateWorldMatrix(true, false);
-      const p = new THREE.Vector3().setFromMatrixPosition(node.matrixWorld);
-      leanPivot.worldToLocal(p);
-      m.position.copy(p);
-    } else m.position.copy(fallback);
+    if (!node) return fallback;
+    node.updateWorldMatrix(true, false);
+    return leanPivot.worldToLocal(new THREE.Vector3().setFromMatrixPosition(node.matrixWorld));
+  };
+  const lamp = (names: string[], color: THREE.Color, fallback: THREE.Vector3, size: [number, number, number]): THREE.Mesh => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(...size), new THREE.MeshBasicMaterial({ color }));
+    m.position.copy(point(names, fallback));
     leanPivot.add(m);
     return m;
   };
-  const headlight = lamp(['light_head_l', 'light_head', 'headlight'], new THREE.Color(4, 4, 3.6), new THREE.Vector3(0, 6.25, 8.05));
-  const taillight = lamp(['light_tail_l', 'light_tail', 'taillight'], new THREE.Color(3.2, 0.12, 0.08), new THREE.Vector3(0, 8.25, -7.75));
-  const seatNode = findNode(scene, 'seat');
-  const seat = new THREE.Vector3(0, 7.7, -1.9);
-  if (seatNode) {
-    seatNode.updateWorldMatrix(true, false);
-    seat.setFromMatrixPosition(seatNode.matrixWorld);
-    leanPivot.worldToLocal(seat);
-  }
-  return { root, leanPivot, frontWheel, rearWheel, steer, headlight, taillight, seat, frontRake: 0 };
+  // lamps sized to sit on a detailed model's nose and tail
+  const headlight = lamp(['light_head_l', 'light_head', 'headlight'], new THREE.Color(4, 4, 3.6), new THREE.Vector3(0, 6.25, 8.05), [1.3, 0.35, 0.2]);
+  const taillight = lamp(['light_tail_l', 'light_tail', 'taillight'], new THREE.Color(3.2, 0.12, 0.08), new THREE.Vector3(0, 8.25, -7.75), [0.9, 0.3, 0.2]);
+  const seat = point(['seat'], new THREE.Vector3(0, 7.7, -1.9));
+  const grips: [THREE.Vector3, THREE.Vector3] = [point(['grip_l'], new THREE.Vector3(2.3, 8.6, 3.8)), point(['grip_r'], new THREE.Vector3(-2.3, 8.6, 3.8))];
+  const pegs: [THREE.Vector3, THREE.Vector3] = [point(['peg_l'], new THREE.Vector3(1.9, 3.4, -2.5)), point(['peg_r'], new THREE.Vector3(-1.9, 3.4, -2.5))];
+  return { root, leanPivot, frontWheel, rearWheel, steer, headlight, taillight, seat, grips, pegs, frontRake: 0 };
 }
 
 function sideShape(points: [number, number][]): THREE.Shape {
@@ -293,7 +294,9 @@ export function buildBikeModel(physical: boolean): BikeModel {
     if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
   });
 
-  return { root, leanPivot, frontWheel, rearWheel, steer, headlight, taillight, seat: new THREE.Vector3(0, 7.7, -1.9), frontRake: 0.42 };
+  const grips: [THREE.Vector3, THREE.Vector3] = [new THREE.Vector3(2.3, 8.6, 3.8), new THREE.Vector3(-2.3, 8.6, 3.8)];
+  const pegs: [THREE.Vector3, THREE.Vector3] = [new THREE.Vector3(1.9, 3.4, -2.5), new THREE.Vector3(-1.9, 3.4, -2.5)];
+  return { root, leanPivot, frontWheel, rearWheel, steer, headlight, taillight, seat: new THREE.Vector3(0, 7.7, -1.9), grips, pegs, frontRake: 0.42 };
 }
 
 export class BikeView {

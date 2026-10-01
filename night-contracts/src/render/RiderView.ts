@@ -7,7 +7,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Sim } from '../sim/Sim';
-import { findNode } from './AssetRegistry';
 import type { BikeModel } from './BikeView';
 import { srgb, yawToThree } from './Shared';
 
@@ -406,88 +405,5 @@ export class RiderView {
       this.tmpEuler.set(e.x, e.y, e.z);
       m.bones[name].rotation.copy(this.tmpEuler);
     }
-  }
-}
-
-/** Clip names the GLB rider may provide (matched case-insensitively, by prefix). */
-const CLIP_KEYS = ['idle', 'run', 'ride', 'slash', 'shoot', 'jump', 'land', 'fall'] as const;
-type ClipKey = (typeof CLIP_KEYS)[number];
-
-/**
- * A rigged rider GLB driven by an AnimationMixer. Clips are matched by name
- * (idle, run, ride, slash, shoot, jump, land, fall). The katana and gun attach
- * to the `hand_r` bone when it exists.
- */
-export class GlbRiderView {
-  readonly root = new THREE.Group();
-  private readonly mixer: THREE.AnimationMixer;
-  private readonly actions = new Map<ClipKey, THREE.AnimationAction>();
-  private current: THREE.AnimationAction | null = null;
-  private readonly katana: THREE.Group;
-  private readonly gun: THREE.Group;
-  private readonly hand: THREE.Object3D | null;
-  private readonly back: THREE.Object3D;
-
-  constructor(
-    private readonly bike: BikeModel,
-    scene: THREE.Group,
-    clips: THREE.AnimationClip[],
-  ) {
-    this.root.name = 'rider';
-    this.root.add(scene);
-    scene.traverse((o) => {
-      if ((o as THREE.Mesh).isMesh) {
-        (o as THREE.Mesh).castShadow = true;
-        o.frustumCulled = false;
-      }
-    });
-    this.mixer = new THREE.AnimationMixer(scene);
-    for (const key of CLIP_KEYS) {
-      const clip = clips.find((c) => c.name.toLowerCase().startsWith(key)) ?? clips.find((c) => c.name.toLowerCase().includes(key));
-      if (clip) this.actions.set(key, this.mixer.clipAction(clip));
-    }
-    const placeholder = buildRiderModel();
-    this.katana = placeholder.katana;
-    this.gun = placeholder.gun;
-    this.hand = findNode(scene, 'hand_r', 'righthand', 'mixamorig:righthand', 'hand.r');
-    this.back = findNode(scene, 'spine2', 'chest', 'spine', 'mixamorig:spine2') ?? scene;
-    this.back.add(this.katana);
-    this.katana.position.set(0, 0, -1.2);
-    this.katana.rotation.set(0, 0, Math.PI - 0.4);
-    this.gun.visible = false;
-    if (this.hand) this.hand.add(this.gun);
-  }
-
-  private play(key: ClipKey, fallback: ClipKey = 'idle'): void {
-    const a = this.actions.get(key) ?? this.actions.get(fallback) ?? null;
-    if (!a || a === this.current) return;
-    a.reset().play();
-    if (this.current) a.crossFadeFrom(this.current, 0.2, false);
-    this.current = a;
-  }
-
-  update(sim: Sim, alpha: number, dt: number): void {
-    const pl = sim.player;
-    const riding = pl.mode === 'riding';
-    if (riding && this.root.parent !== this.bike.leanPivot) this.bike.leanPivot.add(this.root);
-    else if (!riding && this.root.parent === this.bike.leanPivot) this.bike.root.parent?.add(this.root);
-    if (riding) {
-      this.root.position.set(0, this.bike.seat.y - 7.6, this.bike.seat.z);
-      this.root.rotation.set(0, 0, 0);
-    } else {
-      this.root.position.set(pl.px + (pl.x - pl.px) * alpha, pl.pz + (pl.z - pl.pz) * alpha, pl.py + (pl.y - pl.py) * alpha);
-      this.root.rotation.set(0, yawToThree(pl.facing), 0);
-    }
-    const speed = Math.hypot(pl.vx, pl.vy);
-    if (pl.slashAnim < 0.34) this.play('slash');
-    else if (pl.firing) this.play('shoot', riding ? 'ride' : 'idle');
-    else if (riding) this.play('ride');
-    else if (pl.mode === 'air') this.play('jump');
-    else if (pl.mode === 'down' || pl.mode === 'dead') this.play('fall');
-    else if (pl.mode === 'roof') this.play('land');
-    else if (speed > 6) this.play('run');
-    else this.play('idle');
-    this.gun.visible = pl.firing && !!this.hand;
-    this.mixer.update(dt);
   }
 }

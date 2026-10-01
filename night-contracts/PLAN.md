@@ -58,13 +58,15 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] Audio: engine loop pitched by speed, gun, katana, screech, impacts, explosion, rain, phone, siren, thunder, music, all synthesised at runtime; files in assets/audio override them
 - [x] Handler voice: drop `audio/voice/<id>.mp3` files in (script in ASSETS.md) and the calls are spoken through a phone line filter, with music and engine dipping under the voice. No voice files ship yet
 - [x] The single-page build inlines everything in assets/ (models, sounds, voice) so dropped-in art works there too
+- [x] Generated models (Higgsfield test batch, about 170 credits): a rigged rider with six clips, the bike and the sedan, processed by `tools/art` (scale, ground, wheels on axles, mount points, far versions, painted metal and roughness maps, 1024 JPEG textures). The rider rides with two-bone IK on the grips and pegs; sedans take their paint as a tint and draw their own wheels and lamps
+- [ ] The other six cars (SUV, limo, police, hatch, ute, van): about 230 more credits, waiting on the owner's OK
 - [x] Hit markers where your rounds land (white ticks, red when the round kills) with a tick sound, and a red glow on the screen edge facing whoever hurt you (every edge for damage with no direction, like a hard landing)
 - [x] Slow motion on wheel cut and roof strike (0.3x for 0.6 s), hit stop, screen shake, sparks, skid marks, tyre smoke, fire
 - [x] Settings menu (quality, weather, clock, volumes, haptics, debug, button layout), save/load (e2e test)
 
 ## M7 Ship to phones
 - [x] Quality presets auto-picked by device (Low/Medium/High/Ultra: recent phone GPUs get High, strong desktop GPUs Ultra), adaptive pixel ratio that drops when frames run long and climbs back once they hold
-- [x] Mobile budgets: emulated iPhone (Medium) about 96 to 135 draw calls and 80k to 145k triangles after CPU instance culling and lighter palms and fences
+- [x] Mobile budgets: emulated iPhone (Medium) about 96 to 135 draw calls and 80k to 145k triangles after CPU instance culling and lighter palms and fences. The generated rider, bike and sedans raise the start scene to about 107 draw calls and 215k triangles
 - [x] Rain is an occasional shower (starts dry, about one short shower every 20 minutes) with a lighter drop count, and plays at half the volume it launched with
 - [x] PWA: manifest, generated icons (192, 512, maskable, apple touch), service worker registered in production web builds
 - [x] Capacitor iOS and Android projects: landscape only, fullscreen, screen kept on, generated app icons and splash screens (`node tools/icons.mjs`)
@@ -85,5 +87,6 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - A car hitting the player is judged by relative speed before the bike's own crash check, so a ram is never mistaken for the rider hitting a wall.
 - The player has 2x armour (`player.armor`): every hit does half damage. A heavy car hit does a full health bar of damage before armour, so it now takes half your health instead of killing outright.
 - The art deco building kit is procedural (plinth, window bands, cornices, fins, balconies, roof kit, merged per chunk). GLB city kit pieces are not wired in yet; props, palms, lamps, cars, bike and rider are.
-- A rigged rider GLB needs a `ride` clip; without it the idle clip plays while riding.
+- A rigged rider GLB needs no `ride` clip: riding and the roof crouch are solved in code with two-bone IK against the bike's grips, pegs and seat, and aiming, the whistle and the lean are layered on top.
+- Generated models came with metal maps that made the rider solid chrome and the bike patchy mirror metal (bronze statues under the warm night sky), so `tools/art` paints metal and roughness from the colour map. At night the player's rider and bike also get a stronger share of the environment and a cool rim so black leather and black paint keep their shape.
 - Render maps sim (x, y, z) to three (x, z, y) as the brief asks. This is a mirror, so "left" and "right" go through helpers in `core/math.ts`.

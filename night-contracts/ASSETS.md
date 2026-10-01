@@ -7,8 +7,23 @@ Every file shipped with the game, its source and licence.
 | Teko font (`@fontsource/teko`) | Google Fonts via Fontsource | SIL Open Font License 1.1 |
 | Chakra Petch font (`@fontsource/chakra-petch`) | Google Fonts via Fontsource | SIL Open Font License 1.1 |
 | Barlow font (`@fontsource/barlow`) | Google Fonts via Fontsource | SIL Open Font License 1.1 |
+| `models/rider/rider.glb` | Generated for this game with Higgsfield on the owner's account (30 Sep 2026). Concept image: GPT Image 2.5 (job `7f4b1d5a`). Mesh, rig and idle: Meshy v7 image to 3D (job `33cb4a31`). Clips: Meshy rigging, run `82c5235d`, walk `df7ce4dd`, jump `8683e3f5`, slash `3fef6de1`, fall `60a61888`. Processed with `tools/art/rider.mjs` | Higgsfield generation, see note below |
+| `models/bike/bike.glb` | Generated with Higgsfield as above. Concept image: GPT Image 2.5 (job `5e127cff`). Mesh: Tripo H3.1 image to 3D (job `0a7593bd`). Processed with `tools/art/bike.mjs` | Higgsfield generation, see note below |
+| `models/cars/sedan.glb` | Generated with Higgsfield as above. Concept image: GPT Image 2.5 (job `769be4b5`). Mesh: Hunyuan3D v3 image to 3D (job `3322d796`). Processed with `tools/art/car.mjs sedan` | Higgsfield generation, see note below |
 
-All models, textures and sounds are currently generated in code at runtime (placeholders). No third-party art or audio ships.
+The three generated models are original designs: the prompts asked for an original character and, for the bike and sedan, no logos, badges or text. Their use is governed by Higgsfield's terms for the owner's plan: confirm those allow commercial use before a store release. Everything else (buildings, props, people, other cars, sounds) is generated in code at runtime. No third-party audio ships.
+
+## Making models (`tools/art`)
+
+The raw generator files are not committed (tens of MB each). Re-run a script on a raw file to rebuild a game model:
+
+| Script | Does |
+|---|---|
+| `node tools/art/bike.mjs raw.glb` | scales to metres, stands it on the ground, cuts the wheels out onto their axles (`wheel_f`, `wheel_r`), adds `seat`, `light_head_l`, `light_tail_l`, `grip_l/r`, `peg_l/r` |
+| `node tools/art/rider.mjs base.glb idle run=run.glb walk=walk.glb ...` | keeps the base file's mesh and skeleton and retargets each clip file onto it (clips from different auto rigs line up by bone name) |
+| `node tools/art/car.mjs sedan raw.glb` | scales and centres, cuts one wheel out as a template plus four axle empties, adds lamp empties and far versions (`body_lod1`, `wheel_lod1`) |
+
+All three replace the generated metal and roughness maps with ones painted from the colour map (the generated ones made the rider solid chrome and the bike patchy mirror metal), drop material extensions that need the costlier physical material, and shrink textures to 1024 JPEG. `node tools/glbview.mjs model.glb out` renders a model from six angles.
 
 ## Dropping in art
 
@@ -16,9 +31,9 @@ Put files in these paths and they replace the placeholders automatically (the de
 
 | Path | Used for | Notes |
 |---|---|---|
-| `models/bike/bike.glb` | the superbike | nodes `wheel_f`, `wheel_r` spin; `fork` steers; `light_head_l`, `light_tail_l`, `seat` optional |
-| `models/rider/rider.glb` + `models/rider/animations/*.glb` | the rider | clips named `idle`, `run`, `ride`, `slash`, `shoot`, `jump`, `land`, `fall`; `hand_r` bone holds the katana and gun |
-| `models/cars/{sedan,suv,limo,police,civ-hatch,civ-ute,civ-van}.glb` | cars | instanced; one draw call per material; paint tint comes from the material |
+| `models/bike/bike.glb` | the superbike | nodes `wheel_f`, `wheel_r` spin; `fork` steers; `light_head_l`, `light_tail_l`, `seat` optional; `grip_l/r` and `peg_l/r` place the rider's hands and feet |
+| `models/rider/rider.glb` + `models/rider/animations/*.glb` | the rider | Mixamo style bone names (`Hips`, `Spine02`, `Spine01`, `Spine`, `neck`, `Head`, `LeftArm`, `LeftForeArm`, `LeftHand`, `LeftUpLeg`, `LeftLeg`, `LeftFoot`, `LeftToeBase`, and the right side); clips named `idle`, `walk`, `run`, `jump`, `slash`, `fall`. Riding and the roof crouch are posed in code against the bike's grips, pegs and seat; the katana and gun are the code-built ones |
+| `models/cars/{sedan,suv,limo,police,civ-hatch,civ-ute,civ-van}.glb` | cars | instanced; one draw call per material; paint tint multiplies the colour map, so paint the body white. Optional nodes: `body`, `body_lod1` (far), `wheel`, `wheel_lod1` (a template drawn at the empties `wheel_fl`, `wheel_fr`, `wheel_rl`, `wheel_rr`), `light_head_l`, `light_tail_l` |
 | `models/props/{palm,lamp,bench,busstop,barrier,fence}.glb` | street furniture | instanced; palms are scaled to each palm's height |
 | `audio/sfx/<name>.ogg`, `audio/music/music.ogg` | sounds | names: engine, gun, enemyGun, slash, screech, impact, crash, explosion, rain, phone, siren, thunder, cash, pop, cut, click, whistle, horn, hit |
 | `audio/voice/<id>.mp3` (or `.m4a`, `.ogg`) | the handler on the phone | played through a phone line filter; lines and ids below |

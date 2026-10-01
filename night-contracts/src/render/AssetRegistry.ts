@@ -21,7 +21,17 @@ export interface AssetPart {
 export type CarAssetPart = AssetPart;
 
 export interface CarAsset {
+  /** Body parts (the near version when the file has a far one). */
   parts: AssetPart[];
+  /** Far body (`body_lod1`), if any. */
+  far: AssetPart[] | null;
+  /**
+   * The file's own wheel (`wheel`, axle at the origin, outer face towards +x)
+   * and where the four axles are (`wheel_fl`, `wheel_fr`, `wheel_rl`, `wheel_rr`).
+   */
+  wheel: { near: AssetPart; far: AssetPart | null; axles: THREE.Vector3[] } | null;
+  /** Left head and tail lamp positions (`light_head_l`, `light_tail_l`), mirrored for the right. */
+  lights: { head: THREE.Vector3; tail: THREE.Vector3 } | null;
 }
 
 const CAR_FILES: Record<CarModel, string> = {
@@ -34,14 +44,14 @@ const CAR_FILES: Record<CarModel, string> = {
   van: 'models/cars/civ-van.glb',
 };
 
-/** Bake every mesh of a scene into model space, one geometry per material. */
-export function flattenParts(root: THREE.Object3D): AssetPart[] {
+/** Bake every mesh of a scene (or those `include` picks) into model space, one geometry per material. */
+export function flattenParts(root: THREE.Object3D, include: (mesh: THREE.Mesh) => boolean = () => true): AssetPart[] {
   root.updateMatrixWorld(true);
   const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
   const byMat = new Map<THREE.Material, THREE.BufferGeometry[]>();
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
-    if (!mesh.isMesh || (mesh as THREE.SkinnedMesh).isSkinnedMesh) return;
+    if (!mesh.isMesh || (mesh as THREE.SkinnedMesh).isSkinnedMesh || !include(mesh)) return;
     const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
     // keep the root scale (metres to units) but drop its placement
     const m = new THREE.Matrix4().multiplyMatrices(inv, mesh.matrixWorld).premultiply(new THREE.Matrix4().makeScale(root.scale.x, root.scale.y, root.scale.z));
@@ -127,8 +137,28 @@ export class AssetRegistry {
   }
 
   car(model: CarModel): CarAsset | null {
-    const parts = this.parts(CAR_FILES[model]);
-    return parts ? { parts } : null;
+    const path = CAR_FILES[model];
+    const scene = this.scenes.get(path);
+    if (!scene) return null;
+    const named = (name: string) => (m: THREE.Mesh): boolean => m.name.toLowerCase() === name || m.parent?.name.toLowerCase() === name;
+    // a plain file: every mesh is body
+    if (!findNode(scene, 'body')) return { parts: this.parts(path)!, far: null, wheel: null, lights: null };
+    const one = (name: string): AssetPart | null => flattenParts(scene, named(name))[0] ?? null;
+    const far = flattenParts(scene, named('body_lod1'));
+    const at = (name: string): THREE.Vector3 | null => {
+      const n = findNode(scene, name);
+      return n ? scene.worldToLocal(n.getWorldPosition(new THREE.Vector3())).multiply(scene.scale) : null;
+    };
+    const axles = ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr'].map(at);
+    const near = one('wheel');
+    const head = at('light_head_l');
+    const tail = at('light_tail_l');
+    return {
+      parts: flattenParts(scene, named('body')),
+      far: far.length ? far : null,
+      wheel: near && axles.every(Boolean) ? { near, far: one('wheel_lod1'), axles: axles as THREE.Vector3[] } : null,
+      lights: head && tail ? { head, tail } : null,
+    };
   }
 
   /** For tests: register a scene as if it had been loaded. */

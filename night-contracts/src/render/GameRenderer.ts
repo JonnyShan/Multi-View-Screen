@@ -22,7 +22,8 @@ import { InstanceCuller } from './InstanceCuller';
 import { PropsView } from './PropsView';
 import type { QualitySettings } from './Quality';
 import { RainView } from './RainView';
-import { GlbRiderView, RiderView } from './RiderView';
+import { GlbRiderView } from './GlbRiderView';
+import { RiderView } from './RiderView';
 import { globalUniforms } from './Shared';
 import { SkyView, WaterView } from './SkyView';
 
@@ -45,6 +46,10 @@ export class GameRenderer {
   private readonly fog: THREE.FogExp2;
   private envNight: THREE.Texture | null = null;
   private envDay: THREE.Texture | null = null;
+  /** Textured (GLB) materials on the player's bike and rider: they get a stronger share of the environment. */
+  private readonly heroMaterials: THREE.MeshStandardMaterial[] = [];
+  /** 0 by day, 1 at night: a cool rim and a little fill on those materials so they keep their shape in the dark. */
+  private readonly heroNight = { value: 0 };
   private lampTimer = 0;
   private cullTimer = 0;
   private readonly cullers: InstanceCuller[] = [];
@@ -106,6 +111,17 @@ export class GameRenderer {
     const riderGlb = assets.scene('models/rider/rider.glb');
     this.rider = riderGlb ? new GlbRiderView(this.bike.model, riderGlb, assets.animations('models/rider/rider.glb', 'models/rider/animations/')) : new RiderView(this.bike.model);
     this.scene.add(this.rider.root);
+    for (const root of [this.bike.model.root, this.rider.root]) {
+      root.traverse((o) => {
+        const m = (o as THREE.Mesh).material;
+        for (const mat of Array.isArray(m) ? m : m ? [m] : []) {
+          if ((mat as THREE.MeshStandardMaterial).isMeshStandardMaterial && (mat as THREE.MeshStandardMaterial).map && !this.heroMaterials.includes(mat as THREE.MeshStandardMaterial)) {
+            this.heroMaterials.push(mat as THREE.MeshStandardMaterial);
+            this.addHeroLight(mat as THREE.MeshStandardMaterial);
+          }
+        }
+      });
+    }
     this.cars = new CarView(t, assets, q.shadows);
     this.scene.add(this.cars.group);
     this.peds = new PedView(Math.max(8, Math.round(t.peds.count * q.pedScale) + 4));
@@ -117,6 +133,19 @@ export class GameRenderer {
 
     this.post = new PostFX(this.renderer, this.scene, this.rig.camera, q);
     this.buildEnvironments();
+  }
+
+  private addHeroLight(mat: THREE.MeshStandardMaterial): void {
+    mat.onBeforeCompile = (sh) => {
+      sh.uniforms.uHeroNight = this.heroNight;
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uHeroNight;').replace(
+        '#include <opaque_fragment>',
+        `float heroRim = pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 3.0);
+        outgoingLight += uHeroNight * (vec3(0.3, 0.42, 0.6) * heroRim * 0.35 + diffuseColor.rgb * 0.5);
+        #include <opaque_fragment>`,
+      );
+    };
+    mat.customProgramCacheKey = () => 'hero';
   }
 
   /** Small pre-filtered environments for glossy paint, glass and wet roads. */
@@ -271,8 +300,15 @@ export class GameRenderer {
     this.fog.color.setHex(l.fog, THREE.SRGBColorSpace);
     this.fog.density = l.fogDensity * (1 + sim.wet * 0.4);
     this.renderer.toneMappingExposure = l.exposure;
-    this.scene.environment = l.night > 0.5 ? this.envNight : this.envDay;
+    const env = l.night > 0.5 ? this.envNight : this.envDay;
+    this.scene.environment = env;
     this.scene.environmentIntensity = l.night > 0.5 ? 0.9 : 0.8;
+    // black leather and black paint would vanish into the night otherwise
+    for (const m of this.heroMaterials) {
+      m.envMap = env;
+      m.envMapIntensity = l.night > 0.5 ? 2.2 : 0.9;
+    }
+    this.heroNight.value = l.night;
 
     this.lampTimer -= dt;
     if (this.lampTimer <= 0) {
