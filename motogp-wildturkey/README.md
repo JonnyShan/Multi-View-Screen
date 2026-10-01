@@ -1,4 +1,4 @@
-# Wild Turkey RED LINE (reskin build)
+# Wild Turkey WILD RIDE (reskin build)
 
 A time-attack motorcycle racing game branded for Wild Turkey. The player rides one timed lap of the fictional Kentucky River Circuit at golden hour.
 
@@ -26,7 +26,8 @@ python3 -m http.server 8131 --directory motogp-wildturkey
 - **Brand assets from the client folder** in `assets/brand/`, with the originals in `assets/brand/source/`:
   - `logo.webp` is the white artwork used on the trackside boards and gantry.
   - `logo-ui.webp` is the full-colour logo for the menus and HUD.
-  - `bottle.webp` is the title-screen pack shot: the red-label bottle from the client's "wild turkey drink" file (`source/wild-turkey-drink.avif`, 308 × 385 px), cropped and scaled 2×. A higher-resolution file would look sharper on large screens.
+  - `bottle.webp` is the title-screen pack shot: the supplied Wild Turkey 101 photo (`source/wild-turkey-101.webp`), cropped to 388 × 1200 px.
+  - The loading screen shows the same bottle small and slowly turning (`product.spin` in `brand.js`, drawn by `js/loaderbottle.js`).
 - **Compressed models.** The bike and rider are 3.6 MB and 1.8 MB, down from 10.2 MB and 3.5 MB. Textures are resized, and the geometry is quantised and meshopt-compressed with `tools/compress-models.mjs`. The game decodes it with `vendor/meshopt/`.
 
 ## URL options

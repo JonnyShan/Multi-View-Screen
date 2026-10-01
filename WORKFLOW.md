@@ -24,7 +24,7 @@ An F1 car version, `f1-livewire/`, was retired, and its link now redirects to `m
    |---|---|
    | `logo.webp` | The logo as **white artwork on a transparent background**. The game tints it for each trackside board, the gantry and the bike. |
    | `logo-ui.webp` | The full-colour logo for the dark menus, HUD and results screen. |
-   | `product.webp` | Optional. A product shot for the title screen: transparent background, upright and tightly cropped. |
+   | `product.webp` | Optional. A product shot for the title screen: transparent background, upright and tightly cropped. For a round bottle, `product.spin: true` in `brand.js` also shows it small and slowly turning on the loading screen. |
 
    - Keep logos under about 1200 px wide.
    - WebP files are a fraction of the size of PNGs.

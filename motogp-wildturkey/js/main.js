@@ -12,6 +12,7 @@ import { newState, step, Autopilot, simulateLap } from './physics.js';
 import { Audio } from './audio.js';
 import { Post, Particles } from './fx.js';
 import { Hud } from './hud.js';
+import { startLoaderBottle } from './loaderbottle.js';
 import * as Store from './store.js';
 import { track } from './analytics.js';
 
@@ -1198,6 +1199,8 @@ function guessRegion() {
 async function boot() {
   const bar = $('loadbar'), txt = $('loadtxt');
   const progress = (p, t) => { bar.style.width = (p * 100).toFixed(0) + '%'; if (t) txt.textContent = t; };
+  // the product bottle turning on the loading screen (brand.js product.spin)
+  const spin = BRAND.product?.spin ? startLoaderBottle($('loadSpin'), BRAND.product.img) : null;
   const pack = $('product');
   if (pack && BRAND.product) { // title pack shot: shown only once the image has loaded
     const img = $('productImg');
@@ -1231,6 +1234,7 @@ async function boot() {
   const game = new Game(renderer);
   window.__game = game;
   await game.build(progress);
+  if (spin) setTimeout(() => spin.stop(), 700); // after the loader has faded out
 }
 
 boot().catch((e) => {

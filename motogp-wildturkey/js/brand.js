@@ -8,7 +8,7 @@ export const BRAND = {
   name: 'Wild Turkey',                // brand name in page copy
   mark: '®',                          // shown after the name in the legal bar ('' for none)
   wordmark: 'WILD TURKEY',            // text stand-in wherever the logo image is missing
-  game: 'RED LINE',                   // game name on boards, the gantry and the title screen
+  game: 'WILD RIDE',                  // game name on boards, the gantry and the title screen
   circuit: 'Kentucky River Circuit',
   mode: 'Time Attack',
   riderNumber: '54',
@@ -42,11 +42,12 @@ export const BRAND = {
   // Full-colour logo for the dark menus, HUD and results screen. null = text wordmark.
   logoUi: 'assets/brand/logo-ui.webp',
   // Title-screen product shot, bottom right (transparent, upright, tightly cropped). null = none.
-  product: { img: 'assets/brand/bottle.webp', alt: 'Wild Turkey Kentucky Straight Bourbon Whiskey' },
+  // spin: also show it small and slowly turning on the loading screen (for a round bottle).
+  product: { img: 'assets/brand/bottle.webp', alt: 'Wild Turkey 101 Kentucky Straight Bourbon Whiskey', spin: true },
 
   // Page title and link-preview text.
-  title: 'Wild Turkey Red Line',
-  description: 'Wild Turkey RED LINE: a time-attack motorcycle racing game on the fictional Kentucky River Circuit. For adults of legal drinking age.',
+  title: 'Wild Turkey Wild Ride',
+  description: 'Wild Turkey WILD RIDE: a time-attack motorcycle racing game on the fictional Kentucky River Circuit. For adults of legal drinking age.',
 
   // Text painted on trackside signage.
   signs: {
