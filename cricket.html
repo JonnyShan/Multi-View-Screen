@@ -509,10 +509,11 @@ for (const key of Object.keys(BOARD_SETS)) {
 {
   const sky = new THREE.Mesh(new THREE.SphereGeometry(1200, 32, 16), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { top: { value: new THREE.Color(0x030303) }, mid: { value: new THREE.Color(0x0c0f11) }, bot: { value: new THREE.Color(0x1d2224) } },
+    uniforms: { top: { value: new THREE.Color(0x020306) }, mid: { value: new THREE.Color(0x0d1216) }, bot: { value: new THREE.Color(0x1d2224) }, glow: { value: new THREE.Color(0x172030) } },
     vertexShader: "varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-    fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 bot; varying vec3 vP;
+    fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 bot; uniform vec3 glow; varying vec3 vP;
       void main(){ float h = vP.y; vec3 c = h > 0.12 ? mix(mid, top, smoothstep(0.12, 0.75, h)) : mix(bot, mid, smoothstep(-0.05, 0.12, h));
+      c += glow * (1.0 - smoothstep(0.25, 0.8, h)) * smoothstep(0.0, 0.25, h);   // haze lit by the floodlights, brightest just over the roof
       gl_FragColor = vec4(c, 1.0);
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
@@ -584,7 +585,7 @@ boardTex.ring.repeat.set(-20, 1);
 // =====================================================================
 // stadium: stands, roof, crowd, floodlights, sightscreens, big screen
 // =====================================================================
-let roofRingMat, ringBandMat, torchSize;
+let roofRingMat, ringBandMat, torchSize, crowdBoxes, crowdCards, crowdShare = 1;
 function groundAt(r) {      // height of the surface the ball can land on at radius r
   if (r < 73.5) return 0;
   if (r < 76) return 2.2;
@@ -595,6 +596,29 @@ function groundAt(r) {      // height of the surface the ball can land on at rad
 }
 {
   const standMat = new THREE.MeshStandardMaterial({ color: 0x1c1d1f, roughness: 0.9, side: THREE.DoubleSide });
+  // seat rows painted on the terraces in world space: concrete tread, onyx seat pan and seat back, lighter aisle steps
+  standMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vSW;")
+      .replace("#include <project_vertex>", "#include <project_vertex>\nvSW = (modelMatrix * vec4(transformed, 1.0)).xyz;");
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vSW;")
+      .replace("#include <map_fragment>", `#include <map_fragment>
+        float rr = length(vSW.xz);
+        bool lowerT = rr < 99.0;
+        float inStand = (step(76.4, rr) - step(97.8, rr)) + (step(102.4, rr) - step(123.8, rr));
+        float gap = lowerT ? 0.95 : 1.0, seatW = lowerT ? 0.78 : 0.82;
+        float t = fract((rr - (lowerT ? 76.7 : 102.7) + 0.35) / gap);
+        float pan = smoothstep(0.30, 0.34, t) - smoothstep(0.55, 0.58, t);
+        float back = smoothstep(0.58, 0.61, t) - smoothstep(0.78, 0.82, t);
+        float seatI = mod(atan(vSW.z, vSW.x) / 6.28318 * floor(6.28318 * rr / seatW), 60.0);
+        float aisle = step(seatI, 1.9);
+        vec3 tc = vec3(0.085, 0.085, 0.09) * (0.8 + 0.2 * step(0.9, t));
+        vec3 sc = mix(tc, vec3(0.035), pan * (1.0 - aisle));
+        sc = mix(sc, vec3(0.018), back * (1.0 - aisle));
+        sc = mix(sc, vec3(0.14, 0.14, 0.15), aisle * step(0.5, fract(t * 2.0)) * 0.6);
+        diffuseColor.rgb = mix(diffuseColor.rgb, sc, clamp(inStand, 0.0, 1.0));`);
+  };
   const prof = [[73.5, 0], [73.5, 2.2], [76, 2.2], [98, 13], [102, 13], [102, 17], [124, 31], [124, 35], [128, 35], [128, 0]];
   scene.add(new THREE.Mesh(new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 160), standMat));
   const fascia = new THREE.Mesh(new THREE.CylinderGeometry(73.4, 73.4, 2.2, 160, 1, true),
@@ -627,20 +651,24 @@ const crowdU = { uTime: { value: 0 }, uExcite: { value: 0 }, uWave: { value: 1 }
 const crowdSpots = [];
 {
   const tiers = [
-    { r0: 76.7, r1: 97.4, base: 76, y0: 2.2, slope: 0.5, gap: 1.35, seat: 1.06, lower: true },
-    { r0: 102.7, r1: 123.4, base: 102, y0: 17, slope: 0.636, gap: 1.5, seat: 1.16, lower: false },
+    { r0: 76.7, r1: 97.4, base: 76, y0: 2.2, slope: 0.5, gap: 0.95, seat: 0.78, lower: true },
+    { r0: 102.7, r1: 123.4, base: 102, y0: 17, slope: 0.636, gap: 1.0, seat: 0.82, lower: false },
   ];
   for (const T of tiers) for (let r = T.r0; r < T.r1; r += T.gap) {
     const y = T.y0 + (r - T.base) * T.slope, n = Math.floor(2 * Math.PI * r / T.seat);
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       if (T.lower && Math.abs(Math.cos(a)) < 0.17) continue;      // sightscreen gaps
-      if (i % 46 < 2) continue;                                    // aisles
-      if (Math.random() < 0.09) continue;                          // empty seats
+      if (i % 60 < 2) continue;                                    // aisles
+      if (Math.random() < 0.07) continue;                          // empty seats
       crowdSpots.push(r * Math.cos(a), y, r * Math.sin(a), a);
     }
   }
   const count = crowdSpots.length / 4;
+  for (let k = count - 1; k > 0; k--) {                          // shuffle, so drawing the first N fans thins the crowd evenly
+    const j = Math.floor(Math.random() * (k + 1));
+    for (let c = 0; c < 4; c++) { const t = crowdSpots[k * 4 + c]; crowdSpots[k * 4 + c] = crowdSpots[j * 4 + c]; crowdSpots[j * 4 + c] = t; }
+  }
   const geo = new THREE.BoxGeometry(0.52, 0.86, 0.42); geo.translate(0, 0.43, 0);
   const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
   mat.onBeforeCompile = (sh) => {
@@ -653,7 +681,7 @@ const crowdSpots = [];
       float jump = max(0.0, sin(uTime * 10.0 + ph * 6.2832)) * uExcite * (0.22 + 0.4 * ph);
       transformed.y += 0.025 * sin(uTime * 1.7 + ph * 20.0) + jump + wv * uWave * 0.8;`);
   };
-  const mesh = new THREE.InstancedMesh(geo, mat, count);
+  const mesh = crowdBoxes = new THREE.InstancedMesh(geo, mat, count);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new V3(), p = new V3(), col = new THREE.Color();
   const palette = [[0xccff00, 0.24], [0xa8d400, 0.08], [0x1a1a1a, 0.24], [0x3a3a3a, 0.1], [0xf1f1f1, 0.22], [0xcfcfcf, 0.12]];
   for (let k = 0; k < count; k++) {
@@ -671,10 +699,10 @@ const crowdSpots = [];
   scene.add(mesh);
 
   // phone torches twinkling in the crowd
-  const N = 460, pos = new Float32Array(N * 3), ph = new Float32Array(N);
+  const N = 700, pos = new Float32Array(N * 3), ph = new Float32Array(N);
   for (let i = 0; i < N; i++) {
     const k = Math.floor(Math.random() * count) * 4;
-    pos.set([crowdSpots[k], crowdSpots[k + 1] + 1.1, crowdSpots[k + 2]], i * 3); ph[i] = Math.random();
+    pos.set([crowdSpots[k], crowdSpots[k + 1] + 1.45, crowdSpots[k + 2]], i * 3); ph[i] = Math.random();
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
@@ -690,6 +718,71 @@ const crowdSpots = [];
   })));
 }
 
+// crowd cards: 16 AI-generated fans (Higgsfield, GPT Image 2.5), each with an idle and a cheering frame.
+// They replace the boxes once assets/crowd/fans.webp loads; the boxes stay if it can't (e.g. over file://).
+// Atlas: 8 x 4 cells, each 1.1 m x 2.3 m with the fan's feet on the bottom edge; rows 0-1 idle, rows 2-3 cheering.
+function loadCrowdCards() {
+  if (location.protocol === "file:") return;      // WebGL can't use images from file:// pages
+  new THREE.TextureLoader().load("assets/crowd/fans.webp", (tex) => {
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const n = crowdSpots.length / 4;
+    const quad = new THREE.PlaneGeometry(1.1, 2.3); quad.translate(0, 1.15, 0);
+    const geo = new THREE.InstancedBufferGeometry();
+    geo.index = quad.index; geo.setAttribute("position", quad.getAttribute("position")); geo.setAttribute("uv", quad.getAttribute("uv"));
+    const pos = new Float32Array(n * 3), dat = new Float32Array(n * 4);
+    for (let k = 0; k < n; k++) {
+      const x = crowdSpots[k * 4], z = crowdSpots[k * 4 + 2], upper = Math.hypot(x, z) > 100;
+      pos.set([x, crowdSpots[k * 4 + 1] - 0.05, z], k * 3);
+      // fan, mirror, phase, brightness (the upper tier sits under the roof, so a touch darker)
+      dat.set([Math.floor(Math.random() * 16), Math.random() < 0.5 ? 1 : -1, Math.random(), rand(0.74, 1) * (upper ? 0.86 : 1)], k * 4);
+    }
+    geo.setAttribute("aPos", new THREE.InstancedBufferAttribute(pos, 3));
+    geo.setAttribute("aData", new THREE.InstancedBufferAttribute(dat, 4));
+    geo.instanceCount = n;
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { ...crowdU, uMap: { value: tex }, uTexSize: { value: new THREE.Vector2(tex.image.width, tex.image.height) }, uLight: { value: 0.74 } },
+      vertexShader: `attribute vec3 aPos; attribute vec4 aData;
+        uniform float uTime; uniform float uExcite; uniform float uWave;
+        varying vec2 vUv; varying float vB;
+        void main() {
+          float ph = aData.z;
+          float wv = smoothstep(0.9, 1.0, cos(atan(aPos.z, aPos.x) - uTime * 0.8)) * uWave;
+          // big moments: most fans switch to their cheering frame, then sit back down a few at a time as the excitement fades
+          float cheer = max(step(ph * 0.7 + 0.12, uExcite), step(0.5, wv));
+          cheer = max(cheer, step(0.996, sin(uTime * 0.37 + ph * 91.0)));      // the odd fan celebrating on their own
+          float jump = max(0.0, sin(uTime * 10.0 + ph * 6.2832)) * uExcite * (0.16 + 0.3 * ph) * cheer;
+          float sc = 0.93 + 0.14 * fract(ph * 7.31);
+          // idle fans fit in the middle 0.86 m x 1.8 m of their cell, so draw only that (less empty card to shade)
+          vec2 fit = mix(vec2(0.86 / 1.1, 1.8 / 2.3), vec2(1.0), cheer);
+          vec2 q = vec2(0.5 + (uv.x - 0.5) * fit.x, uv.y * fit.y);
+          vec3 f = cameraPosition - aPos; f.y = 0.0; f = normalize(f);         // turn to face the camera about the vertical
+          vec3 wp = aPos + vec3(f.z, 0.0, -f.x) * position.x * fit.x * sc;
+          wp.y += q.y * 2.3 * sc + 0.02 * sin(uTime * 1.7 + ph * 20.0) + jump + wv * 0.45;
+          float col = mod(aData.x, 8.0), row = floor(aData.x / 8.0) + cheer * 2.0;
+          float u = aData.y > 0.0 ? q.x : 1.0 - q.x;
+          vUv = vec2((col + u) / 8.0, 1.0 - (row + 1.0 - q.y) / 4.0);
+          vB = aData.w;
+          gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0);
+        }`,
+      fragmentShader: `uniform sampler2D uMap; uniform vec2 uTexSize; uniform float uLight;
+        varying vec2 vUv; varying float vB;
+        void main() {
+          vec4 c = texture2D(uMap, vUv);
+          vec2 dx = dFdx(vUv * uTexSize), dy = dFdy(vUv * uTexSize);
+          float lod = 0.5 * log2(max(max(dot(dx, dx), dot(dy, dy)), 1e-8));
+          c.a *= 1.0 + max(lod, 0.0) * 0.28;          // stops distant fans thinning out as the mips soften their edges
+          if (c.a < 0.5) discard;
+          gl_FragColor = vec4(c.rgb * vB * uLight, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+    });
+    const cards = crowdCards = new THREE.Mesh(geo, mat); cards.frustumCulled = false;
+    geo.instanceCount = Math.floor(n * crowdShare);
+    scene.add(cards); scene.remove(crowdBoxes);
+  }, undefined, () => {});
+}
+
 // floodlight pylons
 const lampMats = [];
 {
@@ -703,6 +796,17 @@ const lampMats = [];
   const lampTex = canvasTex(c);
   const glow = new THREE.SpriteMaterial({ map: makeDotTexture(), color: 0xcfe0ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x3a4152, roughness: 0.6, metalness: 0.5 });
+  const beamMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false,
+    uniforms: { uI: { value: 0.085 } },
+    vertexShader: `varying float vT; varying float vF;
+      void main(){ vT = uv.y; vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vF = abs(dot(normalize(normalMatrix * normal), normalize(-mv.xyz)));
+        gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform float uI; varying float vT; varying float vF;
+      void main(){ float a = uI * pow(vT, 2.2) * vF * vF;
+        gl_FragColor = vec4(vec3(0.85, 0.9, 1.0) * a, 1.0); }`,
+  });
   for (const deg of [38, 142, 218, 322]) {
     const a = deg * DEG, R = 140, x = Math.cos(a) * R, z = Math.sin(a) * R;
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.4, 78, 10), poleMat);
@@ -713,6 +817,12 @@ const lampMats = [];
     const panel = new THREE.Mesh(new THREE.PlaneGeometry(14, 7), lm); panel.position.z = 0.4; head.add(panel);
     const back = new THREE.Mesh(new THREE.BoxGeometry(14.6, 7.6, 0.7), poleMat); head.add(back);
     const sprite = new THREE.Sprite(glow); sprite.scale.set(46, 46, 1); sprite.position.set(x * 0.985, 80, z * 0.985); scene.add(sprite);
+    // a faint beam from the lamp bank to the middle, as if through light haze
+    const from = new V3(x, 80, z), to = new V3(0, 0, 0), len = from.distanceTo(to);
+    const beam = new THREE.Mesh(new THREE.ConeGeometry(34, len, 40, 1, true), beamMat);
+    beam.position.copy(from).add(to).multiplyScalar(0.5);
+    beam.quaternion.setFromUnitVectors(new V3(0, 1, 0), from.clone().sub(to).normalize());
+    beam.renderOrder = 2; scene.add(beam);
   }
 }
 
@@ -1021,11 +1131,15 @@ function updateBatter(dt, time) {
 // 3D player models: a rigged GLB (Livewire kit) whose skeleton copies the capsule rig every frame.
 // The capsule rig still runs all the animation and IK; it just becomes invisible "puppet strings".
 // =====================================================================
-// Which model plays which role, and which batting side it is on screen for.
+// Which model plays which roles. "when" is the batting side the role is on screen for:
+// while you bat the rivals bowl and field, and while they bat your Livewire side does.
+const outfield = () => fielders.filter((f) => !f.keeper && !f.isBowler).map((f) => f.rig);
 const HERO_MODELS = [
-  { url: "assets/players/livewire-batter.glb", drivers: () => [batter, nonStriker], when: "you" },
-  { url: "assets/players/rival-batter.glb", drivers: () => [batter, nonStriker], when: "rival" },
-  { url: "assets/players/rival-bowler.glb", drivers: () => [bowler], when: "you" },    // the rivals bowl while you bat
+  { url: "assets/players/livewire-batter.glb", roles: [{ drivers: () => [batter, nonStriker], when: "you" }, { drivers: () => [keeper.rig], when: "rival" }] },
+  { url: "assets/players/rival-batter.glb", roles: [{ drivers: () => [batter, nonStriker], when: "rival" }, { drivers: () => [keeper.rig], when: "you" }] },
+  { url: "assets/players/rival-bowler.glb", roles: [{ drivers: () => [bowler, ...outfield()], when: "you" }] },
+  { url: "assets/players/livewire-fielder.glb", roles: [{ drivers: () => [bowler, ...outfield()], when: "rival" }] },
+  { url: "assets/players/umpire.glb", roles: [{ drivers: () => [umpire], when: "both" }] },
 ];
 const heroes = [];
 let battingTeam = "you";
@@ -1065,7 +1179,10 @@ function makeHero(template, driver) {
   if (missing.length) { console.warn("3D player: missing bones", missing); return null; }
   root.traverse((o) => {
     if (!o.isMesh) return;
-    o.castShadow = true; o.frustumCulled = false;
+    o.castShadow = true;
+    // cull on a padded copy of the bind-pose bounds so off-screen players skip both the main and shadow passes
+    if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+    o.boundingSphere = o.geometry.boundingSphere.clone(); o.boundingSphere.radius *= 1.6;
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     for (const m of mats) {
       if (!m.isMeshStandardMaterial) continue;
@@ -1116,7 +1233,7 @@ function kneeDir(knee) {
 function onKits(team) {
   battingTeam = team;
   const live = new Set();
-  for (const h of heroes) { h.root.visible = h.when === team; if (h.root.visible) live.add(h.driver); }
+  for (const h of heroes) { h.root.visible = h.when === team || h.when === "both"; if (h.root.visible) live.add(h.driver); }
   for (const h of heroes) for (const m of h.capsules) m.visible = !live.has(h.driver);
 }
 // Builds that can't host .glb files ship each model as base64 text next to the page instead.
@@ -1136,7 +1253,7 @@ function loadHeroes() {
   const loader = new GLTFLoader();
   for (const M of HERO_MODELS) {
     fetchModel(M.url).then((buf) => loader.parseAsync(buf, "")).then((gltf) => {
-      for (const drv of M.drivers()) { const h = makeHero(gltf.scene, drv); if (h) { h.when = M.when; heroes.push(h); } }
+      for (const R of M.roles) for (const drv of R.drivers()) { const h = makeHero(gltf.scene, drv); if (h) { h.when = R.when; heroes.push(h); } }
       onKits(battingTeam);
     }).catch(() => { /* this model is missing: that role keeps its capsule player */ });
   }
@@ -1880,6 +1997,7 @@ function updateCamera(rdt) {
     case "inspect": tPos.set(3.2, 1.5, 9.4); tLook.set(-0.3, 0.95, 9.0); k = 20; break;   // test hook: side-on close-up
     case "inspect2": tPos.set(-0.2, 1.75, 5.6); tLook.set(-0.44, 1.45, 9.05); k = 20; break; // test hook: from the bowler's side
     case "inspect3": tPos.set(4.5, 1.9, -7.5); tLook.set(0.4, 1.3, -10.5); k = 20; break;     // test hook: beside the bowler's crease
+    case "fixed": k = 30; break;                                                                  // test hook: pose set by setCamPose
     case "inspect4": tPos.copy(bowler.root.position).add(_tmp.set(5.5, 1.4, 1.2)); tLook.copy(bowler.root.position).add(_tmp.set(0, 1.15, 0)); k = 30; break; // test hook: tracks the bowler side-on
     case "bat": tPos.set(0.35, 2.5, 13.2); tLook.set(0, 0.65, CONTACT_Z); k = 3.5; break;    // contact point = screen centre
     case "aim": tPos.set(0.12, 1.95, -9.3); tLook.set(0, 0.36, S_Z); k = 3; zoom = 14.5 / baseFov; break;  // bowler's eye, stumps centred
@@ -2074,6 +2192,8 @@ function perfCheck(rdt) {
       DPR = Math.min(DPR, 1.25); renderer.setPixelRatio(DPR);
       key.shadow.mapSize.set(1024, 1024); if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; }
       torchSize.value = 150 * DPR;
+      crowdShare = 0.6;
+      if (crowdCards) crowdCards.geometry.instanceCount = Math.floor(crowdSpots.length / 4 * crowdShare);
       resize();
     }
   }
@@ -2220,12 +2340,13 @@ const playBtn = $("playBtn");
 playBtn.disabled = false; playBtn.textContent = "Play";
 window.__ok = true;
 requestAnimationFrame(frame);
-setTimeout(loadHeroes, 200);   // after the first frame so the title shows immediately
+setTimeout(loadCrowdCards, 50);   // both after the first frame so the title shows immediately
+setTimeout(loadHeroes, 200);
 
 // test hooks (harmless in production)
 window.__game = { heroes, game, get state() { return state; }, get cur() { return cur; }, camera, scene, startMatch, startBowlInnings,
   playerSwing, swipeDown, swipeMove, swipeUp, bowlFromSwipe, simFlight, resolveShot, outcomeOf, dirVec, buildDelivery, aiDelivery, fielders,
-  setCam: (m) => { camMode = m; }, get delT() { return delT; }, get releaseNow() { return releaseNow; }, get flightT() { return flightT; }, get bowlerT() { return bowlerT; } };
+  setCam: (m) => { camMode = m; }, setCamPose: (p, l) => { camMode = "fixed"; tPos.set(...p); tLook.set(...l); }, get delT() { return delT; }, get releaseNow() { return releaseNow; }, get flightT() { return flightT; }, get bowlerT() { return bowlerT; } };
 </script>
 </body>
 </html>

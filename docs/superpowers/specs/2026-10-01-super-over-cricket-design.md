@@ -86,9 +86,15 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 - Umpire signals for six, four, out and wide. LED stumps and bails flash red.
 - Synthesised bat crack and crowd roar, plus haptics on Android.
 
+### Stadium and crowd
+- **Crowd:** about 28k fans drawn as camera-facing cards from an AI-generated atlas (see "Crowd" below). They bob, jump and switch to a cheering frame on sixes, fours and wickets, then sit back down a few at a time. On the title screen they do the wave.
+- **Stands:** seat rows and aisle steps are painted onto the terraces in a shader, so empty seats read as seats.
+- **Sky and lights:** a navy night sky with a haze lit by the floodlights just above the roof, and faint beams from each floodlight bank to the middle.
+
 ### Performance
-- About 14k instanced fans that bob in a vertex shader, and twinkling phone torches.
-- The game measures its frame rate. Below 45 fps it drops bloom, render resolution and shadow resolution.
+- The crowd is one draw call of instanced cards, and twinkling phone torches are one more.
+- Off-screen 3D players are culled, so they skip both the main and the shadow pass.
+- The game measures its frame rate. Below 45 fps it drops bloom, render resolution and shadow resolution, and draws 60% of the crowd.
 
 ## Livewire branding (first branded edition)
 
@@ -114,17 +120,29 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
      - the arms and legs are aimed along the capsule's limbs.
    - The bat stays on the capsule's grip.
    - If the model fails to load, the capsule players are used instead.
-5. **Cast.** There are three models, and each one is shown only when its side is on screen:
+5. **Cast.** There are five models covering every player on the field. Each role is shown only when its side is on screen:
 
-| Model | Plays | On screen when |
+| Model | Plays while you bat | Plays while you bowl |
 |---|---|---|
-| `livewire-batter.glb` (onyx and neon, logomark on the chest) | your striker and non-striker | you bat |
-| `rival-batter.glb` (ivory and onyx) | the rivals' striker and non-striker | you bowl |
-| `rival-bowler.glb` (ivory and onyx, no helmet or pads) | the bowler running in at you | you bat |
+| `livewire-batter.glb` (onyx and neon, logomark on the chest) | your striker and non-striker | your keeper |
+| `rival-batter.glb` (ivory and onyx) | the rivals' keeper | their striker and non-striker |
+| `rival-bowler.glb` (ivory and onyx, no helmet or pads) | the bowler and the 9 fielders | |
+| `livewire-fielder.glb` (onyx and neon, logomark on the chest) | | your bowler and the 9 fielders |
+| `umpire.glb` (charcoal shirt, white hat) | the umpire | the umpire |
 
-   The rival concepts used the Livewire batter as a style reference, so all three match. Fielders, the keeper, the umpire and your own bowler (seen from behind) are still capsules.
+   The later concepts used the Livewire batter or rival bowler as a style reference, so all five match. The fielder and umpire models are lighter (about 10k triangles) because they are usually far from the camera.
 
-**Cost:** about 140 Higgsfield credits in total, which is 46.75 per player (concept image 2.75, 3D model 44).
+**Cost:** about 234 Higgsfield credits in total, which is 46.75 per player model (concept image 2.75, 3D model 44).
+
+## Crowd
+
+1. **Sprite sheets.** GPT Image 2.5 on Higgsfield, at 4K with a transparent background, made a sheet of 16 different fans in Livewire colours. These include flags, a foam finger, scarves and a phone. A second sheet used the first as a reference and shows the same 16 fans cheering with their arms up. The two sheets cost 8.5 credits.
+2. **Atlas.** `assets/crowd/build-atlas.py` cuts each fan out and scales both sheets to the same size per metre. It puts the feet on the bottom edge of each cell and bleeds colour into the transparent edges so mipmaps stay clean. The result is a 1408 × 1472 WebP, about 350 KB (`assets/crowd/fans.webp`).
+3. **In the game:**
+   - Each seat gets a random fan, mirrored half the time, with its own height, brightness and timing.
+   - The cards turn to face the camera about the vertical axis.
+   - A mip-aware alpha test keeps distant fans from thinning out.
+   - If the atlas can't load (for example over `file://`), the old box crowd stays.
 
 ## Recommendations to make it great
 
@@ -142,6 +160,7 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 
 ## Known prototype limits
 
-- The batters and the rival bowler are generated 3D models. Fielders, the keeper, the umpire and your own bowler are still capsule rigs. Swings are code-driven, not motion-captured. The crowd is boxes.
+- Every player is a generated 3D model, but swings, running and fielding are code-driven, not motion-captured.
+- The crowd is flat cards. They hold up at broadcast distance but look flat if the camera gets within a few metres of the stands.
 - There are no running animations between wickets, no LBW, no no-balls or free hits, and no left-handers.
 - Timing feel was verified headless (SwiftShader) for logic only, with real touch events checked separately. It needs tuning on real phones: touch latency, the speed-to-km/h curve, and how big the stumps target should be.
