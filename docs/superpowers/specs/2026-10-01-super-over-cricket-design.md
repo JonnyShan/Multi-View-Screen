@@ -5,10 +5,10 @@
 
 ## Concept
 
-This is a portrait, one-thumb cricket game built around the **super over**, cricket's real tie-breaker format: 6 balls and 2 wickets per side.
+This is a **phones-only**, portrait, one-thumb cricket game built around the **super over**, cricket's real tie-breaker format: 6 balls and 2 wickets per side. Both halves use the same gesture: swipe up from the bottom of the screen to the middle.
 
-1. **Bat.** The ball is bowled at you and you tap to hit it. Your timing decides the power. A perfect hit sends a six into the stands with a slow-motion chase camera.
-2. **Bowl.** The game flips and you defend your score. You pick a line and length, choose a delivery type, and then lock your release on a meter.
+1. **Bat.** Swipe up so your thumb reaches the gold line across the middle of the screen at the same moment as the ball. Your timing decides the power. A perfect hit sends a six into the stands with a slow-motion chase camera.
+2. **Bowl.** The game flips and you defend your score. The camera looks down the pitch from the bowler's end with the batter's stumps in the middle of the screen. Swipe up to them as fast as you can and stop right on them. Your swipe speed sets the pace, and where your thumb stops is where the ball arrives.
 
 A match lasts about 3 minutes. The real super-over rules give us the scoring for free.
 
@@ -39,25 +39,27 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 
 - **File:** `cricket.html` at the repo root. It is a single file with no build step, following the `delivery3d.html` pattern.
 - **Engine:** Three.js r160 as an ES module from jsdelivr. Everything else is procedural: textures, crowd, audio, stadium. The only download is three.js, about 185 KB gzipped.
-- **Platform:** portrait first. Landscape and desktop still work, with Space as the tap.
+- **Platform:** phones only. Desktops and tablets get a "Grab your phone" screen, and phones held sideways get a "Turn your phone upright" screen. On Android, Play also asks for fullscreen and a portrait lock where allowed. Adding `?anydevice` to the URL skips the gate for development.
 
 ## Systems
 
-### Batting
+### Batting: swipe to the line
 - The AI bowler mixes yorkers, full, good-length and short deliveries. It adds swing, seam and the occasional slower ball. Pace rises through the over.
-- The sim is slowed to about 0.85 s of ball travel for touch input. The speed readout shows real-world km/h.
-- The timing window is measured from the pointer event's `timeStamp`, not the frame time:
+- The batting camera is aimed at the contact point, so the ball reaches the bat at the gold line in the middle of the screen.
+- A swipe has to start in the bottom part of the screen. The moment of the hit is when the thumb crosses the middle line. That moment is interpolated between touch samples, using coalesced pointer events and their timestamps, not the frame time.
+- The perfect moment is when the ball's on-screen position crosses that same line, kept inside the batter's hitting area:
 
   | Timing | Result |
   |---|---|
-  | ±40 ms | Perfect: a lofted six with a slow-motion chase cam |
-  | ±85 ms | Great: a long ball that can be six, four or caught in the deep |
-  | ±135 ms | Good: along the ground |
-  | ±185 ms | Edge: often caught behind |
+  | ±45 ms | Perfect: always a six, with a slow-motion chase cam |
+  | ±90 ms | Great: a long ball that can be six, four or caught in the deep |
+  | ±140 ms | Good: along the ground |
+  | ±190 ms | Edge: often caught behind |
 
-  Yorkers and fast balls shrink these windows.
-- Tapping the left or right side of the screen aims the shot towards leg or off. Early timing pulls the shot squarer and late timing runs it finer.
-- A bounce marker flashes where the ball pitches, as a learning aid. A "Pro" setting could hide it.
+- The swipe angle aims the shot: up-left goes to leg, up-right to off. Early pulls it squarer and late runs it finer.
+- Swipe speed adds power: a faster swipe hits a perfect six further.
+- Crossing the line before the ball is bowled is ignored, so you can retry.
+- A bounce marker flashes where the ball pitches, as a learning aid.
 
 ### Ball physics and fielding
 - The flight sim uses gravity, light drag, bounce and roll. A six is a ball that crosses the 66 m rope on the full; a four crosses it after bouncing.
@@ -65,14 +67,13 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 - There are 10 fielders plus the bowler, each with a reaction time, speed and reach. Catches and stops come from the physics, not a dice roll.
 - Runs come from how long it takes to collect the ball and throw it in.
 
-### Bowling
-- You drag to place a target on the pitch. Coloured length bands show yorker, full, good, back of a length and short.
-- There are three delivery types:
-  - **Pace:** fast with a wide sweet spot.
-  - **Swing:** moves away late, with a narrower sweet spot.
-  - **Slower:** a big bonus if the last ball was quick.
-- The release meter adds scatter, so a bad release becomes a half-volley or a wide.
-- The AI batter weighs how dangerous the delivery is: its length, its line, and how much it differs from the last ball. Repeating a spot gets punished. It also weighs the required rate and how aggressive it needs to be. Physics then decides the actual result.
+### Bowling: swipe to the stumps
+- The aiming view is a zoomed bowler's-eye view, with the batter's stumps dead centre inside a gold crosshair.
+- **Speed.** Swipe speed is measured from touch-down until the thumb settles where it stops, so pausing to adjust costs pace. It maps to 90–153 km/h.
+- **Placement.** Where the thumb stops is cast onto the plane of the stumps. The game then solves the length and line so the ball arrives at exactly that point.
+- **Stop on the stumps** and the ball hits them. On the stumps, the faster the ball, the more likely it bowls the batter (about 30% at 90 km/h, about 90% at 153 km/h).
+- **Miss the stumps** and how close you were, plus your pace, sets how dangerous the ball is. Too far wide is called a wide.
+- A readout confirms each delivery, for example "153 KM/H · Dead centre" or "118 KM/H · Outside off".
 
 ### Juice
 - Hit-stop on a perfect hit, then slow motion and a chase camera.
@@ -107,4 +108,4 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 
 - Characters are capsule rigs, not skinned and motion-captured. The crowd is boxes.
 - There are no running animations between wickets, no LBW, no no-balls or free hits, and no left-handers.
-- Timing feel was verified headless (SwiftShader) for logic only. It needs tuning on real phones, especially iPhone touch latency.
+- Timing feel was verified headless (SwiftShader) for logic only, with real touch events checked separately. It needs tuning on real phones: touch latency, the speed-to-km/h curve, and how big the stumps target should be.
