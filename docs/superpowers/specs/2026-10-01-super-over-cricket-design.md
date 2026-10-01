@@ -125,7 +125,8 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 3. **Optimisation** with gltf-transform:
    - The material's metalness is set to 0 and its emissive map removed, because Meshy exported it fully metallic and self-lit.
    - The texture goes from 2048 px PNG to 1024 px WebP.
-   - File size drops from 6.9 MB to 1.4 MB (`assets/players/livewire-batter.glb`).
+   - File size drops from 6.9 MB to 1.4 MB.
+   - The texture is then moved out of the model into its own file beside it (`assets/players/livewire-batter.glb` plus `livewire-batter.webp`). The game loads it as a plain image, the same way as the crowd atlas. A texture packed inside a `.glb` is decoded through a `blob:` fetch. The Claude artifact viewer's security policy blocks that fetch, so every player rendered untextured white there.
 4. **In the game:**
    - The model loads after the first frame, so the title screen isn't held up.
    - The existing capsule rig still runs every animation (swing keyframes and arm IK) but is hidden. Each frame, the model's skeleton copies it:

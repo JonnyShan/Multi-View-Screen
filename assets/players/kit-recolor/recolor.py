@@ -1,9 +1,10 @@
 # Recolour a model's kit in its texture: pixels of the chosen body parts that are cloth-white (or the umpire's grey)
 # become the team colour, keeping the folds and shading. Pads, gloves, boots, skin and black trim are left alone.
 # Needs Pillow, NumPy and SciPy, plus Node with @gltf-transform/core and @gltf-transform/extensions. In a scratch folder:
-#   node dump-uvs.mjs <model.glb> rival-bowler     -> rival-bowler_base.webp + rival-bowler_tris.json (UVs, bones)
-#   python3 recolor.py rival-bowler                -> rival-bowler_recol.webp
-#   node set-texture.mjs <model.glb> rival-bowler_recol.webp <out.glb>
+#   node dump-uvs.mjs assets/players/rival-bowler.glb rival-bowler    -> rival-bowler_tris.json (positions, UVs, bones)
+#   cp assets/players/rival-bowler.webp rival-bowler_base.webp        (each model's texture is the .webp beside it)
+#   python3 recolor.py rival-bowler                                    -> rival-bowler_recol.webp
+# then copy rival-bowler_recol.webp over assets/players/rival-bowler.webp.
 import json, sys, numpy as np
 from PIL import Image, ImageDraw
 from scipy import ndimage

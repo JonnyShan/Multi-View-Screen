@@ -1640,9 +1640,18 @@ function loadHeroes() {
   heroEnv = pm.fromScene(new RoomEnvironment(), 0.04).texture;
   const loader = new GLTFLoader();
   const motions = fetch("assets/players/motions.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  // Each model's skin-and-kit texture is a plain image file beside it, loaded like the crowd atlas. (Textures packed
+  // inside a .glb are decoded through a blob: fetch, which the Claude artifact viewer's security policy blocks, and
+  // the players then render untextured white.)
+  const texLoader = new THREE.TextureLoader();
+  const kitTexture = (url) => new Promise((res) => texLoader.load(url, (t) => {
+    t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy()); res(t);
+  }, undefined, () => { console.warn("3D player: texture missing", url); res(null); }));
   for (const M of HERO_MODELS) {
-    Promise.all([fetchModel(M.url).then((buf) => loader.parseAsync(buf, "")), motions]).then(([gltf, mo]) => {
+    Promise.all([fetchModel(M.url).then((buf) => loader.parseAsync(buf, "")), motions, kitTexture(M.url.replace(/\.glb$/, ".webp"))]).then(([gltf, mo, tex]) => {
       MOTIONS = mo;
+      if (tex) gltf.scene.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) { m.map = tex; m.needsUpdate = true; } });
       let clips = [];
       try { if (mo) clips = Object.keys(mo).map((n) => bakeMotion(gltf.scene, n)); } catch (e) { console.warn("3D player: motion clips skipped", e); }
       for (const R of M.roles) for (const drv of R.drivers()) { const h = makeHero(gltf.scene, drv, clips); if (h) { h.when = R.when; heroes.push(h); } }

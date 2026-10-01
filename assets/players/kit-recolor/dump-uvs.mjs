@@ -1,4 +1,4 @@
-// Dump a model's textures, plus each vertex's position, UV and strongest bone, for recolor.py.
+// Dump each vertex's position, UV and strongest bone (plus any textures still packed in the model), for recolor.py.
 // Usage: node dump-uvs.mjs <model.glb> <out prefix>
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
