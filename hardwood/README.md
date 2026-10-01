@@ -23,6 +23,8 @@ A 1-on-1 half-court basketball game for phones, built with three.js. Open `index
 
 ## Controls
 
+On phones the game plays in portrait only. Turned sideways, the screen asks you to turn the phone upright, and a game in progress pauses. Tablets and computers play either way.
+
 | Action | Touch | Keyboard |
 | --- | --- | --- |
 | Move | Drag on the left half; push to the edge to sprint | WASD / arrows, Shift to sprint |
