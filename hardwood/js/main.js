@@ -203,9 +203,9 @@ for (const m of ['modHow', 'modSettings']) {
     }
   });
 }
-// Start: the title shows straight away and the button fills up while the arena
-// and players download behind it; a tap before then starts the game as soon as
-// everything is in.
+// Start: the loading screen covers the title until the arena and players are
+// in. The button still shows progress, and a tap before everything is in starts
+// the game as soon as it is.
 let matchReady = null, isReady = false, startQueued = false;
 function setStartLabel(f = 0) {
   const b = $('goPlay');
@@ -214,7 +214,16 @@ function setStartLabel(f = 0) {
   b.style.setProperty('--p', `${Math.round(f * 100)}%`);
   b.textContent = startQueued ? 'Starting…' : `Loading ${Math.round(f * 100)}%`;
 }
-onProgress((f) => { if (!isReady) setStartLabel(f); });
+onProgress((f) => { if (!isReady) setStartLabel(f); $('loadBar').style.transform = `scaleX(${f})`; });
+
+// the loading screen (spinning ball); it fades out rather than snapping off
+function showLoader() { const l = $('loading'); l.hidden = false; l.classList.remove('out'); }
+function hideLoader() {
+  const l = $('loading');
+  if (l.hidden || l.classList.contains('out')) return;
+  l.classList.add('out');
+  setTimeout(() => { if (l.classList.contains('out')) l.hidden = true; }, 480);
+}
 $('goPlay').onclick = async () => {
   sound.unlock(); sound.setEnabled(settings.sound);
   if (!isReady) {
@@ -253,7 +262,7 @@ async function rebuildRenderer() {
 }
 
 async function startMatch() {
-  $('loading').hidden = false;
+  showLoader();
   show(null);
   const home = HOME, away = AWAY;
   await buildMatch(home, away);
@@ -264,7 +273,7 @@ async function startMatch() {
   $('gameTo').textContent = `TO ${GAME_TO}`;
   $('hud').hidden = false;
   $('pad').hidden = false;
-  $('loading').hidden = true;
+  hideLoader();
   if (game) game.dispose();
   if (!input) input = new Input();
   input.parkStick();
@@ -401,11 +410,9 @@ function tick(dt) {
 async function boot() {
   const mode = location.hash.replace('#', '');
   setStartLabel(0);
-  if (mode !== 'play') {
-    // the title is a photo: show it now, and let it paint before the 3D setup takes the main thread
-    show('scrTitle'); $('loading').hidden = true;
-    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
-  }
+  // the title waits under the loading screen; let the spinning ball paint before the 3D setup takes the main thread
+  if (mode !== 'play') show('scrTitle');
+  await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
   makeRenderer();
   sound.setEnabled(settings.sound);
   requestAnimationFrame(frame);
@@ -414,8 +421,12 @@ async function boot() {
   sound.preload();          // the sounds wait until the players are in (they'd only compete for bandwidth)
   isReady = true;
   setStartLabel();
+  $('loadBar').style.transform = 'scaleX(1)';
+  // on a fast (cached) load, keep the ball up long enough to see it turn rather than flash
+  const shown = performance.now();
+  if (shown < 900) await new Promise((r) => setTimeout(r, 900 - shown));
+  if (mode === 'play') await startMatch(); else hideLoader();
   $('goPlay').dataset.ready = '1';
-  if (mode === 'play') { $('loading').hidden = true; await startMatch(); }
 }
 boot();
 

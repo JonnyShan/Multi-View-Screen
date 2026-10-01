@@ -241,7 +241,7 @@ export class Replay {
       const r = new THREE.Vector3(d.z, 0, -d.x).multiplyScalar(side);
       const k = clamp((P.t - P.t0) / Math.max(0.5, P.tRelease + 0.3 - P.t0), 0, 1);
       pos = S.clone().addScaledVector(d, 2.1 - k * 0.3).addScaledVector(r, 1.9).setY(1.3 + k * 0.3);
-      look = new THREE.Vector3().lerpVectors(body.clone().setY(body.y + 0.55), ball, sstep(P.tRelease - 0.15, P.tRelease + 0.3, P.t) * 0.6);
+      look = new THREE.Vector3().lerpVectors(body.clone().setY(body.y + 0.55), ball, sstep(P.tRelease - 0.15, P.tRelease + 0.3, P.t) * 0.4);
     } else {
       cut = 1;
       const k = clamp((P.t - P.tRelease) / Math.max(0.5, P.t1 - P.tRelease), 0, 1);

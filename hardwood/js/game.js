@@ -1,6 +1,6 @@
 // 1v1 rules, possession flow, shooting model, moves/steals/blocks, HUD.
 import * as THREE from 'three';
-import { BALL_R } from './ball.js';
+import { BALL_R, AIR_DRAG } from './ball.js';
 import { RIM, COURT, isThree } from './arena.js';
 import { Input } from './input.js';
 import { AI } from './ai.js';
@@ -300,7 +300,9 @@ export class Game {
     const tUp = vy0 / G;
     const tDown = Math.sqrt(2 * Math.max(0.02, H - T.y) / G);
     const tt = tUp + tDown;
-    ball.vel.set((T.x - P0.x) / tt, vy0, (T.z - P0.z) / tt);
+    // aim through the air drag over that flight time, or every long shot drops short
+    const e = (1 - Math.exp(-AIR_DRAG * tt)) / AIR_DRAG;
+    ball.vel.set((T.x - P0.x) / e, (T.y - P0.y + G * tt / AIR_DRAG) / e - G / AIR_DRAG, (T.z - P0.z) / e);
     const hx = ball.vel.x, hz = ball.vel.z, hl = Math.hypot(hx, hz) || 1;
     ball.spin.set(-hz / hl, 0, hx / hl).multiplyScalar(18); // backspin: forward x up
     ball.free = true;
