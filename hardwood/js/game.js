@@ -884,6 +884,8 @@ export class Game {
     this.state = 'dead';
     this.stateT = 0;
     this.pendingPoss = 1 - i;
+    // your threes and dunks get a replay (before the final card on a game winner)
+    if (i === HUMAN && (sh.pts === 3 || sh.type === 'dunk') && this.onHighlight) this.onHighlight({ type: sh.type === 'dunk' ? 'dunk' : 'three', shooter: i, tMake: this.t, winning });
     if (winning) this.finish(i);
     else if (sh.type !== 'dunk' && !p.action) p.setAction('celebrate', { dur: 1.0 });
     this.updateScorebug();
