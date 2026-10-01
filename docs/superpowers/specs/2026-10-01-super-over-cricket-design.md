@@ -7,7 +7,7 @@
 
 This is a **phone-first**, portrait, one-thumb cricket game (also playable on desktop with the mouse) built around the **super over**, cricket's real tie-breaker format: 6 balls and 2 wickets per side. Both halves use the same gesture: swipe up from the bottom of the screen to the middle.
 
-1. **Bat.** Swipe up so your thumb reaches the gold line across the middle of the screen at the same moment as the ball. Your timing decides the power. A perfect hit sends a six into the stands with a slow-motion chase camera.
+1. **Bat.** Swipe up so your thumb reaches the gold line across the middle of the screen at the same moment as the ball. Your timing decides the power. A perfect hit sends a six into the stands, followed by a chase camera.
 2. **Bowl.** The game flips and you defend your score. The camera looks down the pitch from the bowler's end with the batter's stumps in the middle of the screen. Swipe up to them as fast as you can and stop right on them. Your swipe speed sets the pace, and where your thumb stops is where the ball arrives.
 
 A match lasts about 3 minutes. The real super-over rules give us the scoring for free.
@@ -51,7 +51,7 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 
   | Timing | Result |
   |---|---|
-  | ±45 ms | Perfect: always a six, with a slow-motion chase cam |
+  | ±45 ms | Perfect: always a six, with a chase cam |
   | ±90 ms | Great: a long ball that can be six, four or caught in the deep |
   | ±140 ms | Good: along the ground |
   | ±190 ms | Edge: often caught behind |
@@ -85,7 +85,7 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 - A readout confirms each delivery, for example "153 KM/H · Dead centre" or "118 KM/H · Outside off".
 
 ### Juice
-- Hit-stop on a perfect hit, then slow motion and a chase camera.
+- Hit-stop on a perfect hit: a split-second freeze at impact. The ball then flies at full speed, followed by a chase camera. (An earlier stepped slow motion made the ball seem to bounce off the air.)
 - When a six lands:
   - the crowd jumps
   - the LED boards and ribbon switch to "SIX"
