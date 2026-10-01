@@ -5,7 +5,7 @@
 
 ## Concept
 
-This is a **phones-only**, portrait, one-thumb cricket game built around the **super over**, cricket's real tie-breaker format: 6 balls and 2 wickets per side. Both halves use the same gesture: swipe up from the bottom of the screen to the middle.
+This is a **phone-first**, portrait, one-thumb cricket game (also playable on desktop with the mouse) built around the **super over**, cricket's real tie-breaker format: 6 balls and 2 wickets per side. Both halves use the same gesture: swipe up from the bottom of the screen to the middle.
 
 1. **Bat.** Swipe up so your thumb reaches the gold line across the middle of the screen at the same moment as the ball. Your timing decides the power. A perfect hit sends a six into the stands with a slow-motion chase camera.
 2. **Bowl.** The game flips and you defend your score. The camera looks down the pitch from the bowler's end with the batter's stumps in the middle of the screen. Swipe up to them as fast as you can and stop right on them. Your swipe speed sets the pace, and where your thumb stops is where the ball arrives.
@@ -39,7 +39,7 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 
 - **File:** `cricket.html` at the repo root. It is a single file with no build step, following the `delivery3d.html` pattern.
 - **Engine:** Three.js r160 as an ES module from jsdelivr. Everything else is procedural: textures, crowd, audio, stadium. The only download is three.js, about 185 KB gzipped.
-- **Platform:** phones only. Desktops and tablets get a "Grab your phone" screen, and phones held sideways get a "Turn your phone upright" screen. On Android, Play also asks for fullscreen and a portrait lock where allowed. Adding `?anydevice` to the URL skips the gate for development.
+- **Platform:** phone first. Phones held upright play full screen with touch. Desktops, laptops and landscape tablets get the same game in a phone-shaped portrait frame, where a mouse drag does the swipe. The layout and controls are identical. A phone held sideways gets a "Turn your phone upright" screen. On touch devices, Play also asks for fullscreen and a portrait lock where allowed.
 
 ## Systems
 
