@@ -361,7 +361,8 @@ class Game {
     this.camera.fov = portrait ? 58 : 40;
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(tgt);
-    if (this.state === 'title') this.#viewOffset(portrait ? 0 : -0.2, portrait ? 0.22 : 0);
+    // phones: the bike sits a quarter of the screen right of centre, clear of the title text
+    if (this.state === 'title') this.#viewOffset(portrait ? -0.25 : -0.2, portrait ? 0.22 : 0);
     else this.#viewOffset(0, 0);
     this.camera.updateProjectionMatrix();
     this.#fx(0, 0);
