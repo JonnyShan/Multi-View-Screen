@@ -99,7 +99,7 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 - **Kits:** your team (Livewire) wears onyx with neon, and the rivals wear ivory with onyx.
 - **Rest of the stadium:** the crowd wears the brand colours, the big screen has a Livewire header, and the title screen shows the Livewire lockup.
 
-## 3D player pipeline (tested on one player)
+## 3D player pipeline
 
 1. **Concept image.** Generated on Higgsfield with GPT Image 2.5, using the Livewire logomark as a reference. The result is a front-view, A-pose batter in Livewire kit with the logomark on the chest (`assets/players/livewire-batter-concept.jpg`).
 2. **3D model.** Meshy 7 image-to-3D on Higgsfield, with textures, PBR and an automatic humanoid skeleton. Settings: A-pose, about 15k triangles, 1.8 m tall. It produces a 24-bone, Mixamo-style rig (Hips, Spine, LeftArm and so on).
@@ -114,9 +114,17 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
      - the arms and legs are aimed along the capsule's limbs.
    - The bat stays on the capsule's grip.
    - If the model fails to load, the capsule players are used instead.
-5. **Scope of the test:** the model is used for your batters (striker and non-striker) while you bat. The rivals' batters use ivory capsules until a rival-kit variant is generated.
+5. **Cast.** There are three models, and each one is shown only when its side is on screen:
 
-**Cost:** 46.75 Higgsfield credits (concept image 2.75, 3D model 44).
+| Model | Plays | On screen when |
+|---|---|---|
+| `livewire-batter.glb` (onyx and neon, logomark on the chest) | your striker and non-striker | you bat |
+| `rival-batter.glb` (ivory and onyx) | the rivals' striker and non-striker | you bowl |
+| `rival-bowler.glb` (ivory and onyx, no helmet or pads) | the bowler running in at you | you bat |
+
+   The rival concepts used the Livewire batter as a style reference, so all three match. Fielders, the keeper, the umpire and your own bowler (seen from behind) are still capsules.
+
+**Cost:** about 140 Higgsfield credits in total, which is 46.75 per player (concept image 2.75, 3D model 44).
 
 ## Recommendations to make it great
 
@@ -134,6 +142,6 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 
 ## Known prototype limits
 
-- Only your batters use the generated 3D model. Fielders, the bowler, the umpire and the rival batters are still capsule rigs. Swings are code-driven, not motion-captured. The crowd is boxes.
+- The batters and the rival bowler are generated 3D models. Fielders, the keeper, the umpire and your own bowler are still capsule rigs. Swings are code-driven, not motion-captured. The crowd is boxes.
 - There are no running animations between wickets, no LBW, no no-balls or free hits, and no left-handers.
 - Timing feel was verified headless (SwiftShader) for logic only, with real touch events checked separately. It needs tuning on real phones: touch latency, the speed-to-km/h curve, and how big the stumps target should be.
