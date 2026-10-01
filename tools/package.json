@@ -1,0 +1,13 @@
+{
+  "name": "redline-tools",
+  "private": true,
+  "type": "module",
+  "description": "Build helpers for the RED LINE reskins: model compression, brand stamping, size and console checks.",
+  "dependencies": {
+    "@gltf-transform/core": "^4.1.0",
+    "@gltf-transform/extensions": "^4.1.0",
+    "@gltf-transform/functions": "^4.1.0",
+    "meshoptimizer": "^0.22.0",
+    "sharp": "^0.33.5"
+  }
+}
