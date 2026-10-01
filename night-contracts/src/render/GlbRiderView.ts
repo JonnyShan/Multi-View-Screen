@@ -112,6 +112,9 @@ export class GlbRiderView {
   private gunDrawn = false;
   /** Holster transform in the right thigh's space, found at the rest pose. */
   private readonly holster: [THREE.Vector3, THREE.Quaternion, THREE.Vector3];
+  /** The sheath's turn on the chest standing, and tucked on the bike (laid along the back). */
+  private readonly sayaStand: THREE.Quaternion;
+  private readonly sayaRide: THREE.Quaternion;
 
   constructor(
     private readonly bike: BikeModel,
@@ -162,13 +165,15 @@ export class GlbRiderView {
     this.saya = kit.saya;
     this.restPose();
     this.root.updateMatrixWorld(true);
-    // sheath diagonally across the back, handle over the right shoulder
+    // sheath diagonally across the back, mouth behind the right shoulder, tip at the left hip
     const chestY = this.b.chest.getWorldPosition(_p).y;
     this.saya.removeFromParent();
-    this.saya.position.set(-0.75, chestY + 0.9, -1.15);
-    this.saya.rotation.set(0, 0, -Math.PI + 0.3);
+    this.saya.position.set(-0.8, chestY + 1.5, -1.25);
+    this.saya.rotation.set(0, 0, -Math.PI + 0.45);
     this.root.add(this.saya);
     this.b.chest.attach(this.saya);
+    this.sayaStand = this.saya.quaternion.clone();
+    this.sayaRide = this.sayaAlongBack();
     // gun on the outside of the right thigh, barrel down
     const hipY = this.b.legR.getWorldPosition(_p).y;
     this.gun.removeFromParent();
@@ -275,6 +280,32 @@ export class GlbRiderView {
     reach(b.armR, b.foreR, b.handR, new THREE.Vector3(-2.2, 6.2, 2.0), new THREE.Vector3(-5, 4, -2));
   }
 
+  /**
+   * Tucked on the bike the chest is nearly flat, so a sheath fixed to it would
+   * stick out behind. Turn it to run from the shoulder to the left hip instead.
+   */
+  private sayaAlongBack(): THREE.Quaternion {
+    const parent = this.root.parent;
+    this.root.removeFromParent();
+    this.root.position.set(0, 0, 0);
+    this.root.rotation.set(0, 0, 0);
+    this.root.updateMatrixWorld(true);
+    this.restPose();
+    this.poseRide();
+    this.root.updateMatrixWorld(true);
+    const from = this.saya.getWorldPosition(new THREE.Vector3());
+    const q = this.saya.getWorldQuaternion(new THREE.Quaternion());
+    const tipNow = Y.clone().applyQuaternion(q);
+    // the lower back leans forward 0.92 rad in poseRide (hips and lowest spine), so its surface faces up and back
+    const lowBack = 0.92;
+    const target = this.b.legL.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, Math.sin(lowBack), -Math.cos(lowBack)).multiplyScalar(1.3));
+    q.premultiply(new THREE.Quaternion().setFromUnitVectors(tipNow, target.sub(from).normalize()));
+    const local = this.b.chest.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q);
+    this.restPose();
+    parent?.add(this.root);
+    return local;
+  }
+
   private sheathKatana(): void {
     this.saya.add(this.katana);
     this.katana.position.set(0, -0.4, 0);
@@ -330,6 +361,7 @@ export class GlbRiderView {
     else if (speed > 22) key = 'run';
     else if (speed > 4) key = 'walk';
     else key = 'idle';
+    this.saya.quaternion.copy(riding ? this.sayaRide : this.sayaStand);
     const action = this.play(key, slashing ? 0.06 : 0.22);
     if (key === 'run') action.timeScale = THREE.MathUtils.clamp(speed / 44, 0.7, 1.5);
     if (key === 'walk') action.timeScale = THREE.MathUtils.clamp(speed / 12, 0.6, 1.8);

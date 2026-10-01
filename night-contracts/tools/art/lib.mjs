@@ -203,6 +203,134 @@ export async function paintMetalRough(doc, material, pick) {
   material.setMetallicFactor(1).setRoughnessFactor(1);
 }
 
+async function colourMap(material) {
+  const { data, info } = await sharp(Buffer.from(material.getBaseColorTexture().getImage())).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  return { data, w: info.width, h: info.height };
+}
+
+/** Corners and UVs of a triangle, and its face normal. */
+function triangle(pos, uv, i0, i1, i2) {
+  const P = [i0, i1, i2].map((i) => pos.getElement(i, [0, 0, 0]));
+  const T = [i0, i1, i2].map((i) => uv.getElement(i, [0, 0]));
+  const e1 = [0, 1, 2].map((k) => P[1][k] - P[0][k]), e2 = [0, 1, 2].map((k) => P[2][k] - P[0][k]);
+  const n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+  const len = Math.hypot(...n) || 1;
+  return { P, T, n: n.map((v) => v / len) };
+}
+
+/** Visit the pixels of a 2D triangle (a, b, c in pixels) with their barycentric weights. */
+function raster(a, b, c, w, h, fn, pad = 0) {
+  const area = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  if (Math.abs(area) < 1e-9) return;
+  const slack = pad / Math.sqrt(Math.abs(area));
+  const x0 = Math.max(0, Math.floor(Math.min(a[0], b[0], c[0])) - 1), x1 = Math.min(w - 1, Math.ceil(Math.max(a[0], b[0], c[0])) + 1);
+  const y0 = Math.max(0, Math.floor(Math.min(a[1], b[1], c[1])) - 1), y1 = Math.min(h - 1, Math.ceil(Math.max(a[1], b[1], c[1])) + 1);
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const px = x + 0.5, py = y + 0.5;
+      const w0 = ((b[0] - px) * (c[1] - py) - (b[1] - py) * (c[0] - px)) / area;
+      const w1 = ((c[0] - px) * (a[1] - py) - (c[1] - py) * (a[0] - px)) / area;
+      const w2 = 1 - w0 - w1;
+      if (w0 >= -slack && w1 >= -slack && w2 >= -slack) fn(x, y, w0, w1, w2);
+    }
+  }
+}
+
+/**
+ * Orthographic view of a car's back (x to the left, y up, metres) with a 10 cm
+ * grid (every 50 cm brighter, the centre line and ground red), for picking
+ * `blank` boxes in tools/art/car.mjs.
+ */
+export async function renderBack(prim, file, pxPerM = 400) {
+  const pos = prim.getAttribute('POSITION'), uv = prim.getAttribute('TEXCOORD_0'), idx = prim.getIndices();
+  const tex = await colourMap(prim.getMaterial());
+  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity], e = [0, 0, 0];
+  for (let i = 0; i < pos.getCount(); i++) {
+    pos.getElement(i, e);
+    for (let k = 0; k < 3; k++) {
+      min[k] = Math.min(min[k], e[k]);
+      max[k] = Math.max(max[k], e[k]);
+    }
+  }
+  const W = Math.ceil((max[0] - min[0]) * pxPerM) + 1, H = Math.ceil(max[1] * pxPerM) + 1;
+  const img = Buffer.alloc(W * H * 3, 40);
+  const depth = new Float32Array(W * H).fill(Infinity);
+  const sx = (x) => (max[0] - x) * pxPerM, sy = (y) => (max[1] - y) * pxPerM;
+  for (let t = 0; t < idx.getCount(); t += 3) {
+    const { P, T } = triangle(pos, uv, idx.getScalar(t), idx.getScalar(t + 1), idx.getScalar(t + 2));
+    const [a, b, c] = P.map((p) => [sx(p[0]), sy(p[1])]);
+    raster(a, b, c, W, H, (x, y, w0, w1, w2) => {
+      const z = w0 * P[0][2] + w1 * P[1][2] + w2 * P[2][2];
+      const k = y * W + x;
+      if (z >= depth[k]) return;
+      depth[k] = z;
+      const u = w0 * T[0][0] + w1 * T[1][0] + w2 * T[2][0], v = w0 * T[0][1] + w1 * T[1][1] + w2 * T[2][1];
+      const tx = Math.min(tex.w - 1, Math.max(0, Math.floor((u - Math.floor(u)) * tex.w))), ty = Math.min(tex.h - 1, Math.max(0, Math.floor((v - Math.floor(v)) * tex.h)));
+      const src = (ty * tex.w + tx) * 3;
+      img[k * 3] = tex.data[src];
+      img[k * 3 + 1] = tex.data[src + 1];
+      img[k * 3 + 2] = tex.data[src + 2];
+    });
+  }
+  const line = (k, rgb) => {
+    for (let c = 0; c < 3; c++) img[k * 3 + c] = (img[k * 3 + c] + rgb[c]) >> 1;
+  };
+  for (let g = Math.ceil(min[0] * 10); g <= Math.floor(max[0] * 10); g++) {
+    const x = Math.round(sx(g / 10));
+    for (let y = 0; y < H; y++) line(y * W + x, g === 0 ? [255, 0, 0] : g % 5 === 0 ? [0, 255, 255] : [0, 120, 255]);
+  }
+  for (let g = 0; g <= Math.floor(max[1] * 10); g++) {
+    const y = Math.min(H - 1, Math.round(sy(g / 10)));
+    for (let x = 0; x < W; x++) line(y * W + x, g === 0 ? [255, 0, 0] : g % 5 === 0 ? [0, 255, 255] : [0, 120, 255]);
+  }
+  await sharp(img, { raw: { width: W, height: H, channels: 3 } }).png().toFile(file);
+  // pixel (px, py) is x = left - px / pxPerM, y = top - py / pxPerM
+  return { left: max[0], top: max[1], pxPerM };
+}
+
+/**
+ * Paint over made-up marks (plate text, badge dots) on a car's back: every
+ * texel whose surface point lies in one of the boxes [x0, x1, y0, y1, fill?]
+ * (metres, x to the left) on a back-facing triangle within `depth` of the
+ * rearmost point takes one colour: the median of the box's light texels
+ * (`light`, the default: paint behind dark marks), dark texels (`dark`: a black
+ * panel behind light marks) or all of them (`all`: a lamp lens).
+ */
+export async function blankBack(doc, prim, boxes, depth = 0.35) {
+  const material = prim.getMaterial();
+  const tex = await colourMap(material);
+  const pos = prim.getAttribute('POSITION'), uv = prim.getAttribute('TEXCOORD_0'), idx = prim.getIndices();
+  let minZ = Infinity;
+  const e = [0, 0, 0];
+  for (let i = 0; i < pos.getCount(); i++) minZ = Math.min(minZ, pos.getElement(i, e)[2]);
+  const hits = boxes.map(() => new Set());
+  for (let t = 0; t < idx.getCount(); t += 3) {
+    const { P, T, n } = triangle(pos, uv, idx.getScalar(t), idx.getScalar(t + 1), idx.getScalar(t + 2));
+    if (n[2] > -0.25 || Math.min(P[0][2], P[1][2], P[2][2]) > minZ + depth) continue;
+    const [a, b, c] = T.map(([u, v]) => [u * tex.w, v * tex.h]);
+    raster(a, b, c, tex.w, tex.h, (x, y, w0, w1, w2) => {
+      const px = w0 * P[0][0] + w1 * P[1][0] + w2 * P[2][0], py = w0 * P[0][1] + w1 * P[1][1] + w2 * P[2][1];
+      boxes.forEach(([x0, x1, y0, y1], i) => {
+        if (px >= x0 && px <= x1 && py >= y0 && py <= y1) hits[i].add(y * tex.w + x);
+      });
+    }, 1);
+  }
+  const report = [];
+  const luma = (k) => 0.2126 * tex.data[k * 3] + 0.7152 * tex.data[k * 3 + 1] + 0.0722 * tex.data[k * 3 + 2];
+  hits.forEach((set, i) => {
+    const all = [...set];
+    const mode = boxes[i][4] ?? 'light';
+    const some = mode === 'light' ? all.filter((k) => luma(k) > 140) : mode === 'dark' ? all.filter((k) => luma(k) < 90) : all;
+    const pick = some.length > all.length * 0.1 ? some : all;
+    const fill = [0, 1, 2].map((c) => pick.map((k) => tex.data[k * 3 + c]).sort((p, q) => p - q)[Math.floor(pick.length / 2)] ?? 200);
+    for (const k of all) for (let c = 0; c < 3; c++) tex.data[k * 3 + c] = fill[c];
+    report.push(`${boxes[i].join(',')}: ${all.length} texels -> rgb(${fill.join(',')})`);
+  });
+  const png = await sharp(tex.data, { raw: { width: tex.w, height: tex.h, channels: 3 } }).png().toBuffer();
+  material.getBaseColorTexture().setImage(new Uint8Array(png)).setMimeType('image/png');
+  return report;
+}
+
 /** Shrink and re-encode every texture as JPEG: colour maps at `size`, the rest (normal, metal and roughness) at half. */
 export async function shrinkTextures(doc, size = 1024, quality = 84) {
   await doc.transform(

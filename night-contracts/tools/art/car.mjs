@@ -3,10 +3,11 @@
 // out, keeps the front-left one as a template (`wheel`, axle at the origin,
 // outer face towards +x), marks the axles (`wheel_fl` ...) and lamps, thins the
 // body out for instancing, and adds far versions (`body_lod1`, `wheel_lod1`).
-// usage: node tools/art/car.mjs <model> raw.glb [out.glb]
+// usage: node tools/art/car.mjs <model> raw.glb [out.glb] [--back back.png]
+// (--back also writes a gridded view of the back for picking `blank` boxes)
 import { MeshoptSimplifier } from 'meshoptimizer';
 import { compactPrimitive, simplifyPrimitive, weld } from '@gltf-transform/functions';
-import { countTris, finish, io, lumaSampler, mat, plainMaterials, shrinkTextures, splitPrimitive, transformAll } from './lib.mjs';
+import { blankBack, countTris, finish, io, lumaSampler, mat, plainMaterials, renderBack, shrinkTextures, splitPrimitive, transformAll } from './lib.mjs';
 
 /**
  * Measured on each raw model with tools/art/measure.mjs, in its own units after
@@ -24,6 +25,7 @@ const CARS = {
     head: [0.17, 0.145, 0.575],
     tail: [0.17, 0.2, -0.545],
     bodyTris: 6500,
+    blank: [[-0.05, 0.05, 0.96, 1.05], [0.55, 0.72, 0.9, 0.94, 'all'], [-0.72, -0.53, 0.9, 0.94, 'all']], // badge, marks in the tail lamps
   },
   suv: {
     file: 'suv',
@@ -35,6 +37,7 @@ const CARS = {
     head: [0.187, 0.272, 0.503],
     tail: [0.21, 0.251, -0.586],
     bodyTris: 6500,
+    blank: [[-0.36, 0.35, 0.97, 1.09], [-0.035, 0.035, 1.17, 1.23]], // plate, badge
   },
   limo: {
     file: 'limo',
@@ -59,6 +62,7 @@ const CARS = {
     tail: [0.176, 0.227, -0.563],
     bar: [0.093, 0.385, -0.082], // roof light bar, near its left end, on top
     bodyTris: 6500,
+    blank: [[-0.14, 0.18, 0.8, 0.9, 'dark']], // plate on the black boot
   },
   hatch: {
     file: 'civ-hatch',
@@ -70,6 +74,7 @@ const CARS = {
     head: [0.189, 0.215, 0.515],
     tail: [0.195, 0.268, -0.544],
     bodyTris: 6000,
+    blank: [[-0.16, 0.165, 0.43, 0.57], [-0.05, 0.05, 0.89, 0.98]], // plate, badge
   },
   ute: {
     file: 'civ-ute',
@@ -92,10 +97,14 @@ const CARS = {
     head: [0.17, 0.21, 0.488],
     tail: [0.197, 0.215, -0.591],
     bodyTris: 6000,
+    blank: [[0.07, 0.73, 2.04, 2.22], [-0.72, -0.09, 2.07, 2.17], [0.19, 0.39, 1.18, 1.26], [0.32, 0.56, 0.94, 1.0]], // lettering, badge
   },
 };
 
-const [model, src, outArg] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const backAt = argv.indexOf('--back');
+const backPng = backAt >= 0 ? argv.splice(backAt, 2)[1] : null;
+const [model, src, outArg] = argv;
 const c = CARS[model];
 if (!c) throw new Error(`unknown car ${model}; add its measurements to CARS`);
 const out = outArg ?? `assets/models/cars/${c.file}.glb`;
@@ -117,6 +126,9 @@ const { bakeNodes } = await import('./lib.mjs');
 const prims = bakeNodes(doc);
 if (prims.length !== 1) throw new Error(`expected one primitive, got ${prims.length}`);
 transformAll(prims, mat.mul(mat.scale(S), mat.mul(mat.translate(-c.centreX, 0, -midZ), mat.rotY(c.rotY ?? 0))));
+// the generator invents the back: paint out made-up plate text and badge dots
+if (c.blank) for (const line of await blankBack(doc, prims[0], c.blank)) console.log(`blank ${line}`);
+if (backPng) console.log('back view', JSON.stringify(await renderBack(prims[0], backPng)));
 const luma = await lumaSampler(prims[0]);
 // inside 0.8 R: wheel (rim, spokes, hub). Out to the tread (1.04 R): wheel unless it is
 // paint-bright, so the arch lip stays on the body; the dark arch lining beyond stays too.

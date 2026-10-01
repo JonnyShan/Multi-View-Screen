@@ -160,11 +160,12 @@ export function buildRiderModel(): RiderModel {
   const katana = new THREE.Group();
   katana.name = 'katana';
   const steel = new THREE.MeshStandardMaterial({ color: 0xdfe3e8, roughness: 0.15, metalness: 1, emissive: 0x223344, emissiveIntensity: 0.2 });
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.1, 7.2, 0.42).translate(0, 4.4, 0), steel);
-  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.34, 2.6, 0.38).translate(0, -0.5, 0), new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.8 }));
+  // under a metre sheathed (a 0.62 m blade and a two-hand grip), so it stays on the back when tucked
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.1, 5.0, 0.42).translate(0, 3.3, 0), steel);
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.34, 2.2, 0.38).translate(0, -0.3, 0), new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.8 }));
   const tsuba = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.14, 12).translate(0, 0.85, 0), new THREE.MeshStandardMaterial({ color: srgb(0xd9a441), metalness: 1, roughness: 0.3 }));
   katana.add(blade, handle, tsuba);
-  const saya = new THREE.Mesh(new THREE.BoxGeometry(0.34, 7.4, 0.6).translate(0, 4.5, 0), new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.35, metalness: 0.3 }));
+  const saya = new THREE.Mesh(new THREE.BoxGeometry(0.34, 5.2, 0.6).translate(0, 3.4, 0), new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.35, metalness: 0.3 }));
   saya.name = 'saya';
   bones.chest.add(saya);
   // diagonal across the back, handle over the right shoulder
