@@ -1283,6 +1283,7 @@ function guessRegion() {
 }
 
 async function boot() {
+  if (PARAMS.get('debug') === '1') import('./debug.js').then(m => m.start(), () => {}); // phone test mode
   const bar = $('loadbar'), txt = $('loadtxt');
   const progress = (p, t) => { bar.style.width = (p * 100).toFixed(0) + '%'; if (t) txt.textContent = t; };
   const models = loadModels();

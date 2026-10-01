@@ -6,7 +6,8 @@ A tiny server that keeps the best lap per set of initials for every phone and ki
 - `worker.js`: the API.
   - `GET /top?game=<brand id>&limit=10` returns `[{ n, t }]`, fastest first.
   - `POST /lap` with `{ game, n, t }` stores a lap and returns `{ rank }`.
-- `schema.sql`: the one table.
+  - `POST /report` with `{ game, report }` stores a phone test report from `?debug=1` and returns `{ id }`. Reports can only be read in the D1 console.
+- `schema.sql`: the `laps` and `reports` tables.
 - `wrangler.toml`: Worker name and database binding.
 
 The server checks each lap before storing it:
@@ -51,4 +52,4 @@ Then point `leaderboard.url` at `http://127.0.0.1:8787`.
 
 ## Clearing the board
 
-Run this in the D1 console: `DELETE FROM laps WHERE game = 'livewire_motogp_v1';`
+Run this in the D1 console: `DELETE FROM laps WHERE game = 'livewire_motogp_v1';` (and `DELETE FROM reports;` for the test reports).

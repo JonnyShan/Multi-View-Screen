@@ -1,6 +1,7 @@
 // Worldwide leaderboard for the RED LINE reskins: a Cloudflare Worker with a D1 database (binding DB).
 //   GET  /top?game=<brand id>&limit=10   -> [{ n, t }]  best lap per set of initials, fastest first
 //   POST /lap  { game, n, t }             -> { rank }    store a lap
+//   POST /report { game, report }         -> { id }      store a phone test report (?debug=1); read them in the D1 console
 // Laps are checked for shape and a plausible time (MIN_T..MAX_T seconds), and each address may post a few a minute.
 const MIN_T = 40, MAX_T = 900, PER_MINUTE = 6;
 const ALLOW = /^https:\/\/livewire\.gamify\.com$|^http:\/\/localhost(:\d+)?$/; // pages allowed to call it
@@ -44,6 +45,18 @@ export default {
       const ahead = await env.DB.prepare(
         'SELECT COUNT(*) AS c FROM (SELECT n, MIN(t) AS t FROM laps WHERE game = ? GROUP BY n) WHERE t < ?').bind(b.game, t).first();
       return json({ rank: (ahead ? ahead.c : 0) + 1 }, 200, origin);
+    }
+    if (req.method === 'POST' && url.pathname === '/report') {
+      if (origin && !ALLOW.test(origin)) return json({ error: 'origin' }, 403, origin);
+      const text = await req.text();
+      if (text.length > 65536) return json({ error: 'size' }, 413, origin);
+      let b; try { b = JSON.parse(text); } catch { return json({ error: 'json' }, 400, origin); }
+      if (!gameOk(b.game) || !b.report || typeof b.report !== 'object') return json({ error: 'report' }, 400, origin);
+      const ip = req.headers.get('cf-connecting-ip') || '', now = Date.now();
+      const recent = await env.DB.prepare('SELECT COUNT(*) AS c FROM reports WHERE ip = ? AND d > ?').bind(ip, now - 60000).first();
+      if (recent && recent.c >= PER_MINUTE) return json({ error: 'slow down' }, 429, origin);
+      const r = await env.DB.prepare('INSERT INTO reports (d, game, ip, body) VALUES (?, ?, ?, ?)').bind(now, b.game, ip, JSON.stringify(b.report)).run();
+      return json({ id: r.meta.last_row_id }, 200, origin);
     }
     return json({ error: 'not found' }, 404, origin);
   },

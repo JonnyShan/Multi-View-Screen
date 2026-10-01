@@ -60,6 +60,12 @@ An F1 car version, `f1-livewire/`, was retired, and its link now redirects to `m
 
 8. **Publish.** Commit and push. GitHub Pages serves the new folder at `livewire.gamify.com/motogp-acme/`.
 
+9. **Test on real phones** (copies with `js/debug.js`, such as `motogp-livewire/`). Open the game with `?debug=1`, for example `livewire.gamify.com/livewire/?debug=1`.
+   - A readout at the top shows the frame rate, the game's own JavaScript time per frame, the resolution scale, the graphics tier and the screen.
+   - After a lap, tap **Send debug report**, pick how it felt and add a note.
+   - The report goes to the leaderboard server's `reports` table. It includes frame times per screen, GPU, load time, draw calls, sound, share-sheet results, failed requests and errors.
+   - Read the reports in the D1 console: `SELECT id, datetime(d/1000,'unixepoch'), body FROM reports ORDER BY id DESC;`
+
 ## When it takes more than config
 
 - **Bike livery.** The bike's and rider's colours are baked into the textures of `assets/bike-ai.glb` and `assets/rider-ai.glb`.
