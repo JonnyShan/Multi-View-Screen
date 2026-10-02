@@ -68,7 +68,19 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
     - a pull through the leg side;
     - a forward block for defence.
   - Lofted hits finish with the bat high over the shoulder; along-the-ground hits finish lower.
-  - The boots are planted by IK, and both gloves are solved onto the bat handle with the fingers wrapped round it.
+  - The boots are planted by IK.
+  - **Gloves that hold the bat.** The models' own batting gloves are open, flat hands with no finger bones, so they could never close round a handle, and the bat looked like it hung under them. On a model holding a bat:
+    - the open hand shrinks into the wrist, and a padded fist built in code sits on the handle: finger rolls curled diagonally across it, the thumb laid over them, a back-of-hand pad, and a slim cuff on the forearm with a strap in the kit's wristband colour;
+    - each fist keeps a fixed turn on the handle relative to the bat's face, as real hands do, and the arm IK puts the wrist into it;
+    - the top fist leaves about 2.5 cm of handle (with its neon end) showing, and the bottom fist sits just under it;
+    - each elbow swings round at most 0.2 rad a frame, so a change of pose can't flick it across.
+  - **Poses matched to the user's reference pictures** (`assets/players/batting-refs/user-grip-reference.webp`, four poses, drawn mirrored):
+    - stance: knees flexed, hips back, hands hanging relaxed against the front thigh, bat grounded between the feet;
+    - backlift: the hands stay low by the hip while the bat rises up and back;
+    - lofted finish: both hands above the head, the bat carrying on up and out.
+
+    The models' arms are shorter than the puppet's the poses run on. The keys are set so the hands reach the handle without help in every key pose for both kits. When a hand still can't reach, the batter crouches a little, leans over the bat and reaches with his shoulder. The bat tips toward the hands about its toe only after that.
+  - After contact the bat's face stays on the line of the drive as it swings up (at most 0.5 rad of extra turn), instead of twirling 137° in 0.13 s.
   - The bat travels in arcs through in-between poses:
     - on the backlift the toe goes back toward the slips before it rises;
     - on the downswing it lags behind the hands;

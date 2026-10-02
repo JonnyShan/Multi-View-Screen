@@ -1300,8 +1300,9 @@ const gripCanvas = document.createElement("canvas"); gripCanvas.width = 64; grip
 const gripMat = new THREE.MeshStandardMaterial({ map: canvasTex(gripCanvas), roughness: 0.85 });
 const bladeGeo = makeBladeGeometry();
 const handleGeo = new THREE.CylinderGeometry(0.017, 0.0165, 0.3, 14); handleGeo.scale(1.18, 1, 1);
+const BAT_TOE = -0.86;                                 // the toe, in the bat's frame (its origin is the top of the handle)
 function addBat(p) {
-  const grip = new THREE.Group(); p.root.add(grip);
+  const grip = new THREE.Group(); p.root.add(grip); p.tap = 0;
   const handle = new THREE.Mesh(handleGeo, gripMat); handle.position.y = -0.15; handle.castShadow = true; grip.add(handle);
   const blade = new THREE.Mesh(bladeGeo, batMat); blade.position.y = -0.58; blade.castShadow = true; grip.add(blade);
   p.grip = grip;
@@ -1343,32 +1344,40 @@ function setKits(battingTeam) {
 // =====================================================================
 const BK = {
   //  f: which way the bat's face looks (the hitting side, with the sticker); d: which way its toe points
-  stance:  { P: [0, 0.86, 0], pr: [0, 0, 0], sp: [0.3, 0, 0], fl: [0.22, 0, 0, 0.2], fr: [-0.24, 0, 0, 0],
-             g: [-0.04, 0.8, 0.27], d: [0.05, -0.97, 0.22], f: [1, 0, 0.4], ep: [-0.4, -1, -0.5] },
-  back:    { P: [-0.04, 0.82, 0], pr: [0, 0.05, 0], sp: [0.25, 0.1, 0], fl: [0.28, 0, 0, 0.25], fr: [-0.26, 0, 0.03, 0],
-             g: [-0.24, 1.1, 0.18], d: [-0.3, 0.94, 0.15], f: [0.3, 0.1, 1], ep: [0.5, -1, -0.3] },
+  // stance: knees flexed and the hips pushed back, the back straight and leaning over (and a little toward the bowler,
+  // the head over the front foot) so the shoulders come over the hands, which hang with soft elbows (the models' arms
+  // reach the handle without leaning or shrugging) against the front thigh just under hip height; the handle leans in
+  // to them from a toe grounded between the feet
+  stance:  { P: [0.03, 0.75, -0.09], pr: [0, 0.05, 0], sp: [0.78, 0.3, -0.2], fl: [0.22, 0, 0, 0.2], fr: [-0.24, 0, 0, 0],
+             g: [0.21, 0.845, 0.24], d: [-0.07, -0.835, 0.14], f: [1, 0, 0.4], ep: [-0.4, -1, -0.5] },
+  // backlift: still crouched, the hands stay low (belt height, just off the body) and the elbows fold while the bat
+  // rises up and back about 30 degrees off upright, its face opened toward point
+  back:    { P: [-0.02, 0.76, -0.08], pr: [0, 0.05, 0], sp: [0.62, 0.3, -0.05], fl: [0.28, 0, 0, 0.25], fr: [-0.26, 0, 0.03, 0],
+             g: [0.06, 0.85, 0.24], d: [-0.2, 0.85, 0.48], f: [0.3, 0.1, 1], ep: [0.5, -1, -0.3] },
   // front foot: drive, defence, leave, and the follow-throughs of a drive and a lofted drive
   drive:   { P: [0.3, 0.7, 0], pr: [0, 0.3, 0], sp: [0.22, 0.3, -0.62], fl: [0.66, 0, 0.04, 0.6], fr: [-0.32, 0.05, 0, 0.2],
-             g: [0.62, 0.92, 0.22], d: [0.08, -0.99, -0.05], f: [1, 0, 0.12], ep: [0.8, -0.2, -0.2] },
+             g: [0.62, 0.92, 0.22], d: [0.08, -0.99, 0.03], f: [1, 0, 0.12], ep: [0.8, -0.2, -0.2] },
   drivefin:{ P: [0.28, 0.78, 0], pr: [0, 0.5, 0], sp: [0.1, 0.5, -0.2], fl: [0.66, 0, 0.04, 0.6], fr: [-0.28, 0.12, 0.02, 0.6],
-             g: [0.5, 1.5, 0.05], d: [-0.3, 0.85, -0.4], f: [0.6, 0.5, -0.6], ep: [0.7, -0.6, 0.2] },
+             g: [0.5, 1.56, 0.05], d: [-0.3, 0.85, -0.4], f: [0.6, 0.5, -0.6], ep: [0.7, -0.6, 0.2] },
+  // the lofted drive's high finish: both hands together above his head, elbows up, the bat carrying on up and out
+  // over the leg side rather than wrapped down his back
   loft:    { P: [0.3, 0.92, -0.02], pr: [0, 0.9, 0], sp: [-0.1, 0.5, 0], fl: [0.66, 0, 0, 0.7], fr: [-0.25, 0.2, 0.05, 1.2],
-             g: [0.3, 1.78, -0.12], d: [-0.75, -0.45, -0.3], f: [0.3, 0.5, -0.8], ep: [0.6, 0.2, 0.4] },
+             g: [0.2, 1.8, 0.04], d: [0.3, 0.55, -0.78], f: [0.73, -0.52, -0.09], ep: [0.8, 0.6, 0] },
   defend:  { P: [0.2, 0.72, 0], pr: [0, 0.2, 0], sp: [0.3, 0.3, -0.6], fl: [0.58, 0, 0.04, 0.5], fr: [-0.3, 0.03, 0, 0.15],
              g: [0.62, 1.0, 0.2], d: [-0.15, -0.98, 0.05], f: [1, -0.3, 0.05], ep: [0.8, -0.2, -0.2] },
   leave:   { P: [0.04, 0.86, 0], pr: [0, 0.05, 0], sp: [0.1, 0.1, 0], fl: [0.36, 0, 0, 0.3], fr: [-0.26, 0, 0, 0],
              g: [-0.1, 1.62, 0.05], d: [-0.7, 0.68, -0.1], f: [0.2, 0.3, 1], ep: [0.5, 0.2, 0.3] },
   // back foot: pull, cut, and the leg-side slog
-  pull:    { P: [-0.12, 0.88, 0.06], pr: [0, 0.6, 0], sp: [0.05, 0.45, 0.1], fl: [0.2, 0, -0.12, 0.9], fr: [-0.36, 0, 0.16, 0.5],
-             g: [0.42, 1.25, 0.12], d: [0.15, 0.05, 0.99], f: [1, -0.25, 0], ep: [0.3, -1, 0.2] },
+  pull:    { P: [-0.12, 0.88, 0.06], pr: [0, 0.6, 0], sp: [0.05, 0.6, 0.1], fl: [0.2, 0, -0.12, 0.9], fr: [-0.36, 0, 0.16, 0.5],
+             g: [0.34, 1.25, 0.13], d: [0.15, 0.05, 0.99], f: [1, -0.25, 0], ep: [0.3, -1, 0.2] },
   pullfin: { P: [-0.12, 0.92, 0.06], pr: [0, 1.1, 0], sp: [0, 0.8, 0.15], fl: [0.15, 0.05, -0.15, 1.0], fr: [-0.36, 0, 0.16, 0.8],
-             g: [-0.05, 1.5, -0.2], d: [-0.85, -0.35, 0.2], f: [-0.2, -0.5, -0.85], ep: [0.6, 0, 0.3] },
+             g: [0, 1.68, 0.03], d: [-0.65, -0.35, -0.67], f: [0.3, -0.9, 0.2], ep: [0.6, 0, 0.3] },
   slogfin: { P: [0.2, 0.92, -0.04], pr: [0, 1.2, 0], sp: [-0.05, 0.6, 0], fl: [0.5, 0, -0.12, 1.0], fr: [-0.3, 0.22, 0.05, 1.3],
-             g: [0.15, 1.6, -0.22], d: [-0.9, -0.25, 0.15], f: [0.1, 0.6, -0.8], ep: [0.6, 0.2, 0.3] },
-  cut:     { P: [-0.05, 0.84, 0.14], pr: [0, 0.15, 0], sp: [0.35, 0.2, 0], fl: [0.2, 0, 0.02, 0.3], fr: [-0.12, 0, 0.38, 0.3],
-             g: [0.15, 1.05, 0.62], d: [0.85, -0.15, 0.5], f: [0.25, -0.55, 0.8], ep: [0.2, -1, 0.3] },
+             g: [0.12, 1.78, -0.02], d: [-0.25, 0.5, -0.83], f: [0.6, -0.45, -0.45], ep: [0.8, 0.6, 0] },
+  cut:     { P: [-0.05, 0.84, 0.14], pr: [0, 0.15, 0], sp: [0.35, 0.32, 0], fl: [0.2, 0, 0.02, 0.3], fr: [-0.12, 0, 0.38, 0.3],
+             g: [0.1, 1.1, 0.47], d: [0.85, -0.15, 0.5], f: [0.25, -0.55, 0.8], ep: [0.2, -1, 0.3] },
   cutfin:  { P: [-0.05, 0.86, 0.14], pr: [0, 0.4, 0], sp: [0.2, 0.6, 0], fl: [0.2, 0, 0.02, 0.3], fr: [-0.12, 0, 0.38, 0.4],
-             g: [0.1, 1.4, 0.1], d: [-0.8, 0, -0.6], f: [0.1, -0.7, -0.7], ep: [0.5, -0.3, 0.3] },
+             g: [0.05, 1.6, 0.1], d: [-0.55, 0.45, -0.7], f: [0.34, -0.54, -0.6], ep: [0.5, -0.3, 0.3] },
 };
 const BK_V = ["P", "pr", "sp", "g", "d", "f", "ep"], BK_F = ["fl", "fr"];
 function makeKey(src) {
@@ -1394,7 +1403,8 @@ function strideKey(legs, arms) {
   for (const n of ["P", "pr"]) k[n].copy(legs[n]).lerp(arms[n], 0.25);
   for (const n of BK_F) k[n].copy(legs[n]).lerp(arms[n], 0.15);
   for (const n of ["sp", "g", "d", "f", "ep"]) k[n].copy(arms[n]);
-  k.g.x += 0.1; k.sp.y += 0.1;
+  k.sp.lerp(legs.sp, 0.35);                                   // the back comes up a little as he strides
+  k.g.x += 0.1; k.g.y += 0.05; k.sp.y += 0.1;                // the hands stay back and rise to the top of the backswing
   return k;
 }
 BK.strideFront = strideKey(BK.drive, BK.back);
@@ -1402,12 +1412,22 @@ BK.strideBack = strideKey(BK.pull, BK.back);
 // In-between poses that make the bat travel in arcs the way a real one does, instead of cutting straight across
 // (or flipping end over end) between two poses. The backlift takes the toe back toward the slips before it rises;
 // the downswing lets the bat lag behind the hands; after contact the bat carries on forward and up.
-BK.lift = between(BK.stance, BK.back, 0.5, { g: [-0.2, 0.93, 0.24], d: [-0.92, 0, 0.38], f: [0.35, 0.2, 1] });
-BK.down = between(BK.strideFront, BK.drive, 0.5, { g: [0.2, 0.98, 0.26], d: [-0.85, -0.42, 0.3], f: [0.45, -0.2, 1] });
+BK.lift = between(BK.stance, BK.back, 0.5, { g: [0.12, 0.85, 0.24], d: [-0.92, 0, 0.38], f: [0.35, 0.2, 1] });
+BK.down = between(BK.strideFront, BK.drive, 0.5, { g: [0.36, 0.97, 0.26], d: [-0.85, -0.42, 0.3], f: [0.45, -0.2, 1] });
 BK.through = between(BK.drive, BK.loft, 0.35, { g: [0.68, 1.2, 0.08], d: [0.5, 0.82, -0.28], f: [0.85, -0.3, -0.4] });
-BK.pullthru = between(BK.pull, BK.pullfin, 0.45, { g: [0.35, 1.3, -0.15], d: [0.75, 0.15, -0.65], f: [0.45, -0.8, 0.35] });
-BK.slogthru = between(BK.pull, BK.slogfin, 0.45, { g: [0.4, 1.42, -0.15], d: [0.6, 0.5, -0.6], f: [0.5, -0.6, 0.5] });
-BK.cutthru = between(BK.cut, BK.cutfin, 0.45, { g: [0.35, 1.2, 0.35], d: [0.7, 0.3, -0.65], f: [0.4, -0.7, 0.5] });
+// After contact the face stays on the line of the drive as the bat swings up: the follow-through's face is the
+// contact face carried along the swing, turned at most 0.5 rad toward its own (more than that spun the bat in the
+// hands just after contact, 137 degrees in 0.13 s)
+{
+  const k = BK.through, q = new THREE.Quaternion().setFromUnitVectors(BK.drive.d, k.d);
+  const f0 = BK.drive.f.clone().applyQuaternion(q), own = k.f.clone();
+  f0.addScaledVector(k.d, -f0.dot(k.d)).normalize(); own.addScaledVector(k.d, -own.dot(k.d)).normalize();
+  const a = Math.atan2(new V3().crossVectors(f0, own).dot(k.d), f0.dot(own));   // signed, about the bat's axis
+  k.f.copy(f0).applyQuaternion(q.setFromAxisAngle(k.d, clamp(a, -0.5, 0.5)));
+}
+BK.pullthru = between(BK.pull, BK.pullfin, 0.45, { g: [0.16, 1.38, 0.03], d: [0.75, 0.15, -0.65], f: [0.45, -0.8, 0.35] });
+BK.slogthru = between(BK.pull, BK.slogfin, 0.45, { g: [0.3, 1.45, -0.05], d: [0.6, 0.5, -0.6], f: [0.5, -0.6, 0.5] });
+BK.cutthru = between(BK.cut, BK.cutfin, 0.45, { g: [0.28, 1.22, 0.3], d: [0.7, 0.3, -0.65], f: [0.4, -0.7, 0.5] });
 // Each shot is a run of [pose, seconds, easing]. The contact pose always lands 0.08 s in, when the ball arrives.
 // Easing: i speeds up into the pose, o slows into it, l keeps the speed, s eases both ends.
 const SHOTS = {
@@ -1457,15 +1477,24 @@ function slerpDir(a, b, t, out) {
   const s = Math.sin(ang);
   return out.copy(a).multiplyScalar(Math.sin((1 - t) * ang) / s).addScaledVector(_sv.copy(b), Math.sin(t * ang) / s);
 }
+// The face rides round with the toe: each key's face is carried along the toe's arc (the turn that takes that key's
+// toe to the blended one), and the turn left between them about the bat's own axis is shared out evenly. Blending
+// the faces straight across instead spins the bat on its own axis wherever the toe swings past the face's line
+// (half a turn in two frames just after a drive's contact), and the fists, which hold the handle at a fixed turn,
+// would drag the elbows round with it.
+const _tq = new THREE.Quaternion(), _tf = new V3();
 function blendKey(a, b, t) {
-  for (const n of BK_V) if (n !== "d") _bp[n].lerpVectors(a[n], b[n], t);
+  for (const n of BK_V) if (n !== "d" && n !== "f") _bp[n].lerpVectors(a[n], b[n], t);
   for (const n of BK_F) _bp[n].lerpVectors(a[n], b[n], t);
-  slerpDir(a.d, b.d, t, _bp.d); _bp.f.normalize();
+  slerpDir(a.d, b.d, t, _bp.d);
+  _bp.f.copy(a.f).applyQuaternion(_tq.setFromUnitVectors(a.d, _bp.d)).addScaledVector(_bp.d, -_bp.f.dot(_bp.d)).normalize();
+  _tf.copy(b.f).applyQuaternion(_tq.setFromUnitVectors(b.d, _bp.d)).addScaledVector(_bp.d, -_tf.dot(_bp.d)).normalize();
+  slerpDir(_bp.f, _tf, t, _bp.f);
   return _bp;
 }
 const _m4 = new THREE.Matrix4(), _xa = new V3(), _ya = new V3(), _za = new V3();
 const _gw = new V3(), _gw2 = new V3(), _pole = new V3(), _ft = new V3(), _kp = new V3(), _look = new V3(), _hq0 = new THREE.Quaternion();
-const _hdF = new V3(0, 0, 1), BATTER_EYE = new V3(0, 1.9, -10);
+const _hdF = new V3(0, 0, 1), BATTER_EYE = new V3(0, 1.9, -10), _O = new V3();
 // the batter's feet, in his frame: ground point under the ankle, heel lift, and toe turn (yaw) for the knee to follow
 function footTarget(p, f, ankleY, out) {
   return p.root.localToWorld(out.set(f.x, ankleY + f.y, f.z));
@@ -1478,9 +1507,11 @@ function applyBatPose(p, k, time) {
   p.pelvis.rotation.set(k.pr.x, k.pr.y, k.pr.z);
   p.spine.rotation.set(k.sp.x, k.sp.y, k.sp.z);
   for (const s of [p.hipL, p.hipR, p.kneeL, p.kneeR]) s.rotation.set(0, 0, 0);
-  const tap = batAnim.mode === "stance" ? Math.max(0, Math.sin(time * 5)) * 0.03 : 0;
-  p.grip.position.copy(k.g); p.grip.position.y += tap;
-  _ya.copy(k.d).negate();                                     // bat local +y points from toe to handle
+  // waiting in his stance he taps the bat: the hands rise a touch and the wrists cock the toe up and back toward
+  // the slips, then let it drop (the whole bat hopping up and down would lift the gloves off his thigh)
+  const tap = batAnim.mode === "stance" ? Math.pow(Math.max(0, Math.sin(time * 4)), 2) : 0;
+  p.tap = tap * 0.02; p.grip.position.copy(k.g); p.grip.position.y += p.tap;
+  _ya.copy(k.d); _ya.x -= tap * 0.1; _ya.normalize().negate();   // bat local +y points from toe to handle
   _za.copy(k.f).addScaledVector(_ya, -k.f.dot(_ya)).normalize().negate();   // the blade's face is its local -z
   _xa.crossVectors(_ya, _za);
   _m4.makeBasis(_xa, _ya, _za);
@@ -1495,7 +1526,8 @@ function applyBatPose(p, k, time) {
   p.head.getWorldPosition(_gw2); _look.sub(_gw2).normalize();
   p.head.parent.getWorldQuaternion(_hq0).invert(); _look.applyQuaternion(_hq0);
   _look.y = clamp(_look.y, -0.7, 0.75); _look.z = Math.max(_look.z, -0.15); _look.normalize();   // no owl turns
-  p.head.quaternion.setFromUnitVectors(_hdF, _look);
+  // eyes level: the crown stays up as the head turns, instead of rolling over with his bent back
+  p.head.quaternion.setFromRotationMatrix(_m4.lookAt(_look, _O, _gw.set(0, 1, 0).applyQuaternion(_hq0)));
   // arms: top hand at the end of the handle, bottom hand just below it
   p.root.updateMatrixWorld(true);
   p.grip.getWorldPosition(_gw);
@@ -1609,9 +1641,9 @@ function applyBowlPose(p, k) {
 // while you bat the rivals bowl and field, and while they bat your Livewire side does.
 const outfield = () => fielders.filter((f) => !f.keeper && !f.isBowler).map((f) => f.rig);
 const HERO_MODELS = [
-  // accent: the batting gloves' wristband colour
-  { url: "assets/players/livewire-batter.glb", accent: LW.neon, roles: [{ drivers: () => [batter, nonStriker], when: "you" }, { drivers: () => [keeper.rig], when: "rival" }] },
-  { url: "assets/players/rival-batter.glb", accent: "#1A1A1A", roles: [{ drivers: () => [batter, nonStriker], when: "rival" }, { drivers: () => [keeper.rig], when: "you" }] },
+  // accent: the batting gloves' wristband colour; glove: their off-white (the mean of the white kit in the model's texture)
+  { url: "assets/players/livewire-batter.glb", accent: LW.neon, glove: "#f0efec", roles: [{ drivers: () => [batter, nonStriker], when: "you" }, { drivers: () => [keeper.rig], when: "rival" }] },
+  { url: "assets/players/rival-batter.glb", accent: "#1A1A1A", glove: "#ebebe9", roles: [{ drivers: () => [batter, nonStriker], when: "rival" }, { drivers: () => [keeper.rig], when: "you" }] },
   { url: "assets/players/rival-bowler.glb", roles: [{ drivers: () => [bowler, ...outfield()], when: "you" }] },
   { url: "assets/players/livewire-fielder.glb", roles: [{ drivers: () => [bowler, ...outfield()], when: "rival" }] },
   { url: "assets/players/umpire.glb", roles: [{ drivers: () => [umpire], when: "both" }] },
@@ -1679,9 +1711,9 @@ function makeHero(template, driver, clips) {
   const keep = new Set(); if (driver.grip) driver.grip.traverse((o) => keep.add(o));
   const h = { root, B, rest, restW, hipsRest, ankleY, driver, capsules: capsules.filter((m) => !keep.has(m)),
     fielder: fielders.find((f) => f.rig === driver) || null, mode: "puppet", fade: 1, speed: 0, lastP: driver.root.position.clone(),
-    snapQ: rest.map(() => new THREE.Quaternion()), snapP: rest.map(() => new V3()), mixer: null, acts: null, gloves: null, chest: null, batShift: 0 };
+    snapQ: rest.map(() => new THREE.Quaternion()), snapP: rest.map(() => new V3()), mixer: null, acts: null, gloves: null, chest: null, batShift: 0, batTilt: 0 };
   if (driver.grip) {
-    h.gloves = makeGloves(h, template.userData.accent || "#ffffff");
+    h.gloves = makeGloves(h, template.userData.accent || "#ffffff", template.userData.glove || "#f0efec");
     h.chest = B.spine.children.find((c) => c.isBone && /spine/i.test(c.name)) || null;   // the next bone up the back
   }
   if (clips && clips.length) {
@@ -1704,8 +1736,9 @@ function driveHero(h) {
   setBoneWorldQ(h.B.hips, d.pelvis.getWorldQuaternion(_hq).multiply(h.restW.hips));
   setBoneWorldQ(h.B.spine, d.spine.getWorldQuaternion(_hq).multiply(h.restW.spine));
   // a striker whose arms can't reach the bat handle standing as the puppet does bends his knees a little more first
+  // (judged without the stance bat-tap, so he holds the crouch through it)
   if (h.gloves && d !== nonStriker && d.grip.visible) {
-    const s = gripShort(h, d);
+    d.grip.position.y -= d.tap; const s = fistsOn(h, d); d.grip.position.y += d.tap;
     if (s > 0) { h.B.hips.getWorldPosition(_hb); _hb.y -= Math.min(0.06, s * 0.5); h.B.hips.parent.worldToLocal(_hb); h.B.hips.position.copy(_hb); }
   }
   // limbs point where the puppet's limbs point
@@ -1753,23 +1786,44 @@ function palmPos(h, out) {
 // ---- batting gloves that close round the handle ----
 // The batter models' own gloves are open, flat hands (no finger bones), so they can never wrap a handle. On a model
 // that holds a bat the hand bone is shrunk away and a padded fist is built round the handle instead, parented to
-// the bat so the handle always runs through it: four finger rolls curled round the handle, the thumb lying down its
-// back, the back-of-hand pad, and on the forearm a flared cuff with a strap in the kit's wristband colour.
+// the bat so the handle always runs through it: four finger rolls curled round the handle, the thumb laid over
+// them, the back-of-hand pad, and on the forearm a slim cuff with a strap in the kit's wristband colour.
+// Every glove and grip tunable is here.
+const GLOVE = {
+  diag: 0.5,          // the handle crosses the palm on a slant (base of the index finger to the heel of the hand): the
+                      // hand sits this far (rad) off square on it, its wrist up toward the handle's top end
+  foreEl: 1.22,       // a relaxed wrist sends the forearm this steeply (rad) up the line of the handle, as in a stance
+  // each fist's fixed turn (rad) round the handle from the bat's face: top hand, bottom hand. The backs of the hands
+  // face roughly opposite ways, the top hand's toward the off side in the stance, the bottom hand's toward the keeper
+  roll: [-1.45, -1.0],
+  give: 0.15,         // the most (rad) a fist eases round from that toward its shoulder
+  swivel: 0.8,        // how hard each elbow is drawn toward the line a relaxed wrist gives the forearm, against the pose's own
+                      // elbow direction (weight 1; under 1, so the elbow keeps within asin(swivel) of the pose's side)
+  show: 0.025,        // handle, with its neon end, left showing above the top fist (m)
+  overlap: 0,         // the bottom fist tucks this far (m) up under the top fist (0: they just touch)
+  poleRate: 0.2,      // the most (rad) an elbow swings round in a frame, so a change of pose can't flick it across
+  tilt: 0.35,         // a bat tips about its toe up to this far (rad) toward hands that can't reach it, then slides
+  cuffR: 0.03, cuffLen: 0.055, strap: 0.012,   // the cuff over the end of the forearm, and its kit-colour strap (m)
+};
 // Glove frame (a left hand; the right hand is its mirror image in z): y up the handle toward its top end, the
-// handle's axis through the origin, the back of the hand facing -z and the wrist out on +x, a little up the
-// handle, as a cocked wrist holds it. The fist turns round the handle each frame to face its forearm.
-const GLOVE_WRIST = new V3(0.056, 0.03, -0.024);
-function gloveGeometry(right) {
-  const pos = [], col = [], idx = [], WH = new THREE.Color(0xf3f3f0), GR = new THREE.Color(0xb4b8bc);
-  const _T = new V3(), _N = new V3(), _B = new V3(), _p = new V3();
+// handle's axis through the origin. The fist is laid out square to the handle (back of the hand facing -z, the
+// knuckles round on -x, the wrist out on +x), then turned GLOVE.diag about z, so the fingers wrap the handle on a
+// slant and the wrist sits up the handle, each finger still hugging it. userData: the wrist (w0, where the
+// forearm's end goes), and the way a relaxed wrist sends the forearm from it (fore, at azimuth az round the handle).
+function gloveGeometry(right, tone) {
+  const pos = [], col = [], idx = [], WH = new THREE.Color(tone), GR = WH.clone().multiplyScalar(0.72);
+  const c = Math.cos(GLOVE.diag), s = Math.sin(GLOVE.diag), _T = new V3(), _N = new V3(), _B = new V3(), _p = new V3();
+  const turn = (p) => p.set(p.x * c - p.y * s, p.x * s + p.y * c, p.z);
+  // a point th round the handle, r out from its axis and y up it on the square fist, turned and kept r out
+  const wrap = (th, r, y) => { const p = turn(new V3(r * Math.cos(th), y, r * Math.sin(th))), k = r / Math.hypot(p.x, p.z); p.x *= k; p.z *= k; return p; };
   // a tube along the points P, radius r(i) and colour c(i) per ring, capped at both ends
-  function tube(P, r, c, n) {
+  function tube(P, r, cl, n) {
     const b0 = pos.length / 3;
     for (let i = 0; i < P.length; i++) {
       _T.subVectors(P[Math.min(i + 1, P.length - 1)], P[Math.max(i - 1, 0)]).normalize();
       if (i === 0) _N.set(Math.abs(_T.y) < 0.9 ? 0 : 1, Math.abs(_T.y) < 0.9 ? 1 : 0, 0);
       _N.addScaledVector(_T, -_N.dot(_T)).normalize(); _B.crossVectors(_T, _N);       // carried along the tube
-      const ri = r(i), ci = c(i);
+      const ri = r(i), ci = cl(i);
       for (let k = 0; k < n; k++) {
         const a = (k / n) * Math.PI * 2;
         _p.copy(P[i]).addScaledVector(_N, Math.cos(a) * ri).addScaledVector(_B, Math.sin(a) * ri);
@@ -1780,20 +1834,22 @@ function gloveGeometry(right) {
       const a = b0 + i * n + k, b = b0 + i * n + ((k + 1) % n);
       idx.push(a, b, b + n, a, b + n, a + n);
     }
-    for (const [i, s] of [[0, -1], [P.length - 1, 1]]) {
-      const ce = pos.length / 3, ci = c(i); pos.push(P[i].x, P[i].y, P[i].z); col.push(ci.r, ci.g, ci.b);
-      for (let k = 0; k < n; k++) { const a = b0 + i * n + k, b = b0 + i * n + ((k + 1) % n); s > 0 ? idx.push(ce, a, b) : idx.push(ce, b, a); }
+    for (const [i, sg] of [[0, -1], [P.length - 1, 1]]) {
+      const ce = pos.length / 3, ci = cl(i); pos.push(P[i].x, P[i].y, P[i].z); col.push(ci.r, ci.g, ci.b);
+      for (let k = 0; k < n; k++) { const a = b0 + i * n + k, b = b0 + i * n + ((k + 1) % n); sg > 0 ? idx.push(ce, a, b) : idx.push(ce, b, a); }
     }
   }
-  // a rounded box (superellipsoid) at c with half sizes s along the axes ex, ey, ez
-  function pillow(c, ex, ey, ez, s, e, cl, nu = 14, nv = 9) {
-    const b0 = pos.length / 3, sp = (x) => Math.sign(x) * Math.pow(Math.abs(x), e);
+  // a rounded box (superellipsoid) on the square fist at cn with half sizes sz along x, y and -z, turned; seam(x, y,
+  // z) shades its stitched seams (0 to 1)
+  function pillow(cn, sz, e, nu = 14, nv = 9, seam = null) {
+    const b0 = pos.length / 3, sp = (x) => Math.sign(x) * Math.pow(Math.abs(x), e), ci = new THREE.Color();
     for (let j = 0; j <= nv; j++) {
       const v = -Math.PI / 2 + (j / nv) * Math.PI;
       for (let k = 0; k < nu; k++) {
-        const u = (k / nu) * Math.PI * 2, a = sp(Math.cos(v)) * sp(Math.cos(u)), b = sp(Math.cos(v)) * sp(Math.sin(u)), z = sp(Math.sin(v));
-        _p.copy(c).addScaledVector(ex, a * s.x).addScaledVector(ey, b * s.y).addScaledVector(ez, z * s.z);
-        const ci = cl(a, b, z); pos.push(_p.x, _p.y, _p.z); col.push(ci.r, ci.g, ci.b);
+        const u = (k / nu) * Math.PI * 2, x = sp(Math.cos(v)) * sp(Math.cos(u)), y = sp(Math.cos(v)) * sp(Math.sin(u)), z = sp(Math.sin(v));
+        ci.copy(WH).lerp(GR, seam ? seam(x, y, z) : 0);
+        turn(_p.set(cn.x + x * sz.x, cn.y + y * sz.y, cn.z - z * sz.z));
+        pos.push(_p.x, _p.y, _p.z); col.push(ci.r, ci.g, ci.b);
       }
     }
     for (let j = 0; j < nv; j++) for (let k = 0; k < nu; k++) {
@@ -1801,57 +1857,69 @@ function gloveGeometry(right) {
       idx.push(a, b + nu, b, a, a + nu, b + nu);
     }
   }
-  // fingers: index (low, toward the blade) to little finger (at the top of the hand), each a roll of three pads
-  // curled round the handle from the knuckles (inside the back pad) to the tip, tucked against the heel of the hand
-  const FY = [-0.0335, -0.0115, 0.0105, 0.031], FR = [0.0132, 0.0137, 0.0132, 0.0116];
+  // fingers, index (low, toward the blade) to little: each a roll of three pads from the knuckles (inside the back
+  // pad) round the far side and across the front of the handle, the tip tucked in under the heel of the hand
+  const FY = [-0.031, -0.0105, 0.0095, 0.0285], FR = [0.0128, 0.0133, 0.0127, 0.0112];
   const S = [0, 0.07, 0.15, 0.25, 0.35, 0.42, 0.5, 0.58, 0.66, 0.74, 0.8, 0.87, 0.93, 0.97, 1];
   for (let f = 0; f < 4; f++) {
-    const rf = FR[f], R = 0.0215 + rf, th0 = 4.2 + f * 0.05, th1 = th0 - 3.95 + f * 0.1;
-    const P = S.map((s) => { const th = th0 + (th1 - th0) * s, rr = R + Math.max(0, 0.12 - s) * 0.08; return new V3(rr * Math.cos(th), FY[f] - 0.003 * s, rr * Math.sin(th)); });
+    const rf = FR[f], R = 0.0215 + rf, th0 = 4.2 + f * 0.05, th1 = 0.3 + f * 0.04;
+    const P = S.map((u) => wrap(th0 + (th1 - th0) * u, R + Math.max(0, 0.12 - u) * 0.08, FY[f] - 0.002 * u));
     tube(P, (i) => {
-      const s = S[i], seg = s < 0.42 ? s / 0.42 : s < 0.74 ? (s - 0.42) / 0.32 : (s - 0.74) / 0.26;
+      const u = S[i], seg = u < 0.42 ? u / 0.42 : u < 0.74 ? (u - 0.42) / 0.32 : (u - 0.74) / 0.26;
       let r = rf * (0.86 + 0.14 * Math.sin(Math.PI * Math.min(1, seg)));
-      if (s > 0.86) r *= Math.sqrt(Math.max(0, 1 - Math.pow((s - 0.86) / 0.14, 2)));
+      if (u > 0.86) r *= Math.sqrt(Math.max(0, 1 - Math.pow((u - 0.86) / 0.14, 2)));
       return r;
-    }, (i) => { const s = S[i]; return Math.abs(s - 0.42) < 0.01 || Math.abs(s - 0.74) < 0.01 ? GR : WH; }, 8);
+    }, (i) => (Math.abs(S[i] - 0.42) < 0.01 || Math.abs(S[i] - 0.74) < 0.01 ? GR : WH), 8);
   }
-  // the back of the hand (tilted up toward the wrist), the heel of the palm the fingertips close onto, and the
-  // wrist the cuff closes over
-  const g = 0.17, ex = new V3(Math.cos(g), Math.sin(g), 0), ey = new V3(-Math.sin(g), Math.cos(g), 0), ez = new V3(0, 0, -1);
-  pillow(new V3(0.012, 0.002, -0.037), ex, ey, ez, new V3(0.049, 0.05, 0.019), 0.62, () => WH);
-  pillow(new V3(0.035, 0.012, -0.013), ex, ey, ez, new V3(0.026, 0.038, 0.017), 0.6, () => WH, 10, 7);
-  tube([new V3(0.036, 0.012, -0.03), new V3(0.05, 0.024, -0.026), GLOVE_WRIST.clone(), new V3(0.066, 0.038, -0.023)], (i) => [0.026, 0.028, 0.028, 0.026][i], () => WH, 10);
-  // thumb: from the ball of the thumb round the handle and down its back, over the index finger
-  const th = new THREE.CatmullRomCurve3([new V3(0.036, -0.022, -0.026), new V3(0.047, -0.034, -0.006), new V3(0.04, -0.044, 0.018), new V3(0.023, -0.053, 0.036), new V3(0.004, -0.058, 0.04)]);
+  // the back of the hand; the heel of the palm, round the wrist side of the handle, that the fingertips tuck in
+  // under; and the wrist: a ball inside the end of the cuff, so the hand bends at it with no gap whichever way the
+  // arm comes in
+  const w0 = new V3(0.058, 0.012, -0.02);
+  // (the back stitched in strips, one down each finger from the knuckles, as on a real glove)
+  pillow(new V3(0.012, -0.001, -0.036), new V3(0.05, 0.046, 0.018), 0.74, 26, 14, (x, y, z) => z < 0.2 || x > 0.3 ? 0
+    : Math.max(...[-0.44, 0.01, 0.44].map((b) => Math.exp(-Math.pow((y - b) / 0.08, 2)))) * 0.6 * Math.min(1, (0.3 - x) * 4));
+  pillow(new V3(0.038, -0.002, -0.001), new V3(0.024, 0.042, 0.023), 0.6, 12, 8);
+  pillow(w0, new V3(0.025, 0.025, 0.025), 1, 12, 8);
+  turn(w0);
+  // the thumb: from its ball at the heel of the hand round the wrist side of the handle and across its front,
+  // lying over the curled index and middle fingers. [angle round, distance out, height] on the square fist
+  const th = new THREE.CatmullRomCurve3([[-0.75, 0.043, -0.024], [-0.2, 0.05, -0.03], [0.4, 0.055, -0.033], [1.0, 0.057, -0.031], [1.45, 0.056, -0.027], [1.75, 0.053, -0.023]].map(([a, r, y]) => wrap(a, r, y)));
   const TS = [0, 0.12, 0.25, 0.38, 0.5, 0.55, 0.62, 0.72, 0.82, 0.9, 0.96, 1];
-  tube(TS.map((s) => th.getPoint(s)), (i) => {
-    const s = TS[i]; let r = 0.0132 * (s < 0.55 ? 1 : 0.84 + 0.16 * Math.sin(Math.PI * Math.min(1, (s - 0.55) / 0.42)));
-    if (s > 0.86) r *= Math.sqrt(Math.max(0, 1 - Math.pow((s - 0.86) / 0.14, 2)));
+  tube(TS.map((u) => th.getPoint(u)), (i) => {
+    const u = TS[i]; let r = 0.0135 * (u < 0.55 ? 1.12 - 0.12 * u / 0.55 : 0.86 + 0.14 * Math.sin(Math.PI * Math.min(1, (u - 0.55) / 0.42)));
+    if (u > 0.86) r *= Math.sqrt(Math.max(0, 1 - Math.pow((u - 0.86) / 0.14, 2)));
     return r;
   }, (i) => (Math.abs(TS[i] - 0.55) < 0.01 ? GR : WH), 9);
   if (right) {
     for (let i = 2; i < pos.length; i += 3) pos[i] = -pos[i];
     for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
+    w0.z = -w0.z;
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
   geo.setIndex(idx); geo.computeVertexNormals();
+  // the way the forearm leaves the wrist with the wrist relaxed: up the handle, out on the wrist's side of it
+  const az = Math.atan2(w0.x, w0.z), fore = new V3(Math.sin(az) * Math.cos(GLOVE.foreEl), Math.sin(GLOVE.foreEl), Math.cos(az) * Math.cos(GLOVE.foreEl));
+  geo.userData = { w0, fore, az };
   return geo;
 }
-// the cuff: a flared padded sleeve round the wrist, along +y toward the hand, with the strap across it
-function cuffGeometry(accent) {
-  const WH = new THREE.Color(0xf3f3f0), AC = new THREE.Color(accent), GR = new THREE.Color(0xc4c7ca);
-  // profile from inside the sleeve, over the lip, along the outside to where it closes round the wrist: [r, y, colour]
-  const P = [[0, -0.04, WH], [0.034, -0.04, WH], [0.037, -0.064, WH], [0.0405, -0.069, GR], [0.0445, -0.064, WH], [0.0445, -0.052, WH],
-    [0.046, -0.049, AC], [0.0465, -0.036, AC], [0.046, -0.023, AC], [0.043, -0.02, WH], [0.041, -0.006, WH], [0.038, 0.008, WH], [0.031, 0.018, WH], [0, 0.026, WH]];
-  const n = 14, pos = [], col = [], idx = [];
-  for (const [r, y, c] of P) for (let k = 0; k < n; k++) {
-    const a = (k / n) * Math.PI * 2; pos.push(r * Math.cos(a), y, r * Math.sin(a)); col.push(c.r, c.g, c.b);
+// the cuff: a slim padded band round the end of the forearm (along +y toward the hand, ending at the wrist), closed
+// and rounded at both ends, with the strap across it
+function cuffGeometry(accent, tone) {
+  const WH = new THREE.Color(tone), AC = new THREE.Color(accent), GR = WH.clone().multiplyScalar(0.8);
+  const R = GLOVE.cuffR, L = GLOVE.cuffLen, a = -L + 0.012, b = a + GLOVE.strap;
+  // profile from the axis at the elbow end, over the rolled edge, along the band and its strap, rounding over the
+  // wrist: [r, y, colour] (a ring repeated in a new colour gives the strap clean edges)
+  const P = [[0, -L, GR], [R * 0.86, -L, GR], [R * 0.98, -L + 0.004, WH], [R, a, WH], [R + 0.0015, a, AC], [R + 0.0015, b, AC], [R, b, WH],
+    [R, -0.012, WH], [R * 0.94, -0.003, WH], [R * 0.78, 0.005, WH], [R * 0.48, 0.01, WH], [0, 0.012, WH]];
+  const n = 16, pos = [], col = [], idx = [];
+  for (const [r, y, cl] of P) for (let k = 0; k < n; k++) {
+    const t = (k / n) * Math.PI * 2; pos.push(r * Math.cos(t), y, r * Math.sin(t)); col.push(cl.r, cl.g, cl.b);
   }
   for (let j = 0; j < P.length - 1; j++) for (let k = 0; k < n; k++) {
-    const a = j * n + k, b = j * n + ((k + 1) % n);
-    idx.push(a, b + n, b, a, a + n, b + n);
+    const i0 = j * n + k, i1 = j * n + ((k + 1) % n);
+    idx.push(i0, i1 + n, i1, i0, i0 + n, i1 + n);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
@@ -1859,55 +1927,122 @@ function cuffGeometry(accent) {
   geo.setIndex(idx); geo.computeVertexNormals();
   return geo;
 }
-// A hero holding the bat gets these gloves, strapped in its own kit's wristband colour: its open hands shrink away
-// into the wrists and each fist goes on the handle, the top hand's top edge level with the end of it and the
-// bottom hand just below.
+// Where the fists go on the handle (their origins, down from its end): the top fist GLOVE.show below the end, the
+// bottom one tucked GLOVE.overlap up under it. They hold the handle on a slant, so their edges run up and down round
+// it: both are taken all round the handle (at the fists' rolls) and matched on the median, so the fists meet on
+// every side rather than at one point.
+function stackFists(fist) {
+  const edge = (i, top) => {
+    const p = fist[i].attributes.position.array, e = new Array(16).fill(top ? -1 : 1);
+    for (let j = 0; j < p.length; j += 3) {
+      if (Math.hypot(p[j], p[j + 2]) > 0.05) continue;                // the fist round the handle, not the wrist
+      const b = Math.floor(((((Math.atan2(p[j], p[j + 2]) + GLOVE.roll[i]) / (2 * Math.PI)) % 1) + 1) % 1 * 16) % 16;
+      e[b] = top ? Math.max(e[b], p[j + 1]) : Math.min(e[b], p[j + 1]);
+    }
+    return e;
+  };
+  const mid = (a) => a.sort((x, y) => x - y)[a.length >> 1], under = edge(0, false), over = edge(1, true);
+  const yTop = -GLOVE.show - mid(edge(0, true));
+  return [yTop, yTop + mid(under.map((x, b) => x - over[b])) + GLOVE.overlap];
+}
+// A hero holding the bat gets these gloves in its own kit's tones: its open hands shrink away into the wrists and
+// the fists go on the handle (stackFists).
 const GLOVE_GEO = {};
 let gloveMat = null;
-function makeGloves(h, accent) {
+function makeGloves(h, accent, tone) {
   const d = h.driver, B = h.B, gloves = [], v = new V3();
-  if (!gloveMat) {
-    gloveMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.78, envMap: heroEnv, envMapIntensity: 0.35 });
-    gloveMat.color.setScalar(0.86);                            // the same tone as the models' own kit
+  if (!gloveMat) {                                             // matte padding: no highlight
+    gloveMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, envMap: heroEnv, envMapIntensity: 0.35 });
+    gloveMat.color.setScalar(0.86);                            // as the models' own kit
   }
-  for (const [s, y] of d === nonStriker ? [["R", -0.045]] : [["L", -0.045], ["R", -0.133]]) {   // the non-striker holds his in his right hand
-    const right = s === "R", arm = B["arm" + s], fore = B["fore" + s], hand = B["hand" + s];
-    const mesh = new THREE.Mesh(GLOVE_GEO[s] || (GLOVE_GEO[s] = gloveGeometry(right)), gloveMat);
+  const geo = (k, make) => GLOVE_GEO[k] || (GLOVE_GEO[k] = make());
+  const fist = [geo("L" + tone, () => gloveGeometry(false, tone)), geo("R" + tone, () => gloveGeometry(true, tone))];
+  const [yTop, yBot] = stackFists(fist);
+  for (const [i, s, y] of [[0, "L", yTop], [1, "R", yBot]]) {
+    const arm = B["arm" + s], fore = B["fore" + s], hand = B["hand" + s];
+    const mesh = new THREE.Mesh(fist[i], gloveMat);
     mesh.position.y = y; mesh.castShadow = true; d.grip.add(mesh);
-    const cuff = new THREE.Mesh(GLOVE_GEO[accent] || (GLOVE_GEO[accent] = cuffGeometry(accent)), gloveMat);
+    const cuff = new THREE.Mesh(geo(accent + tone, () => cuffGeometry(accent, tone)), gloveMat);
     cuff.castShadow = true; cuff.position.copy(hand.position);
     cuff.quaternion.setFromUnitVectors(_wy, v.copy(hand.position).normalize());
     cuff.scale.setScalar(1 / fore.getWorldScale(v).x); fore.add(cuff);
     hand.scale.setScalar(0.01);                                // the model's own open glove, shrunk into the wrist
-    const w0 = GLOVE_WRIST.clone(); if (right) w0.z = -w0.z;
+    const w0 = fist[i].userData.w0;
     const clav = arm.parent && arm.parent.isBone && /shoulder|clav/i.test(arm.parent.name) ? arm.parent : null;
     const reach = arm.getWorldPosition(v).distanceTo(fore.getWorldPosition(_wl)) + _wl.distanceTo(hand.getWorldPosition(v)) - 0.008;
-    gloves.push({ mesh, arm, fore, hand, clav, y, w0, reach, az: Math.atan2(w0.x, w0.z), rho: Math.hypot(w0.x, w0.z), W: new V3() });
+    gloves.push({ i, mesh, arm, fore, hand, clav, y, w0, reach, az: fist[i].userData.az, W: new V3(), pole: new V3() });
   }
   return gloves;
 }
-// Each fist turns round the handle to face its forearm and the arm reaches the fist's wrist. The models' arms are
-// shorter than the capsule puppet's the bat poses were made on, so a wrist still out of reach has the shoulder
-// girdle reach toward it, and then the bat comes the rest of the way to the hands.
+// Each fist holds the handle at its own fixed turn from the bat's face, as real hands do (they don't slide round
+// the handle as the bat swings), easing at most GLOVE.give toward its shoulder, and the arm reaches the fist's
+// wrist. The models' arms are shorter than the capsule puppet's the bat poses were made on, so when a wrist is out
+// of reach the batter leans over his bat and the shoulder girdle reaches toward it; then the bat tips about its
+// toe toward the hands, and slides only the last of the way.
 const _wl = new V3(), _ws = new V3(), _we = new V3(), _wt = new V3(), _wa = new V3(), _wy = new V3(0, 1, 0), _wq = new THREE.Quaternion();
-// how far the hand furthest from the handle is from reaching it (its wrist taken on the shoulder's side of the
-// handle); leaves that wrist in _wt and its shoulder in _we
-function gripShort(h, d) {
+const _bq = new THREE.Quaternion(), _bt = new V3(), _br = new V3();
+// turns each fist on the handle and finds its wrist, g.W; returns how far the hand furthest from its wrist is from
+// reaching it, and leaves that wrist in _wt and its shoulder in _we
+function fistsOn(h, d) {
+  d.grip.updateMatrixWorld(true);
   let worst = 0;
   for (const g of h.gloves) {
-    d.grip.worldToLocal(g.arm.getWorldPosition(_ws));
-    _wl.set(_ws.x, 0, _ws.z).setLength(g.rho); _wl.y = g.y + g.w0.y; d.grip.localToWorld(_wl);
-    const s = g.arm.getWorldPosition(_ws).distanceTo(_wl) - g.reach;
-    if (s > worst) { worst = s; _wt.copy(_wl); _we.copy(_ws); }
+    d.grip.worldToLocal(g.arm.getWorldPosition(_ws));          // the shoulder, in the bat's frame
+    const out = Math.hypot(_ws.x, _ws.z), roll = GLOVE.roll[g.i];
+    // eased toward the shoulder by how far round the handle it is (smoothly, so the fist never flips), and less
+    // as the arm comes down the line of the handle
+    g.mesh.quaternion.setFromAxisAngle(_wy, roll + GLOVE.give * Math.sin(Math.atan2(_ws.x, _ws.z) - g.az - roll) * out / (Math.hypot(out, _ws.y - g.y) || 1));
+    g.mesh.updateMatrixWorld(true); g.mesh.localToWorld(g.W.copy(g.w0));
+    const sh = g.arm.getWorldPosition(_ws).distanceTo(g.W) - g.reach;
+    if (sh > worst) { worst = sh; _wt.copy(g.W); _we.copy(_ws); }
   }
   return worst;
 }
-function gripHands(h, d) {
+// how far the bat must move (toward the shoulders) for every hand to reach its wrist, in _wt
+function reachShift(h) {
+  _wt.set(0, 0, 0);
+  for (let it = 0; it < 3; it++) {
+    let worst = 0, wg = null;
+    for (const g of h.gloves) { const sh = g.arm.getWorldPosition(_ws).distanceTo(_wl.copy(g.W).add(_wt)) - g.reach; if (sh > worst) { worst = sh; wg = g; } }
+    if (!wg) break;
+    wg.arm.getWorldPosition(_ws); _wl.copy(wg.W).add(_wt);
+    _wt.addScaledVector(_ws.sub(_wl).normalize(), worst + 0.002);
+  }
+  return _wt.lengthSq() > 0;
+}
+// the bat comes the rest of the way to the hands: it tips about its toe (as far as GLOVE.tilt), so a grounded bat
+// stays grounded, and slides only if that is not enough
+function batToHands(h, d) {
+  h.batTilt = 0; h.batShift = 0;
+  fistsOn(h, d);
+  if (!reachShift(h)) return;
+  d.grip.localToWorld(_bt.set(0, BAT_TOE, 0));
+  d.grip.localToWorld(_br.set(0, (h.gloves[0].y + h.gloves[1].y) / 2, 0)).sub(_bt);   // toe -> hands
+  _wa.crossVectors(_br, _wt);
+  const a = Math.min(GLOVE.tilt, _wa.length() / _br.lengthSq());                    // swings the hands across the bat by _wt
+  if (a > 1e-4) {
+    _bq.setFromAxisAngle(_wa.normalize(), a);
+    d.grip.getWorldPosition(_wl).sub(_bt).applyQuaternion(_bq).add(_bt);
+    d.grip.position.copy(d.grip.parent.worldToLocal(_wl));
+    d.grip.parent.getWorldQuaternion(_wq);
+    d.grip.quaternion.premultiply(_bq.premultiply(_hq.copy(_wq).invert()).multiply(_wq));
+    h.batTilt = a;
+    fistsOn(h, d);
+    if (!reachShift(h)) return;
+  }
+  h.batShift = _wt.length();
+  for (const g of h.gloves) g.W.add(_wt);
+  d.grip.parent.getWorldQuaternion(_wq).invert(); d.grip.position.add(_wt.applyQuaternion(_wq));
   d.grip.updateMatrixWorld(true);
-  _pole.copy(d.batKey ? d.batKey.ep : _wl.set(-0.4, -1, -0.5)).normalize().applyQuaternion(d.root.quaternion);
-  // the striker first leans over the bat (up to 29 degrees, curved through the lower and middle back) toward a
-  // hand that can't reach, as a real batter bends forward in his stance; the head keeps looking where it was
-  const worst = d !== nonStriker ? gripShort(h, d) : 0;
+}
+function gripHands(h, d) {
+  // the body reaches for the bat as it stands without the stance bat-tap, so the batter doesn't bob with the tap
+  const tap = d.tap;
+  d.grip.position.y -= tap;
+  // a batter first leans over the bat (up to 29 degrees, curved through the lower and middle back) toward a hand
+  // that can't reach, as a real one bends forward in his stance or leans on his bat; the head keeps looking where
+  // it was
+  const worst = fistsOn(h, d);
   if (worst > 0) {
     h.B.spine.getWorldPosition(_ws); _we.sub(_ws); _wa.crossVectors(_we, _wt.sub(_ws));
     if (_wa.lengthSq() > 1e-10) {
@@ -1917,16 +2052,7 @@ function gripHands(h, d) {
       setBoneWorldQ(h.B.head, d.head.getWorldQuaternion(_hq).multiply(h.restW.head));
     }
   }
-  for (const g of h.gloves) {
-    // a first reach for the shoulder's side of the handle shows where the elbow goes; the fist puts its wrist on
-    // that side (the shoulder steadies it when the forearm runs along the handle)
-    d.grip.worldToLocal(g.arm.getWorldPosition(_ws));
-    _wl.set(_ws.x, 0, _ws.z).setLength(g.rho); _wl.y = g.y + g.w0.y;
-    heroReach(g.arm, g.fore, g.hand, d.grip.localToWorld(_wl), _pole, 0);
-    d.grip.worldToLocal(g.fore.getWorldPosition(_we));
-    g.mesh.quaternion.setFromAxisAngle(_wy, Math.atan2(_we.x + 0.3 * _ws.x, _we.z + 0.3 * _ws.z) - g.az);
-    g.mesh.updateMatrixWorld(true); g.mesh.localToWorld(g.W.copy(g.w0));
-  }
+  fistsOn(h, d);
   for (const g of h.gloves) {                                  // the shoulder girdle reaches (up to 20 degrees)
     const short = g.arm.getWorldPosition(_ws).distanceTo(g.W) - g.reach;
     if (short <= 0 || !g.clav) continue;
@@ -1936,21 +2062,26 @@ function gripHands(h, d) {
     _wq.setFromAxisAngle(_wa.normalize(), Math.min(0.35, short / _wl.length()));
     setBoneWorldQ(g.clav, _wq.multiply(g.clav.getWorldQuaternion(_hq)));
   }
-  _wt.set(0, 0, 0);                                            // the bat moves the rest of the way
-  for (let it = 0; it < 3; it++) {
-    let worst = 0, wg = null;
-    for (const g of h.gloves) { const s = g.arm.getWorldPosition(_ws).distanceTo(_wl.copy(g.W).add(_wt)) - g.reach; if (s > worst) { worst = s; wg = g; } }
-    if (!wg) break;
-    wg.arm.getWorldPosition(_ws); _wl.copy(wg.W).add(_wt);
-    _wt.addScaledVector(_ws.sub(_wl).normalize(), worst + 0.002);
+  d.grip.position.y += tap;
+  batToHands(h, d);
+  // each arm reaches its fist's wrist, the elbow drawn (GLOVE.swivel) toward where the glove's relaxed wrist sends
+  // the forearm, so the wrist bends no more than the pose needs. The non-striker's elbows hang out to his sides.
+  // Both pulls are taken square to the shoulder-wrist line, the pose's at full strength: where the two point
+  // opposite ways (the bat's face turning through a follow-through) the elbow then stays on the pose's side
+  // instead of snapping across. (The pose's pull fades only where it runs almost along the arm and so hardly
+  // says which side the elbow goes.)
+  for (const g of h.gloves) {
+    if (d.batKey) _wl.copy(d.batKey.ep); else _wl.set(g.i ? -0.4 : 0.4, -1, -0.3);
+    _wl.normalize().applyQuaternion(d.root.quaternion);
+    _we.subVectors(g.W, g.arm.getWorldPosition(_ws)).normalize();
+    _wl.addScaledVector(_we, -_wl.dot(_we)); _wl.divideScalar(Math.max(_wl.length(), 0.25));
+    g.mesh.getWorldQuaternion(_hq); _wa.copy(g.mesh.geometry.userData.fore).applyQuaternion(_hq);
+    _wl.addScaledVector(_wa.addScaledVector(_we, -_wa.dot(_we)), GLOVE.swivel).normalize();
+    const a = g.pole.lengthSq() ? g.pole.angleTo(_wl) : 0;
+    if (a > GLOVE.poleRate) _wl.copy(slerpDir(g.pole, _wl, GLOVE.poleRate / a, _wt));   // (slerpDir's out can't be its b)
+    g.pole.copy(_wl);
+    heroReach(g.arm, g.fore, g.hand, g.W, _wl, 0);
   }
-  h.batShift = _wt.length();
-  if (h.batShift > 0) {
-    for (const g of h.gloves) g.W.add(_wt);
-    d.grip.parent.getWorldQuaternion(_wq).invert(); d.grip.position.add(_wt.applyQuaternion(_wq));
-    d.grip.updateMatrixWorld(true);
-  }
-  for (const g of h.gloves) heroReach(g.arm, g.fore, g.hand, g.W, _pole, 0);
 }
 // a planted boot: flat on the ground, turned by the pose's toe yaw, rolled onto the toes as the heel lifts
 const _fq = new THREE.Quaternion(), _fq2 = new THREE.Quaternion(), _fx = new V3(1, 0, 0), _fy = new V3(0, 1, 0);
@@ -2089,7 +2220,7 @@ function loadHeroes() {
   }, undefined, () => { console.warn("3D player: texture missing", url); res(null); }));
   for (const M of HERO_MODELS) {
     Promise.all([fetchModel(M.url).then((buf) => loader.parseAsync(buf, "")), motions, kitTexture(M.url.replace(/\.glb$/, ".webp"))]).then(([gltf, mo, tex]) => {
-      MOTIONS = mo; gltf.scene.userData.accent = M.accent;
+      MOTIONS = mo; gltf.scene.userData.accent = M.accent; gltf.scene.userData.glove = M.glove;
       if (tex) gltf.scene.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) { m.map = tex; m.needsUpdate = true; } });
       let clips = [];
       try { if (mo) clips = Object.keys(mo).map((n) => bakeMotion(gltf.scene, n)); } catch (e) { console.warn("3D player: motion clips skipped", e); }
@@ -2952,14 +3083,21 @@ function updateUmpire(dt) {
   }
   setLimbs(umpire, o);
 }
+// the non-striker waits with his bat in front of him, its toe grounded just ahead of his feet, face forward, both
+// gloves on the handle (a model whose arms can't reach tips it toward himself about the toe)
+const NS_TOE = new V3(-0.06, 0, 0.3), NS_BAT = new THREE.Quaternion();
+{
+  _ya.set(0.02, 0.95, -0.12).normalize(); _za.set(0, 0, -1).addScaledVector(_ya, _ya.z).normalize(); _xa.crossVectors(_ya, _za);
+  NS_BAT.setFromRotationMatrix(_m4.makeBasis(_xa, _ya, _za));
+}
 function updateNonStriker() {
-  setLimbs(nonStriker, { py: 0.92 });
-  nonStriker.grip.position.set(0.15, 0.9, 0.14);
-  nonStriker.grip.quaternion.setFromUnitVectors(new V3(0, 1, 0), new V3(0.15, 0.98, 0.1).normalize());
-  nonStriker.root.updateMatrixWorld(true);
-  nonStriker.grip.getWorldPosition(_gw);
-  _pole.set(0.3, -1, -0.3);
-  ik2(nonStriker.shR, nonStriker.elR, _gw, _pole);
+  const p = nonStriker;
+  setLimbs(p, { py: 0.92 });
+  p.grip.quaternion.copy(NS_BAT);
+  p.grip.position.set(0, -BAT_TOE, 0).applyQuaternion(NS_BAT).add(NS_TOE);
+  p.root.updateMatrixWorld(true);
+  p.grip.localToWorld(_gw.set(0, -0.04, 0)); ik2(p.shL, p.elL, _gw, _pole.set(0.4, -1, -0.3).applyQuaternion(p.root.quaternion));
+  p.grip.localToWorld(_gw.set(0, -0.12, 0)); ik2(p.shR, p.elR, _gw, _pole.set(-0.4, -1, -0.3).applyQuaternion(p.root.quaternion));
 }
 
 function updateDelivery() {
@@ -3225,8 +3363,10 @@ window.__game = { heroes, game, get state() { return state; }, get cur() { retur
   batAt: (from, shot, t) => { batAnim.mode = "hold"; batAnim.from = between(BK[from], BK[from], 0, {});
     batAnim.seq = shot === "back" ? [[BK.lift, 0.14, "i"], [BK.back, 0.18, "o"]] : SHOTS[shot]; batAnim.t = t; batAnim.frozen = true; },
   freezeBowl: (t) => { bowlerT = t; bowlFrozen = t !== null; },
+  seqAt: (from, seq, t) => { batAnim.mode = "hold"; batAnim.from = between(BK[from], BK[from], 0, {});
+    batAnim.seq = seq.map(([n, s, e]) => [BK[n], s, e]); batAnim.t = t; batAnim.frozen = true; },
   umpire, ball, batPose: (n) => { batAnim.mode = "hold"; batAnim.from = between(BK[n], BK[n], 0, {}); batAnim.seq = [[BK[n], 0.001, "l"]];
-    batAnim.t = 1; batAnim.frozen = true; }, BK, batter };
+    batAnim.t = 1; batAnim.frozen = true; }, BK, GLOVE, batter, nonStriker };
 </script>
 </body>
 </html>
