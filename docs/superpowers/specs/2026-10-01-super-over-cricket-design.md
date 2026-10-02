@@ -2,6 +2,7 @@
 
 **Date:** 2026-10-01
 **Status:** Playable prototype (`cricket.html`), design open for review
+**Live:** https://livewire.cricket.gamify.com, published from [JonnyShan/livewire-cricket](https://github.com/JonnyShan/livewire-cricket) (GitHub Pages from `main`, with a DNS-only Cloudflare CNAME `livewire.cricket` → `jonnyshan.github.io`, the same setup as livewire.hoops.gamify.com). That repo holds a copy of `cricket.html` as `index.html` plus the assets it loads; copy across again to update the live site.
 
 ## Concept
 
