@@ -119,11 +119,20 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 - Umpire signals for six, four, out and wide. LED stumps and bails flash red.
 - **Crowd sound:** the Livewire stadium crowd shared by the sports games (`assets/audio/`, ElevenLabs-generated, logged in `docs/LICENSES.md`):
   - a 20 s murmur loops seamlessly under the whole game, quiet and behind a 1.8 kHz low-pass;
-  - on big moments it swells and the filter opens toward 12 kHz, so a roar sounds brighter, not just louder: a hit going for four or six (as it leaves the bat), sixes, fours, wickets and a win;
-  - the 6 s cheer plays on top for sixes (full), fours (half) and a win.
+  - on big moments it swells and the filter opens toward 12 kHz, so a roar sounds brighter, not just louder;
+  - the 6 s cheer plays on top for sixes (full), fours (half), wickets you take and a win.
 
   Phones block sound until the first tap, so the audio starts on the first tap anywhere, the intro screen included. The files start downloading at once, and filtered noise stands in for the murmur until the recording is decoded, or for good if it can't load. The sound pauses in a background tab.
-- Synthesised bat crack, edge, keeper's gloves and stumps, plus haptics on Android.
+- **Match sounds** (also ElevenLabs: Sound Effects v2 and the "Viraj" commentator voice, flow "Livewire Cricket sounds"; best take of three to seven each):
+  - *The crowd follows the ball.* A ball that goes high (or a hit racing to the rope) makes the crowd build until the top of its flight, with a rising "oooh" on top. A boundary turns it into the roar; a catch cuts it to an "ohhh" (you were batting) or a roar (you were bowling); a ball that lands safe lets it settle.
+  - *The bat and stumps:* a recorded leather-on-willow crack (pitch varied a little each hit, softer and lower for a block), a thin tick for an edge, and the stumps and bails breaking. The old synth versions stand in until the clips decode.
+  - *Wickets:* the fielders' "Howzat!" on a catch, a crowd gasp, and the commentator.
+  - *The commentator* calls sixes (two lines, alternating), fours, catches, bowled, the last ball and the result (win, loss or tie). The crowd dips to 45% under a call, and a call never talks over the one before it.
+  - *Last-ball tension:* on the final ball of the match the crowd hushes, a slow heartbeat loops and the commentator says "Last ball, everything on it". It all lifts the moment the ball is hit, misses or hits the stumps.
+  - *An air horn* on fours and sixes and a win.
+
+  The crowd is on your side: your wickets get a groan, the rivals' wickets a roar. Sixes and fours get the roar whoever hits them.
+- Synthesised keeper's gloves, ball bounce, whoosh and tick, plus haptics on Android.
 
 ### Stadium and crowd
 - **Crowd:** about 34k seated fans drawn as camera-facing cards from an AI-generated atlas (see "Crowd" below). On sixes, fours and wickets they jump out of their seats to cheer, then sit back down a few at a time. On the title screen they stand as the wave passes.
