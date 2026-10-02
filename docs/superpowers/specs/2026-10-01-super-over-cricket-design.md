@@ -38,7 +38,7 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
 ## Locked prototype scope
 
 - **File:** `cricket.html` at the repo root. It is a single file with no build step, following the `delivery3d.html` pattern.
-- **Engine:** Three.js r160 as an ES module from jsdelivr. Everything else is procedural: textures, crowd, audio, stadium. The only download is three.js, about 185 KB gzipped.
+- **Engine:** Three.js r160 as an ES module from jsdelivr (about 185 KB gzipped). The stadium, bat, stumps and most textures and sounds are procedural. The downloaded assets are the 3D players, the crowd atlas, the pitch texture, the intro art and the crowd sound.
 - **Platform:** phone first. Phones held upright play full screen with touch. Desktops, laptops and landscape tablets get the same game in a phone-shaped portrait frame, where a mouse drag does the swipe. The layout and controls are identical. A phone held sideways gets a "Turn your phone upright" screen. On touch devices, Play also asks for fullscreen and a portrait lock where allowed.
 
 ## Systems
@@ -117,7 +117,13 @@ Stick Cricket's tap-the-side scheme is the best-loved arcade control. Reviewers 
   - fireworks go off
   - confetti bursts where the ball lands in the stands
 - Umpire signals for six, four, out and wide. LED stumps and bails flash red.
-- Synthesised bat crack and crowd roar, plus haptics on Android.
+- **Crowd sound:** the Livewire stadium crowd shared by the sports games (`assets/audio/`, ElevenLabs-generated, logged in `docs/LICENSES.md`):
+  - a 20 s murmur loops seamlessly under the whole game, quiet and behind a 1.8 kHz low-pass;
+  - on big moments it swells and the filter opens toward 12 kHz, so a roar sounds brighter, not just louder: a hit going for four or six (as it leaves the bat), sixes, fours, wickets and a win;
+  - the 6 s cheer plays on top for sixes (full), fours (half) and a win.
+
+  Phones block sound until the first tap, so the audio starts on the first tap anywhere, the intro screen included. The files start downloading at once, and filtered noise stands in for the murmur until the recording is decoded, or for good if it can't load. The sound pauses in a background tab.
+- Synthesised bat crack, edge, keeper's gloves and stumps, plus haptics on Android.
 
 ### Stadium and crowd
 - **Crowd:** about 34k seated fans drawn as camera-facing cards from an AI-generated atlas (see "Crowd" below). On sixes, fours and wickets they jump out of their seats to cheer, then sit back down a few at a time. On the title screen they stand as the wave passes.

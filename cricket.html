@@ -2316,8 +2316,34 @@ function launchFireworks(n) {
 // =====================================================================
 // audio: everything synthesised, zero files
 // =====================================================================
+// ---- sound ----
+// The crowd is recorded: the Livewire stadium crowd shared by the sports games, a 20 s murmur that loops seamlessly
+// and a 6 s roar (ElevenLabs-generated, see docs/LICENSES.md). Every other sound is synthesised. The files start
+// downloading now; phones only allow sound from a tap, so the audio starts on the first one, with filtered noise
+// standing in for the crowd until the recording is decoded (and for good if it never loads, e.g. over file://).
+const CROWD = {
+  loop: "assets/audio/stadium-crowd-loop-20s.mp3", cheer: "assets/audio/stadium-crowd-cheer-6s.mp3",
+  base: 0.26, top: 0.95,            // the murmur's gain under play, and at a full roar
+  muffledHz: 1800, openHz: 12000,   // a low-pass on the murmur opens as it swells, so a roar is brighter, not just louder
+  swap: 1.5,                        // seconds to cross-fade from the stand-in noise to the recording
+  trim: 0.0005,                     // near-silent padding the MP3 encoder adds at either end, cut from the loop
+  noise: 0.35,                      // the stand-in noise's level on the crowd bus (it sounded right at 0.09 overall)
+};
+// seconds where a recording starts and stops, skipping near-silent samples at either end, so the loop doesn't click
+function audibleSpan(b, threshold) {
+  let first = b.length, last = -1;
+  for (let c = 0; c < b.numberOfChannels; c++) {
+    const d = b.getChannelData(c);
+    let i = 0; while (i < first && Math.abs(d[i]) < threshold) i++;
+    let j = b.length - 1; while (j > last && Math.abs(d[j]) < threshold) j--;
+    first = Math.min(first, i); last = Math.max(last, j);
+  }
+  return last <= first ? [0, b.duration] : [first / b.sampleRate, (last + 1) / b.sampleRate];
+}
 const SFX = (() => {
-  let ctx = null, master, crowdG, buf;
+  let ctx = null, master, crowdG, crowdTone = null, buf, bed = null;
+  const files = {}, rec = {};
+  for (const k of ["loop", "cheer"]) files[k] = fetch(CROWD[k]).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null);
   function init() {
     if (ctx) { if (ctx.state === "suspended") ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
@@ -2330,10 +2356,29 @@ const SFX = (() => {
       b0 = 0.99765 * b0 + w * 0.099046; b1 = 0.963 * b1 + w * 0.2965164; b2 = 0.57 * b2 + w * 1.0526913;
       d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.2;
     }
+    crowdG = ctx.createGain(); crowdG.gain.value = CROWD.base; crowdG.connect(master);
     const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
     const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 650; bp.Q.value = 0.45;
-    crowdG = ctx.createGain(); crowdG.gain.value = 0.09;
-    src.connect(bp); bp.connect(crowdG); crowdG.connect(master); src.start();
+    const g = ctx.createGain(); g.gain.value = CROWD.noise;
+    src.connect(bp); bp.connect(g); g.connect(crowdG); src.start();
+    bed = { src, g };
+    for (const k of ["loop", "cheer"]) decode(k);
+  }
+  async function decode(k) {
+    const data = await files[k];
+    if (!data || !ctx) return;
+    try { rec[k] = await ctx.decodeAudioData(data.slice(0)); } catch (e) { return; }   // slice: decoding takes the bytes
+    if (k === "loop") swapBed();
+  }
+  // fade the recorded murmur in over the noise, then stop the noise
+  function swapBed() {
+    const b = rec.loop, t = ctx.currentTime, [a, z] = audibleSpan(b, CROWD.trim);
+    const src = ctx.createBufferSource(); src.buffer = b; src.loop = true; src.loopStart = a; src.loopEnd = z;
+    crowdTone = ctx.createBiquadFilter(); crowdTone.type = "lowpass"; crowdTone.frequency.value = CROWD.muffledHz;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + CROWD.swap);
+    src.connect(crowdTone); crowdTone.connect(g); g.connect(crowdG); src.start(t, a);
+    bed.g.gain.setValueAtTime(bed.g.gain.value, t); bed.g.gain.linearRampToValueAtTime(0, t + CROWD.swap);
+    bed.src.stop(t + CROWD.swap + 0.05); bed = null;
   }
   function noise(dur, type, freq, q, gain, when = 0) {
     if (!ctx) return;
@@ -2356,13 +2401,29 @@ const SFX = (() => {
     thud() { tone(160, 70, 0.09, 0.25); },
     glove() { noise(0.06, "lowpass", 900, 0.8, 0.5); tone(220, 90, 0.07, 0.2); },
     stumps() { for (let i = 0; i < 3; i++) noise(0.07, "bandpass", 1050 + i * 320, 2, 0.7, i * 0.045); tone(1760, 1760, 0.18, 0.06, "square", 0.03); },
+    // the crowd swells to level (0 murmur, 1 full roar) and settles back over dur seconds
     roar(level, dur = 3) {
       if (!ctx) return;
-      const t = ctx.currentTime;
-      crowdG.gain.cancelScheduledValues(t); crowdG.gain.setValueAtTime(crowdG.gain.value, t);
-      crowdG.gain.linearRampToValueAtTime(0.09 + 0.55 * level, t + 0.25); crowdG.gain.linearRampToValueAtTime(0.09, t + dur);
-      noise(dur * 0.8, "bandpass", 1500, 0.6, 0.22 * level, 0.05);
+      const t = ctx.currentTime, g = crowdG.gain;
+      g.cancelScheduledValues(t); g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(CROWD.base + (CROWD.top - CROWD.base) * level, t + 0.25); g.linearRampToValueAtTime(CROWD.base, t + dur);
+      if (crowdTone) {
+        // exponential between the two cut-offs: equal steps of excitement sound like equal steps of brightness
+        const f = crowdTone.frequency;
+        f.cancelScheduledValues(t); f.setValueAtTime(f.value, t);
+        f.exponentialRampToValueAtTime(CROWD.muffledHz * Math.pow(CROWD.openHz / CROWD.muffledHz, level), t + 0.25);
+        f.exponentialRampToValueAtTime(CROWD.muffledHz, t + dur);
+      } else noise(dur * 0.8, "bandpass", 1500, 0.6, 0.22 * level, 0.05);   // the stand-in's roar
     },
+    // the recorded roar on top of the murmur, for scores and wins (silent until it's decoded)
+    cheer(gain = 1) {
+      if (!ctx || !rec.cheer) return;
+      const s = ctx.createBufferSource(), g = ctx.createGain();
+      s.buffer = rec.cheer; g.gain.value = 0.9 * gain; s.connect(g); g.connect(master); s.start();
+    },
+    // no crowd in a background tab
+    pause(hidden) { if (ctx) hidden ? ctx.suspend() : ctx.resume(); },
+    debug: () => ({ state: ctx && ctx.state, loaded: Object.keys(rec), standIn: !!bed, cutoff: crowdTone && crowdTone.frequency.value, gain: crowdG && crowdG.gain.value }),   // test hook
     groan() { noise(1.2, "lowpass", 380, 0.6, 0.3); },
     tick() { tone(1500, 1400, 0.035, 0.07, "square"); },
     whoosh() { noise(0.28, "bandpass", 850, 1.3, 0.16); },
@@ -2814,6 +2875,7 @@ function doHit() {
   else if (h.q === "edge") SFX.edge();
   else SFX.crack(h.q === "perfect" || cur.out.runs === 6 ? 1.2 : 0.8);
   const big = cur.out.runs === 6;
+  if (cur.out.runs >= 4) SFX.roar(0.4, 2.2);                 // the crowd rises with a big hit before it lands
   burst(sparks, cp, big ? 44 : 20, big ? 8 : 5, ["#f4ffd0", "#ccff00", "#ffffff"], 0.35, 2);
   buzz(big ? [30, 30, 60] : 25);
   if (h.q === "perfect") { hitStop = 0.085; game.stats.perfect++; }
@@ -2839,12 +2901,12 @@ function onBoundaryCross() {
   if (six) {
     showBanner("Six", dist >= 100 ? `${dist} m · out of sight` : `${dist} m`, "var(--gold)");
     setBoards("six", 3.2); strobe = 1.6; crowdU.uExcite.value = 1;
-    SFX.roar(1, 3.5); launchFireworks(7); shake(0.25);
+    SFX.roar(1, 3.5); SFX.cheer(1); launchFireworks(7); shake(0.25);
     if (game.innings === "bat") { game.stats.sixes++; game.stats.longest = Math.max(game.stats.longest, dist); }
   } else {
     showBanner("Four", "", "var(--four)");
     setBoards("four", 2.4); crowdU.uExcite.value = 0.7;
-    SFX.roar(0.7, 2.5);
+    SFX.roar(0.7, 2.5); SFX.cheer(0.5);
     if (game.innings === "bat") game.stats.fours++;
   }
 }
@@ -2949,7 +3011,7 @@ function matchEnd() {
   } else {
     eyebrow = "Result"; title = "You win";
     lede = game.wkts >= 2 ? `Bowled them out for ${game.runs}. You defended ${game.you}.` : `Defended ${game.you} by ${game.you - game.runs} run${game.you - game.runs === 1 ? "" : "s"}.`;
-    crowdU.uExcite.value = 1; launchFireworks(10); SFX.roar(1, 4);
+    crowdU.uExcite.value = 1; launchFireworks(10); SFX.roar(1, 4); SFX.cheer(1);
   }
   if (game.you > best) { best = game.you; try { localStorage.setItem("superover.best", String(best)); } catch (e) { /* storage blocked */ } }
   $("endEyebrow").textContent = eyebrow; $("endTitle").textContent = title; $("endLede").textContent = lede;
@@ -3329,7 +3391,9 @@ $("playBtn").addEventListener("click", () => {
 });
 $("toBowlBtn").addEventListener("click", () => { SFX.init(); startBowlInnings(); });
 $("againBtn").addEventListener("click", () => { SFX.init(); $("end").hidden = true; startMatch(); });
-document.addEventListener("visibilitychange", () => { last = performance.now(); });
+document.addEventListener("visibilitychange", () => { last = performance.now(); SFX.pause(document.hidden); });
+// the crowd starts on the very first tap anywhere, the intro screen included (phones block sound until then)
+for (const ev of ["pointerup", "touchend", "keydown"]) document.addEventListener(ev, () => SFX.init(), { once: true, passive: true });
 
 // =====================================================================
 // boot
@@ -3365,7 +3429,7 @@ window.__game = { heroes, game, get state() { return state; }, get cur() { retur
   freezeBowl: (t) => { bowlerT = t; bowlFrozen = t !== null; },
   seqAt: (from, seq, t) => { batAnim.mode = "hold"; batAnim.from = between(BK[from], BK[from], 0, {});
     batAnim.seq = seq.map(([n, s, e]) => [BK[n], s, e]); batAnim.t = t; batAnim.frozen = true; },
-  umpire, ball, batPose: (n) => { batAnim.mode = "hold"; batAnim.from = between(BK[n], BK[n], 0, {}); batAnim.seq = [[BK[n], 0.001, "l"]];
+  SFX, umpire, ball, batPose: (n) => { batAnim.mode = "hold"; batAnim.from = between(BK[n], BK[n], 0, {}); batAnim.seq = [[BK[n], 0.001, "l"]];
     batAnim.t = 1; batAnim.frozen = true; }, BK, GLOVE, batter, nonStriker };
 </script>
 </body>
