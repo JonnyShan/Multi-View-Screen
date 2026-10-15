@@ -77,6 +77,13 @@ button:focus-visible { outline: 2px solid var(--leather-hi); outline-offset: 3px
 @keyframes tag { 0% { opacity: 0; transform: translate(-50%,-80%); } 15% { opacity: 1; transform: translate(-50%,-100%); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%,-130%); } }
 .pause { position: absolute; z-index: 5; top: calc(var(--sat) + 10px); left: calc(var(--sal) + 12px); width: 40px; height: 40px; border-radius: 50%; background: var(--panel); border: 1px solid var(--line); pointer-events: auto; display: grid; place-items: center; }
 .pause::before { content: ""; width: 12px; height: 14px; border-left: 4px solid var(--chalk); border-right: 4px solid var(--chalk); }
+/* mute: just right of pause */
+.mute { position: absolute; z-index: 5; top: calc(var(--sat) + 10px); left: calc(var(--sal) + 60px); width: 40px; height: 40px; border-radius: 50%; background: var(--panel); border: 1px solid var(--line); pointer-events: auto; display: grid; place-items: center; color: var(--chalk); padding: 0; }
+.mute svg { width: 20px; height: 20px; }
+.mute .x { display: none; }
+.mute.off .waves { display: none; }
+.mute.off .x { display: inline; }
+.mute.off { color: var(--dim); }
 
 /* ---------- touch controls ---------- */
 #pad { position: fixed; inset: 0; pointer-events: auto; touch-action: none; z-index: 2; }
@@ -174,8 +181,9 @@ button:focus-visible { outline: 2px solid var(--leather-hi); outline-offset: 3px
   .wordmark { font-size: clamp(56px, 13vh + 40px, 120px); }
   .title .col { gap: 12px; }
 }
-/* narrow phones in portrait: a tighter score bug, so it clears the pause button */
+/* narrow phones in portrait: a tighter score bug at the right, so it clears the pause and mute buttons */
 @media (max-width: 480px) {
+  .bug { left: auto; right: calc(var(--sar) + 8px); transform: none; }
   .bug .side { gap: 5px; padding: 3px 7px 3px 4px; }
   .bug .side.r { padding: 3px 4px 3px 7px; }
   .bug img { width: 22px; height: 22px; }
@@ -226,6 +234,7 @@ button:focus-visible { outline: 2px solid var(--leather-hi); outline-offset: 3px
   <div class="meter" id="meter"><div class="win" id="meterWin"></div><div class="fill" id="meterFill"></div></div>
   <div class="tag" id="tag"></div>
   <button class="pause" id="pauseBtn" aria-label="Pause"></button>
+  <button class="mute" id="muteBtn" aria-label="Mute" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="waves" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path class="x" d="M16 9l6 6M22 9l-6 6"/></svg></button>
 </div>
 
 <div id="pad" hidden>

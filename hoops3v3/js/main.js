@@ -247,7 +247,7 @@ function seg(el, opts, get, set) {
 
 function renderSettings() {
   seg($('segQ'), [['auto', 'Auto'], ['high', 'High'], ['med', 'Medium'], ['low', 'Low']], () => settings.quality, (v) => { settings.quality = v; needsRebuild = true; });
-  seg($('segSnd'), [[true, 'On'], [false, 'Off']], () => settings.sound, (v) => { settings.sound = v; sound.setEnabled(v); });
+  seg($('segSnd'), [[true, 'On'], [false, 'Off']], () => settings.sound, (v) => { settings.sound = v; sound.setEnabled(v); showMute(); });
   seg($('segVib'), [[true, 'On'], [false, 'Off']], () => settings.vib, (v) => { settings.vib = v; });
 }
 let needsRebuild = false;
@@ -299,6 +299,21 @@ $('goPlay').onclick = async () => {
   startMatch();
 };
 $('pauseBtn').onclick = () => pause(true);
+// mute: the same switch as Sound in Settings
+function showMute() {
+  const b = $('muteBtn');
+  b.classList.toggle('off', !settings.sound);
+  b.setAttribute('aria-pressed', String(!settings.sound));
+  b.setAttribute('aria-label', settings.sound ? 'Mute' : 'Unmute');
+}
+$('muteBtn').onclick = () => {
+  settings.sound = !settings.sound;
+  save();
+  sound.unlock();
+  sound.setEnabled(settings.sound);
+  showMute();
+};
+showMute();
 $('resume').onclick = () => pause(false);
 $('pHow').onclick = () => { $('modHow').hidden = false; };
 $('pSettings').onclick = () => { renderSettings(); $('modSettings').hidden = false; };
