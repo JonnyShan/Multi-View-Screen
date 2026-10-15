@@ -168,7 +168,11 @@ export class Game {
     this.state = 'tip';
     this.stateT = 0;
     this.handler = -1;
+    this.poss = -1;
+    this.shotClock = SHOT_CLOCK;
     this.shot = null; this.pass = null; this.inb = null;
+    this.reboundOf = null; this.stealBy = undefined;
+    for (const q of this.players) if (q.action && q.action.type === 'check') q.action = null;
     this.ball.free = false;
     this.ball.vel.set(0, 0, 0);
     this.ball.spin.set(0, 0, 0);
@@ -218,7 +222,6 @@ export class Game {
     this.tipped = true;
     this.state = 'loose';
     this.stateT = 0;
-    this.poss = this.teamOf(i);
     this.fx('tip', { i });
   }
 
@@ -231,6 +234,7 @@ export class Game {
     this.lastTouch = i;
     this.pass = null;
     const p = this.players[i];
+    p.action = null;
     p.dribble.active = true;
     p.dribble.phase = 0.9;
     p.dribble.hand = -1;
@@ -247,7 +251,19 @@ export class Game {
   }
 
   // dead ball: the other team inbounds from (x, z) once the pause is over
+  // the ball is dead: a shot, finish or pass still in the hands never leaves them
+  dropHeld() {
+    const h = this.handler;
+    if (h >= 0) {
+      const p = this.players[h], a = p.action;
+      if (a && ['shoot', 'layup', 'dunk', 'pass'].includes(a.type) && !a.released && !a.slammed) p.action = null;
+    }
+    this.reboundOf = null;
+    this.stealBy = undefined;
+  }
+
   turnover(toTeam, why, x, z) {
+    this.dropHeld();
     this.fx('turnover', { team: toTeam, why });
     this.handler = -1;
     this.ball.free = true;
@@ -277,7 +293,10 @@ export class Game {
     this.shot = null;
     this.pass = null;
     this.poss = team;
-    const tp = this.teamPlayers(team);
+    this.reboundOf = null; this.stealBy = undefined;
+    for (const q of this.players) if (q.action && q.action.type === 'check') q.action = null;
+    // you're never the one sent out of bounds: you play the receiver
+    const tp = this.teamPlayers(team).filter((i) => !this.isUser(i));
     const near = (list, x, z) => list.reduce((a, b) => {
       const pa = this.players[a].pos, pb = this.players[b].pos;
       return Math.hypot(pa.x - x, pa.z - z) < Math.hypot(pb.x - x, pb.z - z) ? a : b;
@@ -293,7 +312,7 @@ export class Game {
     p.action = null;
     p.setAction('check');
     p.dribble.active = false;
-    const to = near(tp.filter((i) => i !== by), spot.x + into.x * 3, spot.z + into.z * 3);
+    const to = near(this.teamPlayers(team).filter((i) => i !== by), spot.x + into.x * 3, spot.z + into.z * 3);
     this.inb = { team, spot: { ...spot }, into, by, to, t: 0 };
     this.ball.free = false;
     this.ball.vel.set(0, 0, 0);
@@ -426,7 +445,7 @@ export class Game {
       if (!dp.action || dp.action.type !== 'contest') continue;
       const bpos = this.ball.pos;
       const near = Math.min(dp.handWorld(1, _v).distanceTo(bpos), dp.handWorld(0, _v).distanceTo(bpos));
-      if (near < 0.5 && this.rng() < 0.25 + 0.45 * (this.ps[j].r.block / 100)) { this.blocked(i, j); return; }
+      if (near < 0.5 && this.rng() < 0.25 + 0.45 * (this.ps[j].r.block / 100)) { this.blocked(i, j, act.three); return; }
     }
     const make = this.rng() < pr;
     this.launch(i, make, { d, three: act.three, timing, arc: 1.0 + 0.09 * d, bad: timing === 'bad' || timing === 'late' });
@@ -486,7 +505,7 @@ export class Game {
 
   count(i, key, n = 1) { this.stats[this.teamOf(i)][key] += n; this.pstats[i][key] += n; }
 
-  blocked(shooter, blocker) {
+  blocked(shooter, blocker, three = false) {
     const ball = this.ball;
     const sp = this.players[shooter];
     const R = this.rimOf(shooter);
@@ -501,6 +520,7 @@ export class Game {
     this.stateT = 0;
     this.shot = null;
     this.count(shooter, 'fga');
+    if (three) this.count(shooter, 'tpa');
     this.count(blocker, 'blk');
     this.fx('block', { i: blocker, shooter });
   }
@@ -517,7 +537,7 @@ export class Game {
       if (this.rng() < 0.3 + 0.45 * (this.ps[j].r.block / 100)) {
         this.stats[sh.team].fga--; this.pstats[sh.shooter].fga--;     // blocked() counts the attempt itself
         if (sh.three) { this.stats[sh.team].tpa--; this.pstats[sh.shooter].tpa--; }
-        this.blocked(sh.shooter, j);
+        this.blocked(sh.shooter, j, sh.three);
         return true;
       }
     }
@@ -650,7 +670,7 @@ export class Game {
     for (let k = 0; k < 2; k++) {
       const d = Math.hypot(ax - ball.pos.x, az - ball.pos.z);
       T = d > 11 ? 0.42 + d / 24 : clamp(d / 12.5, 0.16, 1.0);
-      const lead = q === this.players[this.user] ? 0.7 : 0.85;
+      const lead = this.isUser(j) ? 0.7 : 0.85;          // you steer yourself onto it; the AI runs to it
       ax = q.pos.x + q.vel.x * T * lead; az = q.pos.z + q.vel.z * T * lead;
     }
     ax = clamp(ax, -COURT.halfW + 0.3, COURT.halfW - 0.3);
@@ -669,8 +689,7 @@ export class Game {
     this.pass = { from: i, to: j, t: 0, T, aim: { x: ax, z: az }, lob, inbound: !!act.inbound, team: this.teamOf(i) };
     for (const k of this.opps(i)) this.ps[k].triedPass = null;
     if (act.inbound) this.inb = null;
-    // you follow the ball: the receiver is yours as it's thrown
-    if (this.teamOf(j) === 0) this.setUser(j);
+    // the receiver runs to the ball under the AI; he becomes yours on the catch (giveBall)
     this.fx('pass', { i, j, lob });
   }
 
@@ -854,7 +873,7 @@ export class Game {
     if (this.live()) this.tickClocks(dt);
     const inp = this.input.poll(realDt);
     if (!this.autoplay) this.humanInput(inp, dt);
-    if (!this.over) for (const ai of this.ais) ai.update(dt);
+    for (const ai of this.ais) ai.update(dt);      // (at the end its 'over' branch stops everyone)
     this.updatePlayers(dt);
     this.updateBall(dt);
     this.updateRules(dt);
@@ -865,23 +884,23 @@ export class Game {
   tickClocks(dt) {
     if (this.frozen) return;                                              // the debug bench
     if (this.state === 'pass' && this.pass && this.pass.inbound) return;   // starts on the catch
-    if (this.overtime) return;                                            // sudden death: no clock
-    const shotInAir = this.state === 'shot';
+    if (this.state !== 'shot') this.shotClock = Math.max(0, this.shotClock - dt);
+    if (this.overtime) return;                                            // sudden death: no game clock
     this.clock = Math.max(0, this.clock - dt);
-    if (['live', 'shooting', 'finishing'].includes(this.state)) this.shotClock = Math.max(0, this.shotClock - dt);
-    if (this.clock <= 0 && !this.buzzer) {
-      this.buzzer = true;
-      this.fx('buzzer', { final: true });
-      // a shot already in the air still counts
-      if (!shotInAir) this.endOfTime();
+    if (this.clock <= 0) {
+      if (!this.buzzer) { this.buzzer = true; this.fx('buzzer', { final: true }); }
+      // a shot already in the air still counts; anything else ends it now
+      if (this.state !== 'shot') this.endOfTime();
     }
   }
 
   // regulation is over: a winner, or sudden death from a new tip
   endOfTime() {
     if (this.over) return;
+    this.dropHeld();
     if (this.score[0] !== this.score[1]) { this.finish(this.score[0] > this.score[1] ? 0 : 1); return; }
     this.overtime = true;
+    this.buzzer = false;
     this.state = 'dead';
     this.stateT = 0;
     this.handler = -1;
@@ -1208,6 +1227,7 @@ export class Game {
             this.slowmo(0.4, 0.75);
             this.fx('slam', { i, big: act.big });
           } else {
+            this.shot.rim = true;
             ball.pos.set(R.x, R.y + 0.2, R.z + 0.15 * B.dir);
             ball.vel.set(rnd(-2, 2), rnd(3, 4.5), rnd(1.5, 3) * B.dir);
             this.fx('rim', { v: 3, x: R.x, z: R.z, b: B.i });
@@ -1351,6 +1371,7 @@ export class Game {
 
   finish(winner) {
     if (this.over) return;
+    this.dropHeld();
     this.over = true;
     this.state = 'over';
     this.winner = winner;
@@ -1401,7 +1422,7 @@ export class Game {
       return;
     }
     if (st === 'live') {
-      if (this.shotClock <= 0 && !this.buzzer) {
+      if (this.shotClock <= 0 && (!this.buzzer || this.overtime)) {
         const h = this.handler >= 0 ? this.players[this.handler].pos : ball.pos;
         this.turnover(1 - this.poss, 'Shot clock', h.x, h.z);
       }
@@ -1436,8 +1457,8 @@ export class Game {
       const pd = this.pending;
       // the inbounder walks to the spot while the ball is dead
       if (pd && pd.spot) {
-        const tp = this.teamPlayers(pd.team);
-        if (this.pendingBy === undefined || this.teamOf(this.pendingBy) !== pd.team) {
+        const tp = this.teamPlayers(pd.team).filter((i) => !this.isUser(i));
+        if (this.pendingBy === undefined || this.teamOf(this.pendingBy) !== pd.team || this.isUser(this.pendingBy)) {
           this.pendingBy = tp.reduce((a, b) => {
             const pa = this.players[a].pos, pb = this.players[b].pos;
             return Math.hypot(pa.x - pd.spot.x, pa.z - pd.spot.z) < Math.hypot(pb.x - pd.spot.x, pb.z - pd.spot.z) ? a : b;
@@ -1487,9 +1508,14 @@ export class Game {
   }
 
   // renderer rebuild support
-  snapshot() { return { score: this.score.slice(), stats: this.stats, pstats: this.pstats, poss: this.poss, clock: this.clock, overtime: this.overtime, hot: this.hot.slice() }; }
+  snapshot() {
+    const pd = this.state === 'dead' && this.pending;
+    const poss = pd ? (pd.tip ? -1 : pd.team) : this.state === 'tip' ? -1 : this.poss;
+    return { score: this.score.slice(), stats: this.stats, pstats: this.pstats, poss, clock: this.clock, overtime: this.overtime, hot: this.hot.slice() };
+  }
   restore(s) {
     Object.assign(this, { score: s.score, stats: s.stats, pstats: s.pstats, clock: s.clock, overtime: s.overtime, hot: s.hot });
+    this.pending = null;
     if (s.poss >= 0) {
       const B = BASKETS[1 - s.poss];
       this.beginInbound(s.poss, { x: 1.5, z: B.baseZ - 0.45 * B.dir });

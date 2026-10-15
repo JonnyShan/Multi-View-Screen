@@ -163,7 +163,8 @@ export class TeamAI {
       if (g.pendingBy === i) { this.moveTo(i, pd.spot.x, pd.spot.z, { sprint: true, arrive: 0.3 }); return; }
       // the others start up the floor from their own end
       const k = this.ids.filter((j) => j !== g.pendingBy).indexOf(i);
-      this.moveToF(i, this.t, k === 0 ? -4.2 : 4.6, k === 0 ? L - 6 : L - 9.5, { sprint: false });
+      const sf = toFrame(this.t, pd.spot.x, pd.spot.z).z;
+      this.moveToF(i, this.t, k === 0 ? -4.2 : 4.6, clamp(sf - (k === 0 ? 6.5 : 10), 5, L - 6), { sprint: false });
     } else this.getBack(i);
   }
 
@@ -196,7 +197,8 @@ export class TeamAI {
     if (inb.to === i) {
       // come to the ball, away from the nearest defender
       const n = g.nearestOpp(i);
-      const side = n.j >= 0 ? Math.sign(g.players[i].pos.x - g.players[n.j].pos.x) || 1 : 1;
+      const me = g.players[i].pos, q = n.j >= 0 ? g.players[n.j].pos : me;
+      const side = n.j >= 0 ? Math.sign(inb.into.x === 0 ? me.x - q.x : me.z - q.z) || 1 : 1;
       const deep = n.d < 2 ? 5.5 : 3.2;          // covered: get further up the floor
       const tx = inb.spot.x + inb.into.x * deep + (inb.into.x === 0 ? side * 1.8 : 0);
       const tz = inb.spot.z + inb.into.z * deep + (inb.into.z === 0 ? side * 1.8 : 0);
@@ -328,7 +330,7 @@ export class TeamAI {
       return;
     }
     br.cut = null;
-    if (h >= 0 && (br.spot < 0 || this.spotT <= 0)) this.assignSpots(h);
+    if (hb >= 0 && (br.spot < 0 || (h >= 0 && this.spotT <= 0))) this.assignSpots(hb);
     if (br.spot < 0) { this.stop(i); return; }
     const sp = SPOTS[br.spot];
     // the handler drives at me: clear out
@@ -459,9 +461,10 @@ export class TeamAI {
     if (!sh) { this.loose(i, br); return; }
     const S = sh.team;                               // the shooting team's frame: its basket at (0, rimZ)
     const f = this.F(i, S);
-    const order = this.ids.slice().sort((a, c) => this.F(a, S).z - this.F(c, S).z);
-    const rank = order.indexOf(i);
     if (sh.shooter === i) { this.stop(i); return; }
+    const toRim = (j) => { const q = this.F(j, S); return Math.hypot(q.x, q.z - RZ); };
+    const order = this.ids.filter((j) => j !== sh.shooter).sort((a, c) => toRim(a) - toRim(c));
+    const rank = order.indexOf(i);
     if (this.t === S) {
       // the shooting side: one crashes, the rest get back
       if (rank === 0) this.moveToF(i, S, f.x > 0 ? 1.6 : -1.6, 2.8, { sprint: true });

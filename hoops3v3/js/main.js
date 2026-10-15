@@ -205,6 +205,7 @@ function fadeHoopB(camZ) {
   if (!arena || !arena.hoops) return;
   if (!hoopBParts || hoopBParts.arena !== arena) {
     hoopBParts = { arena, mats: [] };
+    hoopBFade = -1;
     const glassZ = COURT.len - COURT.boardZ;
     const c = new THREE.Vector3();
     arena.hoops[1].updateMatrixWorld(true);
@@ -323,28 +324,40 @@ $('toMenu').onclick = () => { $('modEnd').hidden = true; endToMenu(); };
 
 let paused = false;
 function pause(on) {
-  if (!game) return;
+  if (on && (!game || game.over)) return;
   paused = on;
   $('modPause').hidden = !on;
   sound.duck(on);
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden && game && !game.over) pause(true); });
+// P pauses and resumes on a keyboard
+window.addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'p' && !e.repeat && game && !game.over && !replay.active) pause(!paused); });
 // phones play in portrait only: held sideways, the page covers the game (index.html) and it pauses
 const sideways = matchMedia('(pointer: coarse) and (orientation: landscape) and (max-height: 520px)');
 const onTurn = () => { if (sideways.matches && game && !game.over) pause(true); };
 if (sideways.addEventListener) sideways.addEventListener('change', onTurn); else sideways.addListener(onTurn);
 
+// a quality change mid-game rebuilds the scene; the game holds still until it's back
+let rebuilding = false;
 async function rebuildRenderer() {
   makeRenderer();
-  if (game) {
-    const snap = game.snapshot();
+  if (!game) return;
+  const g = game;
+  rebuilding = true;
+  replay.skip(); replay.pending = null;
+  const snap = g.snapshot();
+  const old = g.players.map((p) => ({ pos: p.pos.clone(), vel: p.vel.clone(), yaw: p.yaw }));
+  try {
     await buildMatch(HOME, AWAY);
-    game.rebind({ arena, players, ball, nets });
+    if (game !== g) return;
+    // the new bodies stand where the old ones stood
+    players.forEach((p, i) => { p.pos.copy(old[i].pos); p.vel.copy(old[i].vel); p.yaw = old[i].yaw; });
+    g.rebind({ arena, players, ball, nets });
     if (presenter) presenter.dispose();
     presenter = makePresenter();
-    game.restore(snap);
-    replay.bind({ players, ball, net: nets[0], game, renderer });
-  }
+    g.restore(snap);
+    replay.bind({ players, ball, net: nets[0], game: g, renderer });
+  } finally { rebuilding = false; }
 }
 
 function makePresenter() {
@@ -353,6 +366,7 @@ function makePresenter() {
 
 async function startMatch(opts = {}) {
   const t0 = performance.now();
+  pause(false);
   showLoader();
   show(null);
   const home = HOME, away = AWAY;
@@ -386,6 +400,7 @@ async function startMatch(opts = {}) {
 }
 
 function endToMenu() {
+  pause(false);
   replay.skip(); replay.pending = null; endQueued = null;
   $('clipChip').hidden = true;
   if (game) game.dispose();
@@ -419,7 +434,8 @@ function showEnd(res) {
     row('Steals', s[0].stl, s[1].stl) +
     row('Top scorer', mvp < TEAM_SIZE ? `${players[mvp].info.last} ${res.pstats[mvp].pts}` : '', mvp >= TEAM_SIZE ? `${players[mvp].info.last} ${res.pstats[mvp].pts}` : '');
   $('endShare').hidden = !replay.clip;
-  const open = () => { $('modEnd').hidden = false; $('pad').hidden = true; $('clipChip').hidden = true; };
+  const g = game;
+  const open = () => { if (game !== g) return; $('modEnd').hidden = false; $('pad').hidden = true; $('clipChip').hidden = true; };
   // a game-winning three or dunk gets its replay before the final card
   if (replay.pending || replay.active) endQueued = open; else setTimeout(open, 1800);
 }
@@ -433,7 +449,7 @@ function startReplay() {
     if (presenter) presenter.setHidden(false);
     if (!game) return;
     $('hud').hidden = false;
-    if (!game.over) $('pad').hidden = false;
+    if (!game.over && !game.autoplay) $('pad').hidden = false;
     if (input) input.parkStick();
     if (endQueued) { const f = endQueued; endQueued = null; setTimeout(f, 500); }
   };
@@ -516,7 +532,7 @@ function tick(dt) {
     if (!replay.active && game) updateCamera(0, game.focus(), true);
     return;
   }
-  if (game && !paused) {
+  if (game && !paused && !rebuilding) {
     const sdt = dt * game.timeScale;
     game.update(sdt, dt);
     if (presenter) presenter.frame(dt, game);
@@ -533,6 +549,8 @@ function tick(dt) {
     camera.position.set(Math.sin(cam.t) * 6.5, 4.6, c + Math.cos(cam.t) * 3 - 3);
     camera.lookAt(0, 2.4, BASKETS[0].rim.z + 1);
     if (arena && arena.follow) arena.follow(0, c / 2);
+    // under the title or loading screen nobody sees it: draw now and then (keeps it warm), not every frame
+    if ((!$('scrTitle').hidden || !$('loading').hidden) && (cam.skip = ((cam.skip || 0) + 1) % 20) !== 0) return;
   }
   if (composer) composer.render(); else renderer.render(scene, camera);
 }
@@ -574,7 +592,7 @@ if (/[?&#]debug\b/.test(location.search + location.hash)) {
       get renderer() { return renderer; }, get game() { return game; }, get paused() { return paused; }, get arena() { return arena; },
       get replayActive() { return replay.active; }, get scale() { return gov.scale; }, get tier() { return qualityTier(); },
       settings, canvas, timing, ldBall, sound, replay, scene,
-      start: () => startMatch(),
+      start: (o) => startMatch(o),
       lockScale(on) { gov.lock = on; gov.t = gov.n = 0; gov.trial = null; },
       setScale: setGovScale,
     });

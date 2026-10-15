@@ -264,7 +264,7 @@ export function startDebug(hw) {
       if (off) off();
     }
     benchOut = `bench (ms to draw a frame; under 16.7 holds 60 fps) ${out.join(' · ') || '-'}${bench.stopped ? ` · stopped at step ${out.length + 1}: Safari was left or the game paused` : ''}`;
-    if (hw.game === g) { g.setAutoplay(false); g.onHighlight = hl; g.frozen = false; }
+    if (hw.game === g) { g.setAutoplay(false); g.onHighlight = hl; g.frozen = false; document.getElementById('pad').hidden = false; }
     hw.setScale(scale0);
     hw.lockScale(false);
     const stopped = bench.stopped;
