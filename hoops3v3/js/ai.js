@@ -127,7 +127,16 @@ export class TeamAI {
 
   step(i, dt, br) {
     const g = this.g, st = g.state, me = g.players[i];
-    if (st === 'over') { this.stop(i); return; }
+    if (st === 'over') {
+      // winners to their spots for the dance, losers off behind them
+      const sp = g.endSpot(i), E = g.endStage;
+      if (!sp || (me.action && me.action.type === 'dance')) { this.stop(i); return; }
+      // losers go round the dancers' line, not through it
+      const wide = sp.off && me.pos.z > E.z - 1.5 && Math.abs(me.pos.x - E.x) < 3.4;
+      if (wide) this.moveTo(i, E.x + Math.sign(me.pos.x - E.x || sp.x) * 4.2, me.pos.z - 1.5);
+      else this.moveTo(i, sp.x, sp.z, { arrive: 0.3 });
+      return;
+    }
     if (st === 'inbound') { this.inbound(i); return; }        // (the inbounder holds the ball in a locked pose)
     if (me.action && me.action.type === 'pass') { this.carry(i, me.action); return; }
     if (me.action && !['stumble', 'jab', 'celebrate', 'steal'].includes(me.action.type)) { this.stop(i); return; }

@@ -168,6 +168,16 @@ button:focus-visible { outline: 2px solid var(--leather-hi); outline-offset: 3px
 .stats { display: grid; grid-template-columns: 1fr auto auto; gap: 4px 14px; font: 600 14px/1.2 var(--body); font-variant-numeric: tabular-nums; }
 .stats .h { color: var(--dim); font: 700 11px/1 var(--display); letter-spacing: .16em; }
 
+/* the final card sits low (or to the right on a wide screen) so the winners' dance shows above it */
+#modEnd { place-items: end center; background: linear-gradient(0deg, rgba(4,5,8,.9), rgba(4,5,8,.55) 45%, rgba(4,5,8,0) 62%); backdrop-filter: none; -webkit-backdrop-filter: none;
+  padding-bottom: calc(var(--sab) + 16px); }
+#modEnd .final { grid-template-columns: 1fr; width: min(560px, 100%); background: rgba(14,17,24,.92); }
+#modEnd .final .txt { padding: 18px 20px 20px; }
+@media (orientation: landscape) and (min-width: 760px) {
+  #modEnd { place-items: center end; background: linear-gradient(270deg, rgba(4,5,8,.88), rgba(4,5,8,.5) 42%, rgba(4,5,8,0) 60%); padding-right: calc(var(--sar) + 24px); }
+  #modEnd .final { width: min(440px, 46vw); }
+}
+
 /* replay: letterbox, tag, skip hint, a yellow wipe in and out */
 #replayUI { position: fixed; inset: 0; z-index: 6; pointer-events: auto; touch-action: none; }
 #replayUI .bar { position: absolute; left: 0; right: 0; height: 9vh; background: #000; }
@@ -315,7 +325,6 @@ button:focus-visible { outline: 2px solid var(--leather-hi); outline-offset: 3px
 
 <div class="modal" id="modEnd" hidden>
   <div class="final">
-    <div class="ph" id="endPh"></div>
     <div class="txt">
       <span class="eyebrow" id="endEyebrow">Final</span>
       <div class="res" id="endRes">You win</div>

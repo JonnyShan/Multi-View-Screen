@@ -1141,9 +1141,10 @@ export class Player {
     // neck + head: the procedural rig keeps the eyes on the play, mocap adds life
     const dHead = dSpine.clone().multiply(this.neck.quaternion).multiply(this.head.quaternion);
     setWorldQ(bones.neck, RP.clone().multiply(dSpine.clone().slerp(dHead, 0.5)).multiply(rest.neck.q));
-    blend('neck', bodyW * 0.5);
+    const full = M ? M.danceW : 0;           // a dance moves the head too
+    blend('neck', bodyW * (0.5 + 0.5 * full));
     setWorldQ(bones.Head, RP.clone().multiply(dHead).multiply(rest.Head.q));
-    blend('Head', bodyW * 0.4);
+    blend('Head', bodyW * (0.4 + 0.6 * full));
     if (M) { blend('LeftShoulder', armW[0], true); blend('RightShoulder', armW[1], true); }
     else { bones.LeftShoulder.updateWorldMatrix(false, false); bones.RightShoulder.updateWorldMatrix(false, false); }
     // limbs by segment direction

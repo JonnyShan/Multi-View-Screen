@@ -29,6 +29,7 @@ const CATCH_T = 0.16;                 // the ball settles into the hands over th
 const PASS_WIND = 0.1;                // ball leaves the hands this long after the pass starts
 const DUNK_CHARGE = 15;               // seconds of play to fill a team's dunk meter
 const DUNK_REACH = 4.2;               // a full meter lets you take off from this far out
+const DANCES = ['danceHipHop', 'danceYMCA', 'danceBoom'];   // the winners' victory dances (models/motion.json)
 
 // the clocks run only while the ball is live
 const LIVE = new Set(['live', 'shooting', 'finishing', 'shot', 'loose', 'pass']);
@@ -94,6 +95,7 @@ export class Game {
     this.events = [];
     this.passTarget = -1;                  // where a pass from you would go now
     this.ais = [new TeamAI(this, 0, this.mateDiff), new TeamAI(this, 1, this.diff)];
+    for (const p of this.players) if (p.motion) { p.motion.danceW = 0; p.motion.dance = null; }   // the bodies are reused game to game
     this.beginTip();
   }
 
@@ -109,7 +111,7 @@ export class Game {
   // i's position in its own team's frame (its basket at (0, rimZ))
   frameOf(i, out = { x: 0, z: 0 }) { const p = this.players[i].pos; return toFrame(this.teamOf(i), p.x, p.z, out); }
   isUser(i) { return i === this.user; }
-  isAI(i) { return i !== this.user; }
+  isAI(i) { return i !== this.user || this.over; }     // after the final buzzer the AI walks everyone
   diffOf(i) { return this.teamOf(i) === 1 ? this.diff : this.mateDiff; }
   live() { return LIVE.has(this.state) && !this.over; }
   // the opponent nearest i
@@ -1070,7 +1072,11 @@ export class Game {
       // facing
       const R = this.rimOf(i);
       let ty;
+      const sp = this.over && !(act && ['shoot', 'layup', 'dunk', 'contest'].includes(act.type)) && p.jumpY < 0.02 ? this.endSpot(i) : null;
       if (inbounder) ty = p.yaw;
+      else if (act && act.type === 'dance') ty = act.yaw;
+      else if (sp && spd > 0.6) ty = dir;                       // walking to the spot
+      else if (sp) ty = sp.off ? Math.PI : Math.atan2(this.endStage.x - p.pos.x, this.endStage.z + 14 - p.pos.z);   // losers turn away; winners face the camera
       else if (hasBall || (act && (act.type === 'shoot' || act.type === 'layup' || act.type === 'dunk'))) {
         const toRim = Math.atan2(R.x - p.pos.x, R.z - p.pos.z);
         ty = spd > 3.2 && !act ? dir : toRim;
@@ -1120,7 +1126,8 @@ export class Game {
         const nx = dx / d, nz = dz / d;
         const inbA = this.state === 'inbound' && this.inb && this.inb.by === a;
         const inbB = this.state === 'inbound' && this.inb && this.inb.by === b;
-        const aFix = A.jumpY > 0.05 || inbA, bFix = B.jumpY > 0.05 || inbB;
+        const dance = (q) => q.action && q.action.type === 'dance';   // a dancer holds his mark; walkers go round
+        const aFix = A.jumpY > 0.05 || inbA || dance(A), bFix = B.jumpY > 0.05 || inbB || dance(B);
         const wa = aFix ? 0 : bFix ? 1 : 0.5, wb = bFix ? 0 : aFix ? 1 : 0.5;
         A.pos.x -= nx * push * wa; A.pos.z -= nz * push * wa;
         B.pos.x += nx * push * wb; B.pos.z += nz * push * wb;
@@ -1443,23 +1450,51 @@ export class Game {
     for (const q of this.players) if (q.action && q.action.type === 'steal') q.action = null;
     this.over = true;
     this.state = 'over';
+    this.stateT = 0;
     this.winner = winner;
+    this.endStage = this.stageFor(winner);
+    // whoever has the ball lets it go: a winner throws it up, a loser drops it
+    if (this.handler >= 0) {
+      const p = this.players[this.handler], up = this.teamOf(this.handler) === winner;
+      this.handler = -1;
+      p.dribble.active = false;
+      this.ball.free = true;
+      this.ball.vel.set((this.rng() - 0.5) * 1.5, up ? 7.5 : 1, (this.rng() - 0.5) * 1.5);
+    }
     this.slowmo(0.35, 1.2);
     this.fx('end', { winner });
     this.onEnd({ youWon: winner === 0, score: this.score.slice(), stats: this.stats, pstats: this.pstats, overtime: this.overtime });
+  }
+
+  // the winners meet in a line at centre court and dance for the camera; the losers walk off to the far baseline
+  stageFor(winner) {
+    const z = COURT.halfLen - 4;
+    const spots = [];
+    const order = (t) => this.teamPlayers(t).slice().sort((a, b) => this.players[a].pos.x - this.players[b].pos.x);
+    order(winner).forEach((i, k) => {
+      const x = (k - 1) * 1.05;
+      spots[i] = { x, z: z + (k === 1 ? 0.35 : 0), dance: DANCES[k], yaw: Math.atan2(-x, 14) };
+    });
+    order(1 - winner).forEach((i, k) => { spots[i] = { x: [-6, -4.6, 5.4][k], z: 1.4 + 0.5 * k, off: true }; });
+    return { x: 0, z, spots };
+  }
+  endSpot(i) { return this.endStage ? this.endStage.spots[i] : null; }
+
+  updateEnd() {
+    for (const i of this.teamPlayers(this.winner)) {
+      const p = this.players[i], sp = this.endStage.spots[i];
+      if (p.action || Math.hypot(p.pos.x - sp.x, p.pos.z - sp.z) > 0.4) continue;
+      // a body without the mocap library can't dance: fist pumps instead
+      if (p.motion && p.motion.lib.clips[sp.dance]) p.setAction('dance', { clip: sp.dance, yaw: sp.yaw });
+      else p.setAction('celebrate', { dur: 1.2 });
+    }
   }
 
   // ---------- rules ----------
   updateRules(dt) {
     const ball = this.ball;
     const st = this.state;
-    if (st === 'over') {
-      for (const i of this.teamPlayers(this.winner)) {
-        const p = this.players[i];
-        if (!p.action && this.rng() < 0.015) p.setAction('celebrate', { dur: 1.2 });
-      }
-      return;
-    }
+    if (st === 'over') { this.updateEnd(); return; }
     if (st === 'tip') {
       // the ball goes up after a beat; nobody tips it, it drops loose
       if (!ball.free && this.stateT > 0.9) {
