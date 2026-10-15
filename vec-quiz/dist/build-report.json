@@ -1,0 +1,155 @@
+{
+  "version": "0.1.0",
+  "hash": "3625f9c3d8",
+  "release": false,
+  "placeholder": true,
+  "included": [
+    "en"
+  ],
+  "languages": {
+    "en": "placeholder",
+    "cmn": "missing",
+    "yue": "missing",
+    "vi": "missing",
+    "ar": "missing",
+    "hi": "missing"
+  },
+  "files": [
+    {
+      "name": "index.html",
+      "bytes": 51239,
+      "size": "50.0 KB"
+    },
+    {
+      "name": "playable-mraid.html",
+      "bytes": 51272,
+      "size": "50.1 KB"
+    },
+    {
+      "name": "vec-quiz-ad.zip",
+      "bytes": 28182,
+      "size": "27.5 KB",
+      "note": "upload package"
+    },
+    {
+      "name": "review.html",
+      "bytes": 86083,
+      "size": "84.1 KB",
+      "note": "internal review, not for upload"
+    },
+    {
+      "name": "harness.html",
+      "bytes": 65894,
+      "size": "64.3 KB",
+      "note": "internal MRAID test, not for upload"
+    }
+  ],
+  "fonts": [
+    {
+      "family": "latin",
+      "weight": "400",
+      "chars": 52,
+      "bytes": 8472,
+      "size": "8.3 KB",
+      "langs": [
+        "en"
+      ]
+    },
+    {
+      "family": "latin",
+      "weight": "700",
+      "chars": 52,
+      "bytes": 8688,
+      "size": "8.5 KB",
+      "langs": [
+        "en"
+      ]
+    }
+  ],
+  "guard": [
+    {
+      "level": "pass",
+      "check": "external-urls",
+      "message": "index.html: no external URLs outside the allowlist"
+    },
+    {
+      "level": "warning",
+      "check": "clicktag",
+      "message": "index.html: clickTag is declared but empty because cta.url is not set yet"
+    },
+    {
+      "level": "warning",
+      "check": "ad-size",
+      "message": "index.html: no ad.size meta: placement sizes are not known yet (config/client.json placement.sizes)"
+    },
+    {
+      "level": "info",
+      "check": "html-size",
+      "message": "index.html: 50.0 KB (no HTML size limit set yet)"
+    },
+    {
+      "level": "pass",
+      "check": "external-urls",
+      "message": "playable-mraid.html: no external URLs outside the allowlist"
+    },
+    {
+      "level": "pass",
+      "check": "mraid-tag",
+      "message": "playable-mraid.html: references mraid.js for the host to inject"
+    },
+    {
+      "level": "warning",
+      "check": "clicktag",
+      "message": "playable-mraid.html: clickTag is declared but empty because cta.url is not set yet"
+    },
+    {
+      "level": "warning",
+      "check": "ad-size",
+      "message": "playable-mraid.html: no ad.size meta: placement sizes are not known yet (config/client.json placement.sizes)"
+    },
+    {
+      "level": "info",
+      "check": "html-size",
+      "message": "playable-mraid.html: 50.1 KB (no HTML size limit set yet)"
+    },
+    {
+      "level": "pass",
+      "check": "zip-index",
+      "message": "vec-quiz-ad.zip: index.html at the root"
+    },
+    {
+      "level": "warning",
+      "check": "zip-size",
+      "message": "vec-quiz-ad.zip: 27.5 KB; the zip size limit is unknown until the placement specs arrive (config/client.json placement.maxZipBytes)"
+    }
+  ],
+  "warnings": [
+    "content/quiz.json is placeholder structure, not client copy."
+  ],
+  "gaps": [
+    "brand.logo.forLightBackground",
+    "brand.logo.forDarkBackground",
+    "brand.logo.alt",
+    "brand.colours.background",
+    "brand.colours.surface",
+    "brand.colours.text",
+    "brand.colours.primary",
+    "brand.colours.onPrimary",
+    "brand.colours.correct",
+    "brand.colours.incorrect",
+    "brand.fonts.latin.family",
+    "brand.fonts.latin.files.400",
+    "brand.fonts.latin.files.700",
+    "cta.url",
+    "placement.dsp",
+    "placement.adServer",
+    "placement.environment",
+    "placement.sizes",
+    "placement.maxZipBytes",
+    "placement.maxHtmlBytes",
+    "placement.backupImageRequired",
+    "legal.required",
+    "reporting.endpoint",
+    "reporting.campaignId"
+  ]
+}

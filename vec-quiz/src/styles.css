@@ -1,0 +1,612 @@
+/* VEC quiz playable. Layout uses logical properties throughout so Arabic mirrors
+   without extra rules. Sizes are design pixels multiplied by --vq-k, which the
+   engine derives from the viewport (--vq-u) and the fit pass (--vq-scale). */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--vq-bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Placeholder palette, neutral on purpose. It is not a guess at the VEC brand:
+   colours set in config/client.json replace these tokens at build time. */
+:root {
+  --vq-bg: #f3f3f0;
+  --vq-surface: #ffffff;
+  --vq-text: #1b1b1b;
+  --vq-muted: #595959;
+  --vq-border: #c9c9c4;
+  --vq-primary: #1b1b1b;
+  --vq-on-primary: #ffffff;
+  --vq-correct: #1d7a3a;
+  --vq-incorrect: #b3261e;
+  --vq-on-status: #ffffff;
+}
+
+body {
+  color: var(--vq-text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.vq {
+  --vq-u: 1;
+  --vq-scale: 1;
+  --vq-k: calc(var(--vq-u) * var(--vq-scale));
+  --vq-lh: 1.28;
+  --vq-pad: calc(18px * var(--vq-k));
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.vq[data-font="arabic"],
+.vq [data-font="arabic"],
+.vq[data-font="devanagari"],
+.vq [data-font="devanagari"] {
+  --vq-lh: 1.55;
+}
+
+/* Arabic reads small next to Latin at the same pixel size, so it runs 10% larger. */
+.vq[data-font="arabic"],
+.vq [data-font="arabic"] {
+  --vq-k: calc(var(--vq-u) * var(--vq-scale) * 1.1);
+}
+
+.vq[data-font^="han"],
+.vq [data-font^="han"] {
+  --vq-lh: 1.4;
+}
+
+.vq-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: max(var(--vq-pad), env(safe-area-inset-top)) max(var(--vq-pad), env(safe-area-inset-right))
+    max(var(--vq-pad), env(safe-area-inset-bottom)) max(var(--vq-pad), env(safe-area-inset-left));
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s linear 0.22s;
+}
+
+.vq-screen[data-active] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s;
+}
+
+.vq-screen > * {
+  width: 100%;
+  max-width: calc(560px * var(--vq-k));
+  margin-inline: auto;
+  flex-shrink: 0;
+}
+
+/* Brand */
+
+.vq-brand {
+  display: flex;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.vq-logo {
+  display: block;
+  height: calc(44px * var(--vq-k));
+}
+
+.vq-logo img {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: calc(220px * var(--vq-k));
+  object-fit: contain;
+}
+
+.vq-logo[data-placeholder] {
+  width: calc(110px * var(--vq-k));
+  border: 1.5px dashed var(--vq-border);
+  border-radius: 8px;
+  color: var(--vq-muted);
+  font-size: max(9px, calc(11px * var(--vq-k)));
+  letter-spacing: 0.12em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vq-logo:empty:not([data-placeholder]) {
+  display: none;
+}
+
+.vq-logo-small {
+  height: calc(28px * var(--vq-k));
+}
+
+.vq-logo-small[data-placeholder] {
+  width: calc(70px * var(--vq-k));
+}
+
+/* Buttons */
+
+/* :where keeps this reset at zero specificity so the component rules below set sizes. */
+:where(.vq) button {
+  font: inherit;
+  color: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.vq button:focus-visible,
+.vq-qtext:focus-visible {
+  outline: 3px solid var(--vq-primary);
+  outline-offset: 3px;
+}
+
+.vq-btn {
+  border: 0;
+  border-radius: 999px;
+  background: var(--vq-primary);
+  color: var(--vq-on-primary);
+  font-weight: 700;
+  font-size: max(13px, calc(18px * var(--vq-k)));
+  line-height: 1.2;
+  min-height: max(44px, calc(52px * var(--vq-k)));
+  padding: calc(6px * var(--vq-k)) calc(26px * var(--vq-k));
+}
+
+.vq-btn-quiet {
+  background: transparent;
+  color: var(--vq-text);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  font-weight: 400;
+}
+
+.vq-btn:active {
+  transform: scale(0.98);
+}
+
+/* Language picker */
+
+.vq-picker {
+  justify-content: center;
+  gap: calc(16px * var(--vq-k));
+}
+
+.vq-picker-title {
+  margin-block: 0;
+  text-align: center;
+  font-weight: 700;
+  font-size: max(14px, calc(26px * var(--vq-k)));
+  line-height: var(--vq-lh);
+  max-height: 2.8em;
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+
+.vq-picker-title[data-fading] {
+  opacity: 0;
+}
+
+.vq-langs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: calc(10px * var(--vq-k));
+  flex: 0 0 auto;
+}
+
+.vq-lang {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: max(44px, calc(52px * var(--vq-k)));
+  padding: calc(4px * var(--vq-k)) calc(14px * var(--vq-k));
+  border: 2px solid var(--vq-border);
+  border-radius: calc(12px * var(--vq-k));
+  background: var(--vq-surface);
+  font-size: max(13px, calc(20px * var(--vq-k)));
+  font-weight: 700;
+  line-height: var(--vq-lh);
+}
+
+.vq-lang span {
+  display: block;
+  max-height: calc(1.3em * 2);
+  overflow: hidden;
+  text-align: center;
+}
+
+.vq-lang:active {
+  border-color: var(--vq-primary);
+}
+
+/* Question */
+
+.vq-question {
+  gap: calc(12px * var(--vq-k));
+}
+
+.vq-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(12px * var(--vq-k));
+  flex: 0 0 auto;
+}
+
+.vq-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(6px * var(--vq-k));
+  margin-inline-start: auto;
+}
+
+.vq-progress-text {
+  font-size: max(11px, calc(14px * var(--vq-k)));
+  color: var(--vq-muted);
+  line-height: var(--vq-lh);
+}
+
+.vq-dots {
+  display: flex;
+  gap: calc(6px * var(--vq-k));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.vq-dots li {
+  width: max(6px, calc(8px * var(--vq-k)));
+  height: max(6px, calc(8px * var(--vq-k)));
+  border-radius: 50%;
+  background: var(--vq-border);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.vq-dots li.is-done,
+.vq-dots li.is-current {
+  background: var(--vq-primary);
+}
+
+.vq-dots li.is-current {
+  transform: scale(1.35);
+}
+
+.vq-qbox {
+  flex: 1 1 auto;
+  min-height: calc(48px * var(--vq-k));
+  display: flex;
+  align-items: center;
+}
+
+.vq-qtext {
+  margin-block: 0;
+  width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  font-size: max(13px, calc(26px * var(--vq-k)));
+  font-weight: 700;
+  line-height: var(--vq-lh);
+  text-align: start;
+}
+
+.vq-answers {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--vq-k));
+  flex: 0 0 auto;
+}
+
+.vq-answer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: max(44px, calc(54px * var(--vq-k)));
+  padding: calc(6px * var(--vq-k)) calc(40px * var(--vq-k));
+  border: 2px solid var(--vq-border);
+  border-radius: calc(12px * var(--vq-k));
+  background: var(--vq-surface);
+  font-size: max(12px, calc(18px * var(--vq-k)));
+  line-height: var(--vq-lh);
+  transition: background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
+.vq-answer-text {
+  display: block;
+  width: 100%;
+  max-height: calc(var(--vq-lh) * 2em + 2px);
+  overflow: hidden;
+  text-align: center;
+}
+
+.vq-answer:disabled {
+  cursor: default;
+}
+
+.vq-answer.is-correct {
+  background: var(--vq-correct);
+  border-color: var(--vq-correct);
+  color: var(--vq-on-status);
+  animation: vq-pop 0.32s ease;
+}
+
+.vq-answer.is-wrong {
+  background: var(--vq-incorrect);
+  border-color: var(--vq-incorrect);
+  color: var(--vq-on-status);
+  animation: vq-pop 0.32s ease;
+}
+
+.vq-answer.is-reveal {
+  border-color: var(--vq-correct);
+  box-shadow: inset 0 0 0 2px var(--vq-correct);
+}
+
+.vq-answer.is-dim {
+  opacity: 0.5;
+}
+
+/* Tick and cross drawn with CSS so the file carries no image data. */
+.vq-mark {
+  position: absolute;
+  inset-inline-end: calc(14px * var(--vq-k));
+  top: 50%;
+  width: calc(18px * var(--vq-k));
+  height: calc(18px * var(--vq-k));
+  transform: translateY(-50%);
+}
+
+.is-correct .vq-mark::before,
+.is-reveal .vq-mark::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 30%;
+  top: 5%;
+  width: 35%;
+  height: 70%;
+  border: solid currentColor;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
+}
+
+.is-reveal .vq-mark::before {
+  border-color: var(--vq-correct);
+}
+
+.is-wrong .vq-mark::before,
+.is-wrong .vq-mark::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 45%;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+
+.is-wrong .vq-mark::after {
+  transform: rotate(-45deg);
+}
+
+.vq-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(12px * var(--vq-k));
+  flex: 0 0 auto;
+  min-height: max(44px, calc(52px * var(--vq-k)));
+  visibility: hidden;
+}
+
+.vq-question[data-answered] .vq-feedback {
+  visibility: visible;
+}
+
+.vq-feedback-text {
+  margin-block: 0;
+  font-weight: 700;
+  font-size: max(13px, calc(18px * var(--vq-k)));
+  line-height: var(--vq-lh);
+}
+
+.vq-feedback-text.is-ok {
+  color: var(--vq-correct);
+}
+
+.vq-feedback-text.is-wrong {
+  color: var(--vq-incorrect);
+}
+
+/* End screen */
+
+.vq-end {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: calc(12px * var(--vq-k));
+}
+
+.vq-end-title {
+  margin-block: 0;
+  font-size: max(13px, calc(22px * var(--vq-k)));
+  color: var(--vq-muted);
+  font-weight: 700;
+  line-height: var(--vq-lh);
+  max-height: calc(var(--vq-lh) * 2em);
+  overflow: hidden;
+}
+
+.vq-score {
+  margin-block: 0;
+  font-size: max(16px, calc(34px * var(--vq-k)));
+  font-weight: 700;
+  line-height: var(--vq-lh);
+  max-height: calc(var(--vq-lh) * 2em + 2px);
+  overflow: hidden;
+}
+
+.vq-end-body {
+  margin-block: 0;
+  font-size: max(12px, calc(17px * var(--vq-k)));
+  line-height: var(--vq-lh);
+  max-height: calc(var(--vq-lh) * 3em + 2px);
+  overflow: hidden;
+}
+
+.vq-end-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(6px * var(--vq-k));
+}
+
+.vq-cta {
+  min-width: min(100%, calc(240px * var(--vq-k)));
+}
+
+.vq-legal {
+  margin-block: 0;
+  font-size: max(10px, calc(11px * var(--vq-k)));
+  color: var(--vq-muted);
+  line-height: 1.35;
+  max-height: calc(1.35 * 3em + 2px);
+  overflow: hidden;
+}
+
+.vq [data-empty] {
+  display: none;
+}
+
+/* Compact layout: near square viewports such as 300x250. */
+
+.vq[data-layout="compact"] {
+  --vq-pad: calc(12px * var(--vq-k));
+}
+
+.vq[data-layout="compact"] .vq-langs {
+  grid-template-columns: 1fr 1fr;
+}
+
+.vq[data-layout="compact"] .vq-answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.vq[data-layout="compact"] .vq-answer {
+  padding-inline: calc(22px * var(--vq-k));
+}
+
+.vq[data-layout="compact"] .vq-mark {
+  inset-inline-end: calc(6px * var(--vq-k));
+}
+
+.vq[data-layout="compact"] .vq-end-actions {
+  flex-direction: row;
+  justify-content: center;
+}
+
+/* Landscape layout: question on one side, answers on the other. */
+
+.vq[data-layout="landscape"] .vq-langs {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.vq[data-layout="landscape"] .vq-question {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr auto;
+  column-gap: calc(24px * var(--vq-k));
+  row-gap: calc(10px * var(--vq-k));
+}
+
+.vq[data-layout="landscape"] .vq-question > * {
+  max-width: none;
+}
+
+.vq[data-layout="landscape"] .vq-top {
+  grid-column: 1 / -1;
+}
+
+.vq[data-layout="landscape"] .vq-qbox {
+  grid-column: 1;
+  grid-row: 2 / 4;
+}
+
+.vq[data-layout="landscape"] .vq-answers {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: center;
+}
+
+.vq[data-layout="landscape"] .vq-feedback {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.vq[data-layout="landscape"] .vq-end-actions {
+  flex-direction: row;
+  justify-content: center;
+}
+
+/* Review and dev helpers. */
+
+.vq-notice {
+  position: absolute;
+  inset-inline: calc(12px * var(--vq-k));
+  bottom: calc(12px * var(--vq-k));
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #111;
+  color: #fff;
+  font: 13px/1.3 system-ui, sans-serif;
+  text-align: center;
+}
+
+.vq[data-outline] [data-overflow] {
+  outline: 2px dashed #d00;
+  outline-offset: -2px;
+}
+
+@keyframes vq-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vq *,
+  .vq-screen,
+  .vq-screen[data-active] {
+    transition: none !important;
+    animation: none !important;
+  }
+}

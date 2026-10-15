@@ -1,0 +1,32 @@
+{
+  "_readme": "Quiz structure shared by every language: question order, answer order and the correct answer. Strings live in content/<code>.json under the same keys. sheet2json rewrites this file from the client sheet.",
+  "placeholder": true,
+  "source": "Placeholder structure written by Gamify for build testing. Replace by running sheet2json on the client sheet.",
+  "questions": [
+    {
+      "id": "q1",
+      "answers": ["q1.a1", "q1.a2", "q1.a3", "q1.a4"],
+      "correct": "q1.a2"
+    },
+    {
+      "id": "q2",
+      "answers": ["q2.a1", "q2.a2", "q2.a3", "q2.a4"],
+      "correct": "q2.a4"
+    },
+    {
+      "id": "q3",
+      "answers": ["q3.a1", "q3.a2", "q3.a3", "q3.a4"],
+      "correct": "q3.a1"
+    },
+    {
+      "id": "q4",
+      "answers": ["q4.a1", "q4.a2", "q4.a3"],
+      "correct": "q4.a3"
+    },
+    {
+      "id": "q5",
+      "answers": ["q5.a1", "q5.a2"],
+      "correct": "q5.a1"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<!--VQ:HEAD-->
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>VEC quiz</title>
+<style>/*VQ:CSS*/</style>
+</head>
+<body>
+<main class="vq" id="vq" data-layout="portrait">
+  <section class="vq-screen vq-picker" data-screen-id="picker" aria-labelledby="vq-picker-title" inert>
+    <div class="vq-brand"><span class="vq-logo" data-logo></span></div>
+    <h1 class="vq-picker-title" id="vq-picker-title" data-fit data-key="picker.title"></h1>
+    <div class="vq-langs" role="group" aria-labelledby="vq-picker-title"></div>
+  </section>
+  <section class="vq-screen vq-question" data-screen-id="question" inert>
+    <header class="vq-top">
+      <span class="vq-logo vq-logo-small" data-logo></span>
+      <div class="vq-progress">
+        <span class="vq-progress-text" data-key="question.progress"></span>
+        <ol class="vq-dots" aria-hidden="true"></ol>
+      </div>
+    </header>
+    <div class="vq-qbox"><h2 class="vq-qtext" data-fit data-key="question" tabindex="-1"></h2></div>
+    <div class="vq-answers" role="group"></div>
+    <div class="vq-feedback">
+      <p class="vq-feedback-text" role="status" aria-live="polite"></p>
+      <button type="button" class="vq-btn vq-next" data-key="button.next"></button>
+    </div>
+  </section>
+  <section class="vq-screen vq-end" data-screen-id="end" inert>
+    <div class="vq-brand"><span class="vq-logo" data-logo></span></div>
+    <h2 class="vq-end-title" data-fit data-key="end.title"></h2>
+    <p class="vq-score" data-fit data-key="end.score"></p>
+    <p class="vq-end-body" data-fit data-key="end.body"></p>
+    <div class="vq-end-actions">
+      <button type="button" class="vq-btn vq-cta" data-key="button.cta"></button>
+      <button type="button" class="vq-btn vq-btn-quiet vq-replay" data-key="button.replay"></button>
+    </div>
+    <p class="vq-legal" data-fit data-key="legal"></p>
+  </section>
+  <div class="vq-notice" role="alert" hidden></div>
+</main>
+<script type="application/json" id="vq-data"><!--VQ:DATA--></script>
+<script>/*VQ:JS*/</script>
+</body>
+</html>

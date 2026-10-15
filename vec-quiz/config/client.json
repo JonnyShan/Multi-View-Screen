@@ -1,0 +1,62 @@
+{
+  "_readme": "Client details for the VEC quiz playable. An empty value means the client has not supplied it yet. Leave it empty until it arrives and never fill it with a guess. `npm run check` lists every value that is still empty, and `npm run build:release` refuses to ship while a required one is empty.",
+  "client": {
+    "name": "VEC",
+    "campaign": "VIC Gov VEC FY27",
+    "agency": "Livewire",
+    "_source": "Livewire email thread 'Playable Brief - VIC Gov VEC FY27' (17 to 28 Sep 2026)."
+  },
+  "brand": {
+    "logo": {
+      "forLightBackground": "",
+      "forDarkBackground": "",
+      "alt": "",
+      "_note": "SVG preferred, else a high res transparent PNG (asked for on 21 Sep). Save files in assets/brand/ and put the paths here, relative to the project root. The build picks the right one for the background colour."
+    },
+    "colours": {
+      "background": "",
+      "surface": "",
+      "text": "",
+      "primary": "",
+      "onPrimary": "",
+      "correct": "",
+      "incorrect": "",
+      "_note": "Hex values (#RRGGBB) from the VEC brand guidelines. While empty the build uses the neutral placeholder palette in src/styles.css, which is deliberately not a brand guess."
+    },
+    "fonts": {
+      "latin": {
+        "family": "",
+        "files": {
+          "400": "",
+          "700": ""
+        },
+        "webLicenceConfirmed": false
+      },
+      "_note": "Only if the brand guidelines name a font we are licensed to embed in an ad. Put TTF or OTF files in assets/brand/fonts/ and set webLicenceConfirmed to true once the licence is confirmed. While empty the build uses Noto Sans (SIL OFL)."
+    }
+  },
+  "cta": {
+    "url": "",
+    "_note": "Click through URL for the end screen button. It is written into the clickTag declaration; CM360 replaces window.clickTag at serve time and MRAID hosts receive it through mraid.open()."
+  },
+  "placement": {
+    "dsp": "",
+    "adServer": "",
+    "environment": "",
+    "sizes": [],
+    "maxZipBytes": null,
+    "maxHtmlBytes": null,
+    "backupImageRequired": null,
+    "_note": "Livewire 17 Sep: 'Similar to the Mac's campaign and the placement and specs we're running with for that.' Those specs have not arrived. Livewire's general playables answer on 27 May was DV360, in app (MRAID), tested by loading into CM360; confirm that applies to VEC before filling anything here. sizes takes entries like {\"width\": 320, \"height\": 480}."
+  },
+  "legal": {
+    "required": null,
+    "_note": "Open question: does the end screen need an authorisation statement? If yes, add the text to the sheet row 'legal' in every language and set required to true."
+  },
+  "reporting": {
+    "enabled": false,
+    "endpoint": "",
+    "campaignId": "",
+    "_note": "Livewire 17 Sep: reporting and a per language breakdown of respondent answers will matter post campaign. The Cloudflare Worker in worker/ ships disabled. Only set enabled to true once the Worker is deployed and the endpoint is agreed with Livewire. No personal data is collected either way."
+  }
+}

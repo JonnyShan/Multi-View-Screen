@@ -1,0 +1,22 @@
+# VEC quiz reporting Worker. SHIPPED DISABLED on purpose:
+#   - workers_dev = false and no routes, so it has no URL even if deployed
+#   - ENABLED = "false", so every request gets 503
+#   - database_id is empty until a D1 database is created for it
+# Read worker/README.md before changing any of this.
+
+name = "vec-quiz-reporting"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = false
+# routes = [{ pattern = "", zone_name = "" }]
+
+[vars]
+ENABLED = "false"
+LANGUAGES = "en,cmn,yue,vi,ar,hi"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "vec-quiz-reporting"
+database_id = ""
+
+# REPORT_TOKEN is a secret, never committed: npx wrangler secret put REPORT_TOKEN
