@@ -251,7 +251,8 @@ export class TeamAI {
         if (bestJ >= 0 && this.F(bestJ, t).z < f.z - 6 && bestV > 0.45 && g.rng() < 0.5) { g.cmdPass(i, bestJ); return; }
         br.plan = { x: clamp(f.x * 0.5, -4, 4), z: 7.5, sprint: dOpp > 2.2 || ahead === 0, until: g.t + 0.8, frame: true };
       } else {
-        // finishing chance
+        // finishing chance (a full dunk meter takes off from further out)
+        if (g.dunkOn(i) && dRim < 4 && (inFront < 0.4 || dOpp > 1.6)) { g.cmdShoot(i); return; }
         if (dRim < 1.6 || (dRim < 3.2 && (inFront < 0.4 || dOpp > 1.6) && me.vel.x * tx + me.vel.z * tz > 1.3)) { g.cmdShoot(i); return; }
         const three = g.threeAt(i, me.pos.x, me.pos.z);
         const want = (three ? 0.32 : 0.38) - this.d.iq * 0.06 + this.rnd(-0.05, 0.05);

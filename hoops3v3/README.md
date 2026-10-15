@@ -15,8 +15,8 @@ The 1-on-1 half-court game it grew from is kept as it was in `../hardwood/`, and
   - A shot in the air at the buzzer still counts.
   - A tie goes to sudden death: a new tip-off, and the next basket wins.
 - **Arcade**:
-  - Big dunks from further out. A longer take-off gets more hang time and a bigger camera shake.
-  - **Hot hand**: score three in a row while the other team doesn't, and you're on fire until they score. You shoot better, your release window is wider, you can dunk from further out, and the ball glows Livewire yellow.
+  - **Dunk meter**: dunks are earned. A ring around SHOOT fills over 15 seconds of play (it stops while paused and during replays) and reads DUNK when it's full. Then run at the rim and press SHOOT from up to 4.2 m out (about the free-throw line): any player goes up well over the rim and throws it down, with more hang time from a longer take-off, slow motion and a bigger camera shake. The dunk empties the ring. Without it, drives finish as layups. Your teammates leave the meter for you; the CPU team fills and spends its own.
+  - **Hot hand**: score three in a row while the other team doesn't, and you're on fire until they score. You shoot better, your release window is wider, and the ball glows Livewire yellow.
   - Defenders can swat a jump shot on its way up.
 - **Control**: you always play the man with the ball. When you pass, you take over the man it's thrown to.
   - On defence you play the man nearest the ball when you lose it. SWITCH jumps to the teammate nearest the ball.
