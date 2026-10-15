@@ -40,8 +40,9 @@ The 1-on-1 half-court game it grew from is kept as it was in `../hardwood/`, and
   - Yellow: Morrow (#7), Lindqvist (#21), Kasumba (#23).
   - Black: Varga (#3), Arata (#11), Aneke (#34).
   - Each body is a textured, rigged 3D model made from a generated full-body photo, with cloth sway on the jersey hem and shorts.
-  - Morrow's and Varga's bodies are their own. Until their own bodies are made, the other four borrow their team star's body, scaled to their height.
-  - With six bodies on court, phones use the lighter 31,000-triangle bodies. High quality uses the full 94,000-triangle ones.
+  - All six players have their own body, in their own Livewire kit and number.
+  - Every body rests its arms at the same angle as the rig the motion clips were captured on, so the clips play the same on each of them.
+  - With six bodies on court, phones use the lighter (about 30,000-triangle) bodies with 1024 colour maps. High quality uses the full (about 100,000-triangle) ones. The lighter bodies of the four newer players are cut down from their full ones.
   - A body off screen isn't drawn.
 - **Motion**: running, walking, backpedalling, defensive slides, stances and jumps come from motion-capture clips, blended by speed and direction. A procedural rig handles dribbling, shooting, passing, catching, layups, dunks, steals and arm IK. A pass is arms only, so the legs keep running under it.
 - **Replays**: your threes and dunks get a slow-motion replay at basket A, recorded as a shareable clip (`js/replay.js`).
