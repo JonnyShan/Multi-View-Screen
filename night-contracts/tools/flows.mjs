@@ -1,0 +1,45 @@
+// Dev check: click through menus and touch editing, report any console errors.
+import { chromium, devices } from '@playwright/test';
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const ctx = await browser.newContext({ ...devices['iPhone 14 Pro landscape'] });
+const page = await ctx.newPage();
+const errors = [];
+page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+await page.goto('http://localhost:5199/?e2e=1&q=low');
+await page.waitForFunction(() => window.__nc?.ready(), null, { timeout: 120000 });
+const click = async (sel) => { await page.locator(sel).first().click({ force: true }); await page.waitForTimeout(300); };
+await click('[data-act="help"]');
+await click('.screen.on [data-act="back"]');
+await click('[data-act="settings"]');
+await page.locator('[data-set="weather"]').selectOption('clear');
+await page.locator('[data-set="pauseClock"]').check();
+await click('.screen.on [data-act="back"]');
+await click('[data-act="ride"]');
+await page.waitForTimeout(800);
+await click('.tbtn.pause');
+const paused = await page.evaluate(() => window.__nc.state().paused);
+await click('.screen.on [data-act="settings"]');
+await click('.screen.on [data-act="edit"]');
+// drag the fire button a little
+const b = await page.locator('.tbtn.fire').boundingBox();
+await page.mouse.move(b.x + 40, b.y + 40);
+await page.mouse.down();
+await page.mouse.move(b.x + 10, b.y - 20, { steps: 3 });
+await page.mouse.up();
+await click('.tbtn.pause');
+await click('.screen.on [data-act="resume"]');
+const resumed = await page.evaluate(() => !window.__nc.state().paused);
+// tap buttons
+await click('.tbtn.slash');
+await click('.tbtn.jump');
+await page.waitForTimeout(500);
+await click('.tbtn.pause');
+await click('.screen.on [data-act="quit"]');
+await click('[data-act="ride"]');
+await page.waitForTimeout(800);
+const st = await page.evaluate(() => window.__nc.state());
+const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('night-contracts.save.v1') || '{}'));
+console.log(JSON.stringify({ paused, resumed, mode: st.mode, playing: st.playing, layout: saved.settings?.layout, weather: saved.settings?.weather, pauseClock: saved.settings?.pauseClock }));
+console.log(errors.length ? errors.join('\n') : 'no console errors');
+await browser.close();

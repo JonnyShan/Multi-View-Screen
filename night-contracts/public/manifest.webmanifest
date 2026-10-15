@@ -1,0 +1,16 @@
+{
+  "name": "Night Contracts",
+  "short_name": "Night Contracts",
+  "description": "Ride, hunt, execute, disappear.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0e0f11",
+  "theme_color": "#0e0f11",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
