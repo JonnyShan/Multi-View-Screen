@@ -76,7 +76,7 @@ export class MotionLayer {
   // clip time inside the jump for the game's jump timeline (dip, air, landing)
   jumpTime(act) {
     const c = this.lib.clips.jump;
-    const t0 = act.type === 'shoot' ? 0.2 : 0.1;
+    const t0 = act.t0 ?? (act.type === 'shoot' ? 0.2 : 0.1);
     const pre = Math.min(c.takeoff, 0.3);
     const g = act.t;
     if (g < t0) return c.takeoff - pre + (g / t0) * pre;

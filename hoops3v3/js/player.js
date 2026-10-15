@@ -103,6 +103,8 @@ const _xb = new THREE.Vector3(), _yb = new THREE.Vector3(), _zb = new THREE.Vect
 const smooth = (a, b, k) => a + (b - a) * k;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const ss = (x) => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+// height of a jump of peak h at u (0 = take-off, 1 = landing): a ballistic parabola
+const arc = (h, u) => (u > 0 && u < 1 ? h * 4 * u * (1 - u) : 0);
 
 // the plain kit (fabric noise and trim) is the same for every player on a side: made once
 const kitBase = new Map();
@@ -599,8 +601,8 @@ export class Player {
       T.hipLZ += 0.16; T.hipRZ -= 0.16;
       // active hands: one high to contest, one low in the passing lane
       this.handsT -= dt;
-      if (this.handsT <= 0) { this.handsHigh = -this.handsHigh; this.handsT = 0.9 + Math.random() * 1.1; }
-      const wig = Math.sin(tt * 9) * 0.1;
+      if (this.handsT <= 0) { this.handsHigh = -this.handsHigh; this.handsT = 1.8 + Math.random() * 1.6; }
+      const wig = Math.sin(tt * 4.2) * 0.045;
       const hiL = this.handsHigh > 0 ? 1 : 0;
       const slideArms = Math.min(1, slideW * spd * 0.5);
       const hL = hiL * (1 - slideArms), hR = (1 - hiL) * (1 - slideArms);
@@ -625,7 +627,7 @@ export class Player {
       if (act.type === 'shoot') {
         // gather (dip) -> rise -> release at apex -> land
         const dip = ss(t / 0.16) * (1 - ss((t - 0.16) / 0.12));
-        const air = act.jump * Math.max(0, Math.sin(clamp((t - 0.2) / act.air, 0, 1) * Math.PI));
+        const air = arc(act.jump, (t - 0.2) / act.air);
         this.jumpY = air;
         T.kneeL = T.kneeR = 0.25 + dip * 0.9 + (air > 0 ? 0.15 : 0);
         T.hipLX = T.hipRX = -0.15 - dip * 0.5;
@@ -634,7 +636,7 @@ export class Player {
         T.spineZ = 0;
         T.hipLZ = 0.06; T.hipRZ = -0.06;
       } else if (act.type === 'layup' || act.type === 'dunk') {
-        const air = act.jump * Math.max(0, Math.sin(clamp((t - act.gather) / act.air, 0, 1) * Math.PI));
+        const air = arc(act.jump, (t - act.gather) / act.air);
         this.jumpY = act.hang ? act.hangY : air;
         const up = t > act.gather;
         T.hipLX = up ? -1.25 : -0.3; T.kneeL = up ? 1.6 : 0.6;   // knee drive
@@ -643,23 +645,30 @@ export class Player {
         T.spineX = up ? 0.02 : 0.25;
         if (act.hang) { T.hipLX = -0.3; T.kneeL = 0.5; T.hipRX = -0.2; T.kneeR = 0.4; T.spineX = -0.05; }
       } else if (act.type === 'contest') {
-        const air = act.jump * Math.max(0, Math.sin(clamp((t - 0.1) / act.air, 0, 1) * Math.PI));
+        // load (sink, arms back) -> explode up -> knees tuck a little at the top -> land
+        const t0 = act.t0 ?? 0.1;
+        const u = (t - t0) / act.air;
+        const air = arc(act.jump, u);
         this.jumpY = air;
-        const dip = ss(t / 0.1) * (1 - ss((t - 0.1) / 0.1));
-        T.kneeL = T.kneeR = 0.3 + dip * 0.7;
-        T.hipLX = T.hipRX = -0.2 - dip * 0.3;
-        T.ankleL = T.ankleR = air > 0.02 ? 0.55 : 0;
-        T.spineX = 0.0;
-        T.hipLZ = 0.08; T.hipRZ = -0.08;
+        const load = ss(t / t0) * (1 - ss((t - t0) / 0.05));
+        const tuck = u > 0 && u < 1 ? Math.sin(Math.PI * u) : 0;
+        T.kneeL = T.kneeR = 0.22 + load * 1.0 + tuck * 0.42;
+        T.hipLX = T.hipRX = -0.12 - load * 0.5 - tuck * 0.3;
+        T.ankleL = T.ankleR = air > 0.02 ? 0.5 : -load * 0.3;
+        T.spineX = 0.08 + load * 0.3 - tuck * 0.06;
+        T.hipLZ = 0.09; T.hipRZ = -0.09;
       } else if (act.type === 'steal') {
         const r = ss(t / 0.12) * (1 - ss((t - 0.28) / 0.15));
         T.spineX += 0.35 * r;
         T.hipLX = -0.9 * r - 0.3; T.kneeL = 1.1 * r + 0.4;
       } else if (act.type === 'stumble') {
-        const w = Math.sin(t * 22) * (1 - t / 0.6);
-        T.spineZ = 0.25 * w; T.spineX = 0.35;
-        T.shLZ = 1.4; T.shRZ = -1.4; T.shLX = -0.6 + w; T.shRX = -0.6 - w;
-        T.hipLZ = 0.3; T.hipRZ = -0.1 + w * 0.2;
+        // off balance: one lurch to the side, arms out to catch it, then recover (no shaking)
+        const k = Math.sin(Math.PI * clamp(t / (act.dur || 0.6), 0, 1));
+        const side = act.side || (this.info.num % 2 ? 1 : -1);
+        T.spineZ = 0.2 * k * side; T.spineX = 0.12 + 0.22 * k;
+        T.shLZ = 0.15 + 0.85 * k; T.shRZ = -0.15 - 0.85 * k; T.shLX = -0.35 * k; T.shRX = -0.35 * k;
+        T.hipLZ = 0.06 + 0.2 * k * Math.max(0, side); T.hipRZ = -0.06 - 0.2 * k * Math.max(0, -side);
+        T.kneeL += 0.25 * k; T.kneeR += 0.25 * k;
       } else if (act.type === 'celebrate') {
         const pump = Math.abs(Math.sin(t * 9));
         T.shRX = -2.3 - pump * 0.4; T.shRZ = -0.3; T.elbowR = -1.4 + pump * 0.5;
@@ -795,7 +804,7 @@ export class Player {
       if (this.chopT <= 0) {
         this.chopSide = 1 - this.chopSide;
         start(this.chopSide, rest[this.chopSide], 0.1, 0.028);
-        this.chopT = 0.13 + Math.random() * 0.05;
+        this.chopT = 0.3 + Math.random() * 0.2;
         return;
       }
     }

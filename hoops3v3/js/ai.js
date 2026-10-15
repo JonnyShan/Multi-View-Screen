@@ -40,12 +40,13 @@ export class TeamAI {
     s.x = (x / l) * mag; s.z = (z / l) * mag; s.mag = mag; s.sprint = sprint;
   }
   stop(i) { this.setMove(i, 0, 0); }
-  moveTo(i, x, z, { sprint = false, arrive = 0.25 } = {}) {
+  // ease: a short re-step glides rather than lunges
+  moveTo(i, x, z, { sprint = false, arrive = 0.25, ease = false } = {}) {
     const me = this.g.players[i].pos;
     const dx = x - me.x, dz = z - me.z;
     const d = Math.hypot(dx, dz);
     if (d < arrive) { this.stop(i); return d; }
-    const mag = clamp(d / 1.2, 0.35, 1);
+    const mag = clamp(d / 1.2, ease ? 0.12 : 0.35, 1);
     this.setMove(i, dx, dz, mag, sprint && d > 2);
     return d;
   }
@@ -144,13 +145,13 @@ export class TeamAI {
     if (!g.jumpers.includes(i) || g.tipped || !b.free) { br.jumped = false; return; }
     if (br.jumped) return;
     // jump so the hands peak as the falling ball gets to them
-    const jump = 0.42 + 0.35 * (g.ps[i].r.block / 100);
-    const handY = 2.15 * me.s + jump;
+    const c = g.contestShape(i);
+    const handY = 2.2 * me.s + c.jump;
     const vy = b.vel.y, y = b.pos.y - handY;
     if (vy > 1.2) return;
     const tHit = (vy + Math.sqrt(Math.max(0, vy * vy + 2 * 9.81 * y))) / 9.81;
     const err = (1 - this.d.iq) * 0.18;
-    if (br.tipAt === undefined) br.tipAt = 0.41 + this.rnd(-err, err);
+    if (br.tipAt === undefined) br.tipAt = c.peak + this.rnd(-err, err);
     if (tHit <= br.tipAt) { br.jumped = true; br.tipAt = undefined; g.cmdContest(i); }
   }
 
@@ -426,10 +427,14 @@ export class TeamAI {
     const gap = clamp(0.95 + (dRim - 3) * 0.08, 0.9, dRim > 15 ? 3.2 : 1.55);
     const ph = g.t * 1.3 + i * 2;
     const px = -(R.z - hz) / dRim, pz = (R.x - hx) / dRim;          // perpendicular to the drive line
-    const stunt = 0.16 * Math.sin(ph) + 0.08 * Math.sin(ph * 2.7);
-    const gx = hx + (R.x - hx) / dRim * (gap + 0.1 * Math.sin(ph * 0.7)) + px * stunt;
-    const gz = hz + (R.z - hz) / dRim * (gap + 0.1 * Math.sin(ph * 0.7)) + pz * stunt;
-    this.moveTo(i, gx, gz, { sprint: Math.hypot(gx - me.pos.x, gz - me.pos.z) > 1.6, arrive: 0.12 });
+    const stunt = 0.07 * Math.sin(ph * 0.8) + 0.03 * Math.sin(ph * 1.9);
+    const gx = hx + (R.x - hx) / dRim * (gap + 0.04 * Math.sin(ph * 0.5)) + px * stunt;
+    const gz = hz + (R.z - hz) / dRim * (gap + 0.04 * Math.sin(ph * 0.5)) + pz * stunt;
+    // set: hold the spot while he's still; only re-step when he's really moved
+    const still = Math.hypot(opp.vel.x, opp.vel.z) < 0.6;
+    const d = Math.hypot(gx - me.pos.x, gz - me.pos.z);
+    if (still && d < 0.32 && Math.hypot(me.vel.x, me.vel.z) < 0.4) this.stop(i);
+    else this.moveTo(i, gx, gz, { sprint: d > 1.6, arrive: still ? 0.08 : 0.12, ease: true });
     // reach for the ball
     const dh = Math.hypot(opp.pos.x - me.pos.x, opp.pos.z - me.pos.z);
     if (dh < 1.15 && !me.action && g.rng() < this.dt * 0.55 * this.d.steal) g.cmdSteal(i);

@@ -831,10 +831,18 @@ export class Game {
     this.players[i].setAction('stumble', { dur: 0.5 });
   }
 
+  // a block or rebound jump: a quick load, then up; a bigger leaper gets higher and hangs a touch longer
+  contestShape(i) {
+    const jump = 0.42 + 0.35 * (this.ps[i].r.block / 100);
+    const t0 = 0.12, air = 0.46 + 0.14 * jump;
+    return { t0, jump, air, peak: t0 + air / 2 };
+  }
+
   cmdContest(i) {
-    const p = this.players[i], r = this.ps[i].r;
+    const p = this.players[i];
     if (p.action && p.action.type !== 'check') return;
-    p.setAction('contest', { jump: 0.42 + 0.35 * (r.block / 100), air: 0.62, dur: 0.85 });
+    const c = this.contestShape(i);
+    p.setAction('contest', { t0: c.t0, jump: c.jump, air: c.air, dur: c.t0 + c.air + 0.2 });
     p.vel.multiplyScalar(0.4);
   }
 
@@ -999,7 +1007,9 @@ export class Game {
       const theirBall = handler >= 0 && this.teamOf(handler) !== team;
       const hp = handler >= 0 ? this.players[handler] : null;
       const dBall = Math.hypot(ball.pos.x - p.pos.x, ball.pos.z - p.pos.z);
-      p.stance = theirBall && (dBall < 6 || spd < 3) ? 'defense' : 'offense';
+      if (!theirBall || dBall > 7.5 || spd > 4.8) s.guard = false;
+      else if (dBall < 6 && spd < 3.6) s.guard = true;
+      p.stance = s.guard ? 'defense' : 'offense';
       // facing
       const R = this.rimOf(i);
       let ty;
@@ -1219,9 +1229,16 @@ export class Game {
       return;
     }
     if (act && act.type === 'contest') {
-      const up = 2.25 * p.s + p.jumpY;
-      p.ikTarget[0] = p.localToWorld(new THREE.Vector3(), 0.18 * s, 0, 0.3 * s).setY(up);
-      p.ikTarget[1] = p.localToWorld(new THREE.Vector3(), -0.18 * s, 0, 0.3 * s).setY(up);
+      // the arms swing up with the take-off: low and back while loading, then the hand
+      // on the ball's side goes highest and the other a little lower
+      const t0 = act.t0 ?? 0.1;
+      const e = clamp((act.t - t0 + 0.05) / 0.17, 0, 1), k = e * e * (3 - 2 * e);
+      const bx = ball.pos.x - p.pos.x, bz = ball.pos.z - p.pos.z;
+      const leftLead = bx * Math.cos(p.yaw) - bz * Math.sin(p.yaw) > 0;      // +x is the character's left
+      const hi = lerp(0.95 * s, 2.28 * s, k) + p.jumpY, lo = lerp(0.9 * s, 2.02 * s, k) + p.jumpY;
+      const fwd = lerp(0.12, 0.3, k) * s, wide = lerp(0.26, 0.17, k) * s;
+      p.ikTarget[0] = p.localToWorld(new THREE.Vector3(), wide, 0, fwd).setY(leftLead ? hi : lo);
+      p.ikTarget[1] = p.localToWorld(new THREE.Vector3(), -wide, 0, fwd).setY(leftLead ? lo : hi);
       // the tip: a hand on the falling ball taps it to a teammate
       if (this.state === 'tip' && !this.tipped && this.jumpers.includes(i) && this.ball.free && this.ball.vel.y < 0) {
         const hb = Math.min(p.handWorld(0, _v).distanceTo(ball.pos), p.handWorld(1, _v2).distanceTo(ball.pos));
