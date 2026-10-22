@@ -491,7 +491,7 @@ function showEnd(res) {
   const you = HOME, opp = AWAY;
   $('endEyebrow').textContent = (res.youWon ? 'Final · Victory' : 'Final · Defeat') + (res.overtime ? ' · Sudden death' : '');
   $('endRes').textContent = res.youWon ? 'You win' : `${opp.abbr[0] + opp.abbr.slice(1).toLowerCase()} wins`;
-  $('endScore').textContent = `${you.abbr} ${res.score[0]} – ${res.score[1]} ${opp.abbr}`;
+  $('endScore').textContent = `${you.abbr} ${res.score[0]} - ${res.score[1]} ${opp.abbr}`;
   const s = res.stats;
   // the game's top scorer
   let mvp = 0;

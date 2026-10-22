@@ -763,9 +763,9 @@ export class Replay {
     g.fillStyle = '#111'; g.fillText(tag, W - tw - 38, 29);
     const sc = this.game.score;
     g.fillStyle = '#ffffff'; g.font = '700 22px "Saira Extra Condensed", "Arial Narrow", sans-serif';
-    g.fillText(`${r.h.names[0]} ${sc[0]}  –  ${sc[1]} ${r.h.names[1]}`, 28, H - 27);
+    g.fillText(`${r.h.names[0]} ${sc[0]}  -  ${sc[1]} ${r.h.names[1]}`, 28, H - 27);
     g.fillStyle = 'rgba(255,255,255,0.75)';
-    const url = 'livewire.hoops.gamify.com';
+    const url = location.hostname || 'livewire.hoops.gamify.com';   // whichever domain serves the game
     g.fillText(url, W - g.measureText(url).width - 28, H - 27);
   }
 
@@ -783,7 +783,7 @@ export async function shareClip(clip) {
   if (!clip) return;
   const file = new File([clip.blob], clip.name, { type: clip.blob.type });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: 'Livewire Hoops', text: 'Livewire Hoops · livewire.hoops.gamify.com' }); return 'shared'; } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
+    try { await navigator.share({ files: [file], title: 'Livewire Hoops', text: `Livewire Hoops · ${location.hostname || 'livewire.hoops.gamify.com'}` }); return 'shared'; } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
   }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(clip.blob);
