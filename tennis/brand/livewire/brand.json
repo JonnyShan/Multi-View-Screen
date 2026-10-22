@@ -1,0 +1,76 @@
+{
+  "id": "livewire",
+  "name": "Livewire",
+  "tagline": "Play Powered Performance",
+  "title": {
+    "lines": [
+      { "text": "Tennis", "accent": true }
+    ],
+    "lockupSubtitle": "TENNIS",
+    "hero": "title-hero.webp"
+  },
+  "colors": {
+    "primary": "#000000",
+    "accent": "#CBFE00",
+    "text": "#FFFFFF",
+    "textMuted": "#8A8A8A",
+    "panel": "#000000",
+    "panelOpacity": 0.65
+  },
+  "logo": {
+    "static": "livewire-logo-static.svg",
+    "animatedSvg": "livewire-logo-animated.svg",
+    "animatedFrames": "logo-frames/frame_{000-098}.png",
+    "animatedFps": 30,
+    "mark": "mark-pixelgrid.svg"
+  },
+  "kits": {
+    "player": {
+      "shirt": "#000000",
+      "panels": "#CBFE00",
+      "trim": "#CBFE00",
+      "shorts": "#000000",
+      "shortsTrim": "#CBFE00",
+      "socks": "#FFFFFF",
+      "shoes": "#000000",
+      "soles": "#CBFE00",
+      "wristbands": "#000000",
+      "logoColor": "#CBFE00",
+      "logos": ["chest", "back", "shorts"]
+    },
+    "opponent": {
+      "shirt": "#4E5E78",
+      "panels": "#4E5E78",
+      "trim": "#CBFE00",
+      "shorts": "#FFFFFF",
+      "shortsTrim": "#FFFFFF",
+      "socks": "#FFFFFF",
+      "shoes": "#FFFFFF",
+      "soles": "#CBFE00",
+      "wristbands": "#000000",
+      "logoColor": "#CBFE00",
+      "logos": ["chest", "back", "shorts"]
+    }
+  },
+  "racket": { "frame": "#000000", "accent": "#CBFE00", "strings": "#F1F1F1" },
+  "ball": { "color": "#ECF446" },
+  "court": {
+    "surface": "grass",
+    "lines": "#FFFFFF",
+    "hard": { "inside": "#1F4E8C", "outside": "#2E6B3A" },
+    "logoBehindBaselines": false
+  },
+  "stadium": {
+    "wall": "#000000",
+    "wallLogo": "static",
+    "sideBoards": true,
+    "crowdBrandShare": 0.4,
+    "umbrella": "#000000",
+    "timeOfDay": "day"
+  },
+  "net": { "bandLogos": true, "posts": "#000000", "postCaps": "#CBFE00" },
+  "officials": { "shirt": "#1E3A2A", "cap": "#1E3A2A", "trousers": "#C8B99A" },
+  "statCard": { "title": "LIVEWIRE STATS" },
+  "cta": null,
+  "fonts": { "display": "BarlowCondensed-Bold.woff2", "body": "Inter-Regular.woff2" }
+}
