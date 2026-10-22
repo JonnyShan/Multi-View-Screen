@@ -184,7 +184,14 @@
     "newBest": "NEW BEST",
     "points": "PTS",
     "menu": "MENU",
-    "yourBest": "YOUR BEST"
+    "yourBest": "YOUR BEST",
+    "howToPlay": "HOW TO PLAY",
+    "skip": "SKIP",
+    "tutSprint": "HOLD SPRINT TO RUN",
+    "tutPass": "TAP PASS, THEN RUN ON",
+    "tutShoot": "NEAR GOAL, TAP SHOOT",
+    "tutSwipe": "SWIPE ACROSS TO SHOOT",
+    "tutAway": "AIM AWAY FROM THE KEEPER"
   },
   "cta": null,
   "fonts": {
