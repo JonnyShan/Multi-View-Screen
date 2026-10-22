@@ -1,0 +1,178 @@
+{
+  "id": "livewire",
+  "name": "Livewire",
+  "tagline": "Play Powered Performance",
+  "title": {
+    "lines": [
+      {
+        "text": "Livewire",
+        "accent": false
+      },
+      {
+        "text": "Football",
+        "accent": true
+      }
+    ],
+    "strapline": "DRAW THE SHOT. OWN THE MOMENT.",
+    "hero": "title-hero.webp"
+  },
+  "colors": {
+    "primary": "#000000",
+    "accent": "#CBFE00",
+    "text": "#FFFFFF",
+    "textMuted": "#8A8A8A",
+    "panel": "#000000",
+    "panelOpacity": 0.65
+  },
+  "logo": {
+    "static": "livewire-logo-static.svg",
+    "animatedSvg": "livewire-logo-animated.svg",
+    "animatedFrames": "logo-frames/frame_{000-098}.png",
+    "animatedFps": 30,
+    "mark": "mark-pixelgrid.svg",
+    "bolt": "bolt.svg"
+  },
+  "teams": {
+    "home": {
+      "name": "LIVEWIRE",
+      "short": "LIV",
+      "hudColor": "#CBFE00",
+      "kit": {
+        "shirt": "#000000",
+        "panels": "#CBFE00",
+        "trim": "#CBFE00",
+        "shorts": "#000000",
+        "shortsTrim": "#CBFE00",
+        "socks": "#000000",
+        "sockBand": "#CBFE00",
+        "boots": "#000000",
+        "studs": "#CBFE00",
+        "numberColor": "#CBFE00",
+        "logoColor": "#CBFE00",
+        "logos": [
+          "chest",
+          "back"
+        ]
+      },
+      "keeper": {
+        "shirt": "#CBFE00",
+        "panels": "#000000",
+        "trim": "#000000",
+        "shorts": "#000000",
+        "shortsTrim": "#CBFE00",
+        "socks": "#000000",
+        "sockBand": "#CBFE00",
+        "boots": "#000000",
+        "studs": "#000000",
+        "gloves": "#000000",
+        "numberColor": "#000000",
+        "logoColor": "#000000",
+        "logos": [
+          "chest",
+          "back"
+        ]
+      }
+    },
+    "away": {
+      "name": "COBALT",
+      "short": "COB",
+      "hudColor": "#2F5BFF",
+      "kit": {
+        "shirt": "#1F4FD8",
+        "panels": "#FFFFFF",
+        "trim": "#FFFFFF",
+        "shorts": "#1F4FD8",
+        "shortsTrim": "#FFFFFF",
+        "socks": "#1F4FD8",
+        "sockBand": "#FFFFFF",
+        "boots": "#F1F1F1",
+        "studs": "#F1F1F1",
+        "numberColor": "#FFFFFF",
+        "logoColor": null,
+        "logos": []
+      },
+      "keeper": {
+        "shirt": "#7A1424",
+        "panels": "#111111",
+        "trim": "#111111",
+        "shorts": "#7A1424",
+        "shortsTrim": "#7A1424",
+        "socks": "#7A1424",
+        "sockBand": "#111111",
+        "boots": "#111111",
+        "studs": "#111111",
+        "gloves": "#111111",
+        "numberColor": "#D9D9D9",
+        "logoColor": null,
+        "logos": []
+      }
+    }
+  },
+  "ball": {
+    "base": "#F4F4F4",
+    "panels": "#111111",
+    "accentPanels": "#CBFE00"
+  },
+  "pitch": {
+    "grassA": "#1f4f1c",
+    "grassB": "#2b6526",
+    "lines": "#FFFFFF",
+    "centreLogo": false
+  },
+  "stadium": {
+    "timeOfDay": "night",
+    "ledBoards": {
+      "content": [
+        "wordmark",
+        "bolt"
+      ],
+      "background": "#000000",
+      "color": "#CBFE00",
+      "scrollSpeed": 0.6
+    },
+    "goalNetLogo": "bolt",
+    "crowdBrandShare": 0.4,
+    "flags": "#CBFE00"
+  },
+  "fx": {
+    "swipeLine": "#CBFE00",
+    "ballTrail": "#CBFE00",
+    "powerShotGlow": "#CBFE00",
+    "ringYou": "#CBFE00",
+    "ringTarget": "#FFFFFF"
+  },
+  "callouts": {
+    "goal": "GOAL!",
+    "save": "SAVED!",
+    "perfectCurve": "PERFECT CURVE",
+    "powerShot": "POWER SHOT",
+    "topBin": "TOP BIN",
+    "saved": "SAVED!",
+    "shoot": "SHOOT",
+    "pass": "PASS",
+    "sprint": "SPRINT",
+    "tackle": "TACKLE",
+    "switch": "SWITCH",
+    "slide": "SLIDE",
+    "kickoff": "KICK OFF",
+    "half": "HALF TIME",
+    "full": "FULL TIME",
+    "playAgain": "PLAY AGAIN",
+    "tapToPlay": "TAP TO PLAY",
+    "blocked": "BLOCKED",
+    "won": "WON IT",
+    "swipe": "SWIPE TO SHOOT",
+    "win": "YOU WIN",
+    "lose": "YOU LOSE",
+    "draw": "DRAW",
+    "replay": "REPLAY",
+    "superSlowMo": "SUPER SLO-MO",
+    "tapToSkip": "TAP TO SKIP",
+    "powerReady": "POWER SHOT READY"
+  },
+  "cta": null,
+  "fonts": {
+    "display": "BarlowCondensed-Bold.woff2",
+    "body": "Inter-Regular.woff2"
+  }
+}
