@@ -1,0 +1,36 @@
+{
+  "id": "livewire",
+  "name": "Livewire",
+  "gameTitle": "HOLE IN ONE",
+  "courseName": "Livewire National",
+  "tagline": "Same game. Your brand.",
+  "logo": "logo.svg",
+  "font": "Barlow Condensed",
+  "colors": {
+    "primary": "#CBFE00",
+    "dark": "#1A1A1A",
+    "light": "#F1F1F1",
+    "onPrimary": "#1A1A1A"
+  },
+  "kit": {
+    "shirt": "#1A1A1A",
+    "sleeve": "#CBFE00",
+    "shirtLogo": true,
+    "pants": "#3A3A3A",
+    "cap": "#CBFE00",
+    "capLogo": true,
+    "shoes": "#F1F1F1",
+    "glove": "#F1F1F1"
+  },
+  "course": {
+    "flag": "#CBFE00",
+    "flagLogoColor": "#1A1A1A",
+    "pole": "#F1F1F1",
+    "teeMarker": "#CBFE00",
+    "board": "#1A1A1A",
+    "boardText": "#CBFE00",
+    "tracer": "#CBFE00",
+    "ball": "#FFFFFF"
+  },
+  "golferKit": "livewire"
+}

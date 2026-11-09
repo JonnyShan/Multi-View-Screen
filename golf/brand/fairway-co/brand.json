@@ -1,0 +1,35 @@
+{
+  "id": "fairway-co",
+  "name": "Fairway & Co",
+  "gameTitle": "HOLE IN ONE",
+  "courseName": "Fairway & Co Links",
+  "tagline": "Crafted for the long game.",
+  "logo": "logo.svg",
+  "font": "Barlow Condensed",
+  "colors": {
+    "primary": "#D4AF37",
+    "dark": "#0E2240",
+    "light": "#FFF8E7",
+    "onPrimary": "#0E2240"
+  },
+  "kit": {
+    "shirt": "#FFFFFF",
+    "sleeve": "#0E2240",
+    "shirtLogo": true,
+    "pants": "#0E2240",
+    "cap": "#0E2240",
+    "capLogo": true,
+    "shoes": "#FFFFFF",
+    "glove": "#FFFFFF"
+  },
+  "course": {
+    "flag": "#0E2240",
+    "flagLogoColor": "#D4AF37",
+    "pole": "#D4AF37",
+    "teeMarker": "#D4AF37",
+    "board": "#0E2240",
+    "boardText": "#D4AF37",
+    "tracer": "#D4AF37",
+    "ball": "#FFFFFF"
+  }
+}

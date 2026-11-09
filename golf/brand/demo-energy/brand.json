@@ -1,0 +1,35 @@
+{
+  "id": "demo-energy",
+  "name": "Volt Energy",
+  "gameTitle": "HOLE IN ONE",
+  "courseName": "Volt Energy Open",
+  "tagline": "Charge every shot.",
+  "logo": "logo.svg",
+  "font": "Barlow Condensed",
+  "colors": {
+    "primary": "#FF5A1F",
+    "dark": "#2A0E4A",
+    "light": "#FFFFFF",
+    "onPrimary": "#FFFFFF"
+  },
+  "kit": {
+    "shirt": "#FF5A1F",
+    "sleeve": "#2A0E4A",
+    "shirtLogo": true,
+    "pants": "#F2F2F2",
+    "cap": "#2A0E4A",
+    "capLogo": true,
+    "shoes": "#2A0E4A",
+    "glove": "#FFFFFF"
+  },
+  "course": {
+    "flag": "#FF5A1F",
+    "flagLogoColor": "#FFFFFF",
+    "pole": "#FFFFFF",
+    "teeMarker": "#FF5A1F",
+    "board": "#2A0E4A",
+    "boardText": "#FF5A1F",
+    "tracer": "#FF5A1F",
+    "ball": "#FFFFFF"
+  }
+}
