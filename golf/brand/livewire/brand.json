@@ -32,5 +32,11 @@
     "tracer": "#CBFE00",
     "ball": "#FFFFFF"
   },
-  "golferKit": "livewire"
+  "golferKit": "livewire",
+  "leaderboard": {
+    "url": "https://redline-leaderboard.jonny-13a.workers.dev",
+    "game": "livewire_golf"
+  },
+  "loaderVideo": "loader-ball.mp4",
+  "loaderPoster": "loader-ball.jpg"
 }
