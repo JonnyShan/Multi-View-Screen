@@ -1,10 +1,10 @@
 // Web Audio synth: V4 race engine, quickshifter, decel pops, wind, tyres, kerbs, crowd, UI.
 // Plus a race announcer: short pre-recorded lines in assets/voice/<key>-<n>.mp3.
-import { ANNOUNCER, TUNE } from './config.js';
+import { ANNOUNCER, TUNE, BRAND } from './config.js';
 
 const CHEER_S = 6.5; // length of the finish-line crowd cheer (s)
 const CHEER_GAIN = 2.8; // its level: about as loud as the engine at the line, so it carries as the engine fades
-const VOICE = { intro: 2,   // re-recorded for Gamify Raceway (ElevenLabs, same voice, 12 Nov 2026)
+const VOICE = { intro: BRAND.introLines === false ? 0 : 2,   // re-recorded for Gamify Raceway (ElevenLabs, same voice, 12 Nov 2026)
   go: 1, purple: 2, green: 2, yellow: 2, wall: 2, off: 1, first: 1, gold: 1, pb: 2, silver: 1, bronze: 1, none: 1 };
 // 0.1 s of silent 8 kHz mono WAV, for the older-iOS silent-switch workaround below.
 const SILENT_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACA' + 'gICA'.repeat(266) + 'gA==';

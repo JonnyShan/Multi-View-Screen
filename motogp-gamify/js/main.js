@@ -73,8 +73,42 @@ function loadModels() {
   }));
 }
 
+// A brand pack's accent on the bike and rider: their paint was made in Gamify blue (brand.js, BRAND.repaint).
+function repaintModel(gltf) {
+  const R = BRAND.repaint;
+  if (!gltf || !R) return gltf;
+  const to = [1, 3, 5].map((i) => parseInt(R.to.substr(i, 2), 16));
+  const done = new Set();
+  gltf.scene.traverse((o) => {
+    for (const m of [].concat(o.material || [])) {
+      const t = m.map;
+      if (!t || !t.image || done.has(t)) continue;
+      done.add(t);
+      const img = t.image, c = document.createElement('canvas');
+      c.width = img.width; c.height = img.height;
+      const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+      for (let i = 0; i < p.length; i += 4) {
+        const r = p[i] / 255, gg = p[i + 1] / 255, b = p[i + 2] / 255, mx = Math.max(r, gg, b), dl = mx - Math.min(r, gg, b);
+        if (dl < 0.1 || mx < 0.12) continue;
+        const h = mx === r ? (60 * ((gg - b) / dl) + 360) % 360 : mx === gg ? 60 * ((b - r) / dl) + 120 : 60 * ((r - gg) / dl) + 240;
+        if (h < 185 || h > 230) continue;
+        const w = Math.min(1, (dl / mx - 0.25) / 0.2) * Math.min(1, (mx - 0.12) / 0.12);
+        if (w <= 0) continue;
+        const shade = Math.min(1.25, mx / 0.816);
+        for (let k = 0; k < 3; k++) p[i + k] = p[i + k] * (1 - w) + Math.min(255, to[k] * shade) * w;
+      }
+      g.putImageData(d, 0, 0);
+      const nt = new THREE.CanvasTexture(c);
+      nt.flipY = t.flipY; nt.colorSpace = t.colorSpace; nt.wrapS = t.wrapS; nt.wrapT = t.wrapT; nt.channel = t.channel;
+      m.map = nt; m.needsUpdate = true;
+    }
+  });
+  return gltf;
+}
+
 async function loadModel(loader, url) {
-  if (!url.endsWith('.json')) { const gltf = await loader.loadAsync(url); bakeQuantized(gltf.scene); return gltf; }
+  if (!url.endsWith('.json')) { const gltf = await loader.loadAsync(url); bakeQuantized(gltf.scene); return repaintModel(gltf); }
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const { gltf, bin } = await res.json();
@@ -87,7 +121,7 @@ async function loadModel(loader, url) {
   dv.setUint32(12, jl, true); dv.setUint32(16, 0x4E4F534A, true);
   glb.fill(0x20, 20, 20 + jl); glb.set(head, 20);
   dv.setUint32(20 + jl, bl, true); dv.setUint32(24 + jl, 0x004E4942, true); glb.set(body, 28 + jl);
-  return loader.parseAsync(glb.buffer, url.slice(0, url.lastIndexOf('/') + 1));
+  return repaintModel(await loader.parseAsync(glb.buffer, url.slice(0, url.lastIndexOf('/') + 1)));
 }
 
 class Game {

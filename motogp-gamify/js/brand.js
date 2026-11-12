@@ -2,7 +2,7 @@
 // A reskin is this file plus new images in assets/brand/ (see WORKFLOW.md at the repo root).
 // Gamify palette: electric blue #1F82D0 on charcoal, ivory text. The seven-dot mark is the only multicolour element.
 
-export const BRAND = {
+const CORE = {
   id: 'gamify_motogp_v1',             // save-key prefix (leaderboard, settings); give every brand its own
   name: 'Gamify',                   // brand name in page copy
   mark: '',                           // shown after the name in the legal bar ('' for none)
@@ -87,3 +87,38 @@ export const BRAND = {
   regions: {},
   defaultRegion: 'AU',
 };
+
+// ---------------------------------------------------------------------------------------------------------------
+// Brand packs. Gamify (above) is the core; any other brand is a pack in brands/<id>/brand.json laid over it, picked
+// with ?brand=<id>. A pack only lists what differs: from its name and accent the rest is derived (titles, signs,
+// share link, save keys), its logo files live in its folder, and the bike and rider paint (made in Gamify blue)
+// is repainted in its accent at load (main.js). The circuit intro lines name Gamify Raceway, so packs skip them.
+const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+const merge = (a, b) => { const o = { ...a }; for (const k in b) o[k] = isObj(b[k]) && isObj(a[k]) ? merge(a[k], b[k]) : b[k]; return o; };
+
+async function brandFor(id) {
+  if (id === 'gamify') return CORE;
+  let pack = null;
+  try { const r = await fetch(`brands/${id}/brand.json`); if (r.ok) pack = await r.json(); } catch { /* falls back */ }
+  if (!pack) { console.warn(`brand "${id}" not found, showing gamify`); return CORE; }
+  const dir = `brands/${id}/`, name = pack.name || id, NAME = name.toUpperCase(), accent = pack.accent || CORE.accent;
+  const link = `${location.origin}${location.pathname}?brand=${id}`;
+  const derived = {
+    id: `${id.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_motogp_v1`,
+    name, wordmark: NAME, circuit: `${name} Raceway`, title: `${name} Hot Lap`,
+    description: `${name} HOT LAP: a time-attack motorcycle racing game on the fictional ${name} Raceway.`,
+    primaryHot: accent, accent,
+    signs: { ...CORE.signs, safetySub: `${NAME} · HOT LAP` },
+    share: { url: link, text: `I just lapped ${name} Raceway in {time}. Beat that: ${link}` },
+    introLines: false,
+  };
+  const b = merge(merge(CORE, derived), pack);
+  b.logo = pack.logo ? dir + pack.logo : null;
+  b.logoUi = pack.logoUi ? dir + pack.logoUi : b.logo;
+  b.product = pack.product ? dir + pack.product : null;
+  b.repaint = accent.toLowerCase() === CORE.accent.toLowerCase() ? null : { from: CORE.accent, to: accent };
+  return b;
+}
+
+const asked = new URLSearchParams(location.search).get('brand');
+export const BRAND = await brandFor(asked && /^[a-z0-9][a-z0-9-]{0,39}$/.test(asked) ? asked : 'gamify');

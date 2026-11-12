@@ -12,3 +12,11 @@ A time-attack motorcycle racing game branded for Gamify. A copy of `motogp-livew
 ```bash
 python3 -m http.server 8131 --directory motogp-gamify
 ```
+
+## Brand packs (12 Nov 2026)
+
+Gamify is the core brand (`js/brand.js`). Any other brand is a pack in `brands/<id>/brand.json` picked with `?brand=<id>`; an unknown id falls back to Gamify.
+- Smallest pack (`brands/volt/`): `{ "name": "Volt", "accent": "#FF6B00", "logo": "volt-wordmark.svg" }`. From the name and accent the rest is derived: circuit name, titles, signs, share link, save keys.
+- The bike and rider paint (made in Gamify blue) is repainted in the pack's accent at load (`repaintModel` in `js/main.js`).
+- The two circuit intro lines name Gamify Raceway, so packs skip them; the other announcer lines are brand-free.
+- Livewire's own bike stays in `motogp-livewire/` (its live site); it is not yet a pack of this build.
