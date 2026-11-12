@@ -77,7 +77,7 @@ export const BRAND = {
   // Show the bike small and slowly turning on the loading screen.
   loaderBike: true,
 
-  // Race announcer (assets/voice/; the two circuit intro lines are left out, see js/audio.js). false = muted unless ?voice=1.
+  // Race announcer (assets/voice/; the two circuit intro lines were re-recorded for Gamify Raceway). false = muted unless ?voice=1.
   announcer: true,
 
   // No age gate: nothing age-restricted in this build.
