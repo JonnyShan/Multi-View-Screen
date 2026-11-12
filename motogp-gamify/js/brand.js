@@ -69,10 +69,9 @@ export const BRAND = {
   loadingScenery: 'Wiring up the circuit',
 
   // Lap sharing: the link on the lap card and the kiosk QR code, and the message that goes with a shared card.
-  share: { url: 'https://play.gamify.com/motorbike/', text: 'I just lapped Gamify Raceway in {time}. Beat that: https://play.gamify.com/motorbike/' },
-  // Worldwide leaderboard: the address of tools/leaderboard-worker once it is deployed. null = this device only.
-  // Off for Gamify: the shared Worker only answers one other site (CORS).
-  leaderboard: null,
+  share: { url: 'https://demos.gamify.com/motorbike/', text: 'I just lapped Gamify Raceway in {time}. Beat that: https://demos.gamify.com/motorbike/' },
+  // Worldwide leaderboard: the Gamify demos' own Worker (tools/leaderboard-worker-gamify), separate from Livewire's.
+  leaderboard: { url: 'https://gamify-leaderboard.jonny-13a.workers.dev' },
 
   // Show the bike small and slowly turning on the loading screen.
   loaderBike: true,
