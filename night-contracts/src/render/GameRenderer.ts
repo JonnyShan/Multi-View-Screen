@@ -129,7 +129,7 @@ export class GameRenderer {
     this.scene.add(this.peds.group);
     this.fx = new FXView(this.rig.camera, this.rider);
     this.scene.add(this.fx.group);
-    this.rain = new RainView(q.rainDrops);
+    this.rain = new RainView(q.rainDrops, this.lamps, this.bike.spot);
     this.scene.add(this.rain.group);
 
     this.post = new PostFX(this.renderer, this.scene, this.rig.camera, q);
@@ -292,8 +292,9 @@ export class GameRenderer {
     this.cars.update(sim, alpha, dt, l.night, cam.position);
     this.peds.update(sim, alpha, cam, Math.min(this.q.cullRange, 1000));
     this.fx.update(sim, dt, this.renderer.domElement.height / Math.tan((cam.fov * Math.PI) / 360) / 2);
-    // a lighter shower than the full drop count
-    this.rain.update(cam, dt, sim.raining ? 0.75 : 0, sim.wet);
+    // a lighter shower than the full drop count; splashes land on the road under the focus
+    const focus = this.rig.focusPoint;
+    this.rain.update(cam, dt, sim.raining ? 0.75 : 0, sim.wet, sim.city.heightAt(focus.x, focus.z));
 
     this.flash = Math.max(0, this.flash - dt * 3.5);
     // three z is sim y; the sea lies south of shoreY

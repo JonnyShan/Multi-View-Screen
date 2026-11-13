@@ -85,7 +85,10 @@ export class LampsView {
   private readonly coneOpacity = { value: 0 };
   private readonly streakOpacity = { value: 0 };
   private readonly beaconOpacity = { value: 1 };
+  /** How lit the lamps are, 0 by day to 1 at night. */
+  lit = 0;
   private readonly headMat: THREE.MeshBasicMaterial;
+  private readonly streaks: THREE.InstancedMesh;
   private readonly cones: THREE.InstancedMesh | null = null;
   private readonly order: number[] = [];
 
@@ -218,35 +221,50 @@ export class LampsView {
       this.group.add(cones);
     }
 
-    // wet road reflection streaks, oriented towards the camera in the shader
+    // wet road reflections: a streak where each lamp's mirror image meets the road, drawn out along the view
     const streakGeo = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
     const streakMat = new THREE.ShaderMaterial({
-      uniforms: { uColor: { value: srgb(SODIUM) }, uOpacity: this.streakOpacity, uCam: globalUniforms.uCamPos, uMap: { value: radialTexture() } },
+      uniforms: {
+        uColor: { value: srgb(SODIUM).multiplyScalar(0.9) },
+        uOpacity: this.streakOpacity,
+        uCam: globalUniforms.uCamPos,
+        uTime: globalUniforms.uTime,
+        // the lamp head's height over the road
+        uLampH: { value: H - 3.4 },
+      },
       vertexShader: /* glsl */ `
         uniform vec3 uCam;
+        uniform float uLampH;
         varying vec2 vUv;
+        varying float vFade;
         void main() {
           vUv = uv;
           vec3 base = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-          vec2 toCam = uCam.xz - base.xz;
-          float d = length(toCam);
-          vec2 dir = toCam / max(d, 1.0);
+          vec2 toLamp = base.xz - uCam.xz;
+          float d = length(toLamp);
+          vec2 dir = toLamp / max(d, 1.0);
           vec2 side = vec2(-dir.y, dir.x);
-          float len = clamp(d * 0.35, 30.0, 150.0);
-          vec3 wp = base + vec3(side.x * position.x * 10.0, 0.0, side.y * position.x * 10.0) + vec3(dir.x, 0.0, dir.y) * position.y * len;
-          gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0);
+          // the mirror image of the head meets the road this far out from the camera; the streak reaches either side of it
+          float camH = max(uCam.y - base.y, 4.0);
+          float m = d * camH / (camH + uLampH);
+          vec2 g = uCam.xz + dir * mix(m * 0.65, min(d, m * 1.7), position.y) + side * position.x * 4.0;
+          // gone right under the camera and far off
+          vFade = smoothstep(60.0, 140.0, d) * (1.0 - smoothstep(700.0, 1600.0, d));
+          gl_Position = projectionMatrix * viewMatrix * vec4(g.x, base.y, g.y, 1.0);
         }
       `,
       fragmentShader: /* glsl */ `
         uniform vec3 uColor;
         uniform float uOpacity;
-        uniform sampler2D uMap;
+        uniform float uTime;
         varying vec2 vUv;
+        varying float vFade;
         void main() {
           float across = 1.0 - abs(vUv.x - 0.5) * 2.0;
-          float along = sin(vUv.y * 3.14159);
-          float a = across * across * along;
-          gl_FragColor = vec4(uColor * a * uOpacity * 0.5, 1.0);
+          float a = across * across * across * pow(max(sin(vUv.y * 3.14159), 0.0), 0.7) * vFade;
+          // ripples running down the streak
+          a *= 0.75 + 0.25 * sin(vUv.y * 30.0 - uTime * 6.0);
+          gl_FragColor = vec4(uColor * a * uOpacity, 1.0);
         }
       `,
       transparent: true,
@@ -257,6 +275,9 @@ export class LampsView {
       polygonOffsetUnits: -5,
     });
     const streaks = new THREE.InstancedMesh(streakGeo, streakMat, lamps.length);
+    // shown only while the road is wet at night (see update)
+    streaks.visible = false;
+    this.streaks = streaks;
     this.lampPos.forEach((lp, i) => {
       const gz = city.heightAt(lp.x, lp.z);
       m.compose(p.set(lp.x, gz + 0.4, lp.z), q.identity(), s.set(1, 1, 1));
@@ -299,6 +320,9 @@ export class LampsView {
     this.poolOpacity.value = on * (0.9 + wet * 0.3);
     this.coneOpacity.value = on * (0.3 + rain * 0.5);
     this.streakOpacity.value = on * wet;
+    // a dry road draws no streaks at all
+    this.streaks.visible = on * wet > 0.01;
+    this.lit = on;
     this.beaconOpacity.value = 0.4 + on * 0.6;
     this.headMat.color.setHex(SODIUM, THREE.SRGBColorSpace).multiplyScalar(0.6 + on * 2.6);
     if (this.cones) this.cones.visible = on > 0.02;

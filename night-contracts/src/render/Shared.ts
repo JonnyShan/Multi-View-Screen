@@ -313,8 +313,8 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55, nc_pud);
       .replace(
         '#include <roughnessmap_fragment>',
         `#include <roughnessmap_fragment>
-roughnessFactor = mix(roughnessFactor, 0.38, uWet);
-roughnessFactor = mix(roughnessFactor, 0.04, nc_pud);
+roughnessFactor = mix(roughnessFactor, 0.45, uWet);
+roughnessFactor = mix(roughnessFactor, 0.1, nc_pud);
 `,
       );
   };
