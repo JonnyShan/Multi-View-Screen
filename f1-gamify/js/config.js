@@ -15,8 +15,8 @@ export const TUNE = {
   rolling: 0.3,
   brakeDecel: 24.0,                   // carbon brakes + downforce
   assist: 0.82,                       // steering help (Standard); 0.35 = Pro. Only acts while steering into a corner
-  turn: 1.375,                        // player's car turns 37.5% tighter for the same load (1.1 x 1.25; the autopilot, and so the medal pace, uses 1)
-  steerRate: 1.25,                    // player's steering responds 25% faster (the autopilot uses 1)
+  turn: 1.72,                         // player's car turns 72% tighter for the same load (1.1 x 1.25 x 1.25; the autopilot, and so the medal pace, uses 1)
+  steerRate: 1.5625,                  // player's steering responds 56% faster (1.25 x 1.25; the autopilot uses 1)
   gears: [98, 138, 172, 205, 238, 272, 306, 342], // km/h at redline per gear (8-speed)
   redline: 12500,
   cylinders: 6,                       // engine note: firing frequency = rpm / 60 * cylinders / 2 (V6)
