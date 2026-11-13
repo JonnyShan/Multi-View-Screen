@@ -373,7 +373,7 @@ export class BikeView {
     const tail = (TAIL_RUN + (1 - TAIL_RUN) * this.brakeVis) * k;
     (this.model.taillight.material as THREE.MeshBasicMaterial).color.copy(TAIL).multiplyScalar(tail);
     // and its glow on the road behind at night, thrown further back on a wet road
-    const glow = on ? night * tail * (1 + sim.wet * 0.5) : 0;
+    const glow = on ? THREE.MathUtils.smoothstep(night, 0.25, 0.7) * tail * (1 + sim.wet * 0.5) : 0;
     this.tailGlow.visible = glow > 0.01;
     if (this.tailGlow.visible) {
       this.tailGlow.material.color.copy(TAIL_GLOW).multiplyScalar(glow);
