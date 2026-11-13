@@ -257,6 +257,15 @@ nc_col *= mix(vec3(1.0), vec3(1.0, 0.88, 0.7), nc_blind);
 float nc_tv = step(0.965, nc_h2) * (1.0 - nc_floor) * (1.0 - nc_shop);
 nc_col = mix(nc_col, vec3(0.42, 0.6, 1.0) * (0.55 + 0.3 * sin(uTime * 9.0 + nc_h * 60.0) + 0.15 * sin(uTime * 23.0 + nc_h * 31.0)), nc_tv);
 totalEmissiveRadiance += nc_win * nc_lit * nc_col * uNight * nc_room * (0.55 + 0.95 * nc_hl) * (1.0 - nc_shop) + nc_em;
+// about a fifth of buildings hide coloured uplights on the shop cornice (32 up)
+float nc_ws = nc_hash(vec2(nc_seed * 0.37, 11.3));
+vec3 nc_wcol = nc_ws < 0.08 ? vec3(1.0, 0.35, 0.65) : (nc_ws < 0.16 ? vec3(0.25, 0.85, 0.8) : (nc_ws < 0.22 ? vec3(0.6, 0.4, 1.0) : vec3(0.0)));
+float nc_wy = vNcY - 32.0;
+// one fitting per column edge, each cone widening as it climbs until they merge
+float nc_cone = 1.0 - smoothstep(0.4, 1.0, min(nc_f.x, 1.0 - nc_f.x) * 22.0 / (2.0 + 0.3 * max(nc_wy, 0.0)));
+// fades over about two storeys and stops by the fifth, so towers keep dark tops
+float nc_wash = 0.45 * exp(-max(nc_wy, 0.0) / 45.0) * (1.0 - smoothstep(70.0, 130.0, nc_wy)) * step(0.0, nc_wy);
+totalEmissiveRadiance += nc_wcol * uNight * nc_wash * step(0.5, vFacade.x) * (1.0 - nc_win) * mix(0.2, 1.0, nc_cone);
 `,
       );
   };
