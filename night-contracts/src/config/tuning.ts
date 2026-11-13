@@ -79,9 +79,9 @@ export const tuning = {
       base: 36,
       /** Extra height the bottom edge may sit above the base. */
       lift: 20,
-      /** Clearance along the street from lamp posts, palms and the next blade. */
+      /** Clearance along the street from lamp posts, palm crowns and the next blade. */
       lampGap: 12,
-      palmGap: 25,
+      palmGap: 40,
       bladeGap: 60,
     },
   },
