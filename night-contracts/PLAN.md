@@ -71,6 +71,17 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - [x] Slow motion on wheel cut and roof strike (0.3x for 0.6 s), hit stop, screen shake, sparks, skid marks, tyre smoke, fire
 - [x] Settings menu (quality, weather, clock, volumes, haptics, debug, button layout), save/load (e2e test)
 
+## Look pass (city detail, characters, camera, effects)
+- [x] Night facades: upper walls darken with height, lit windows glow under the ceiling with blinds and the odd television, office towers light whole floors; by day each building has its own glass tint and pane roughness
+- [x] Shopfronts on every plinth: lit interiors with shelves and goods, roller shutters that close through dusk, fascia signs with plain shop words (neon, light box or painted board), coloured awnings with a lit soffit, and a coloured uplight wash on about a fifth of facades. Low quality compiles out the pane and goods detail
+- [x] Neon blade signs over the shopfronts from a single letter atlas (one draw call), with their own seeded stream so the rest of the city is unchanged, kept clear of palm crowns, lighting the pavement below
+- [x] A distant skyline on the horizon at the end of each street, drawn in the sky dome (no extra draw call), with lit windows and aircraft lights at night
+- [x] Chase camera: sits closer, holds its distance at speed (it carries the bike's frame to frame movement, so no lag at any frame rate or time scale), a pull on the throttle, a dip on the brake and a small look into turns (`turnLook` in tuning; roll stays 0). Shake is the same at every frame rate
+- [x] Soft glows (lamp, siren, smoke and fire sprites read the texture's alpha instead of its red channel, which drew hard discs), gunfire leaves the gun as short bolts with a flash at the muzzle, a sweeping katana arc, rain you can see lit by the lamps with streaked wet road reflections
+- [x] Contact shadows under cars, the bike, the rider and pedestrians (one instanced draw), shifted away from the sun by day
+- [x] The rider glances into a turn (head turn capped at 1.2 rad as a safety net), a warm kicker from the nearest lamp, a running tail light with a faint red spill on the road at night and a brighter brake light (the sim records the brake it actually applies)
+- [x] Additive pools and tracers fade into the fog instead of adding a patch of fog colour
+
 ## M7 Ship to phones
 - [x] Quality presets auto-picked by device (Low/Medium/High/Ultra: recent phone GPUs get High, strong desktop GPUs Ultra), adaptive pixel ratio that drops when frames run long and climbs back once they hold
 - [x] Mobile budgets: emulated iPhone (Medium) about 96 to 135 draw calls and 80k to 145k triangles after CPU instance culling and lighter palms and fences. The generated rider, bike and cars raise the start scene to about 110 draw calls and 245k triangles
@@ -97,4 +108,6 @@ Checklist per milestone. Changes from the brief are noted under "Decisions".
 - A rigged rider GLB needs no `ride` clip: riding and the roof crouch are solved in code with two-bone IK against the bike's grips, pegs and seat, and aiming, the whistle and the lean are layered on top.
 - Sandboxed hosts can refuse fetches of data: and blob: URLs, so nothing in the single page loads through a URL: GLB bytes and synthesised sounds are decoded in place, and embedded textures go through `createImageBitmap` on the bytes (data: URL images only as a fallback). Missed textures had made every generated model white and fully metallic for the owner while local checks (no such policy) looked right.
 - Generated models came with metal maps that made the rider solid chrome and the bike patchy mirror metal (bronze statues under the warm night sky), so `tools/art` paints metal and roughness from the colour map. At night the player's rider and bike also get a stronger share of the environment and a cool rim so black leather and black paint keep their shape.
+- The look pass left out camera roll on purpose after the head wobble report. If the look into turns reads as wobble, `camera.turnLook = 0` in tuning turns it off.
+- Not measured on a phone yet: the building shader does more work per pixel on Medium and above (Low skips the detail), and the e2e start scene is now about 134 draw calls and 314k triangles on High. Worth a frame time check on a mid-range phone with docs/DEVICE_TESTING.md.
 - Render maps sim (x, y, z) to three (x, z, y) as the brief asks. This is a mirror, so "left" and "right" go through helpers in `core/math.ts`.
