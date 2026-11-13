@@ -151,8 +151,9 @@ class Particles {
         continue;
       }
       alive++;
+      // fade from the life left at the start of the frame, so a flash shorter than a frame still draws once at full strength
+      const k = this.life[i] / this.maxLife[i];
       this.life[i] -= dt;
-      const k = Math.max(0, this.life[i] / this.maxLife[i]);
       this.vel[i * 3 + 1] -= this.gravity * dt;
       this.vel[i * 3] *= damp;
       this.vel[i * 3 + 1] *= damp;
@@ -493,7 +494,7 @@ export class FXView {
     this.flashes.update(dt);
 
     // enemy bullets as short streaks, drawn this frame only
-    for (const bl of sim.combat.bullets) this.addTracer(bl.px, bl.z, bl.py, bl.x, bl.z, bl.y, dt * 1.01, 0, 3, 0.8, 0.4);
+    for (const bl of sim.combat.bullets) this.addTracer(bl.px, bl.z, bl.py, bl.x, bl.z, bl.y, dt * 0.5, 0, 3, 0.8, 0.4);
     this.updateTracers(dt);
 
     this.flashT -= dt;
@@ -522,19 +523,21 @@ export class FXView {
     let n = 0;
     for (let i = this.tracerN - 1; i >= 0; i--) {
       const tr = this.tracers[i];
-      tr.life -= dt;
       if (tr.life <= 0) {
         // swap the last live tracer into this slot
         this.tracers[i] = this.tracers[--this.tracerN];
         this.tracers[this.tracerN] = tr;
         continue;
       }
+      // how far a bolt has run by the end of this frame: every tracer draws at least once, and its last draw reaches the target
+      const run = Math.min(1, 1 - (tr.life - dt) / tr.maxLife);
+      tr.life -= dt;
       dir.subVectors(tr.b, tr.a);
       const len = dir.length();
       if (len < 0.01) continue;
       dir.divideScalar(len);
       if (tr.bolt > 0) {
-        const d = len * (1 - tr.life / tr.maxLife);
+        const d = len * run;
         head.copy(tr.a).addScaledVector(dir, d);
         tail.copy(tr.a).addScaledVector(dir, Math.max(0, d - tr.bolt));
       } else {
