@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import type { SimEvent } from '../sim/events';
 import type { Sim } from '../sim/Sim';
 import { radialTexture } from './LampsView';
-import { srgb } from './Shared';
+import { ADDITIVE_FOG_FRAGMENT, srgb } from './Shared';
 
 let starTex: THREE.Texture | null = null;
 /** A small spiky star with a hot core for muzzle flashes and glints; like the radial sprite, the shape is all in alpha. */
@@ -113,7 +113,7 @@ class Particles {
           float a = texture2D(uMap, uv).a * vColor.a;
           if (a < 0.01) discard;
           gl_FragColor = vec4(vColor.rgb * ${additive ? 'a' : '1.0'}, ${additive ? '1.0' : 'a'});
-          #include <fog_fragment>
+          ${additive ? ADDITIVE_FOG_FRAGMENT : '#include <fog_fragment>'}
         }
       `,
       transparent: true,

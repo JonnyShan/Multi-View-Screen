@@ -9,7 +9,7 @@ import type { City } from '../world/CityGenerator';
 import type { AssetPart } from './AssetRegistry';
 import { InstanceCuller } from './InstanceCuller';
 import { instancedParts } from './PropsView';
-import { globalUniforms, srgb, yawToThree } from './Shared';
+import { ADDITIVE_FOG_FRAGMENT, globalUniforms, srgb, yawToThree } from './Shared';
 
 export const SODIUM = 0xffa347;
 
@@ -65,7 +65,7 @@ export function billboardMaterial(color: THREE.Color, opacityUniform: { value: n
         // the falloff lives in alpha only: rgb reads 1 anywhere inside the disc
         float a = texture2D(uMap, vUv).a;
         gl_FragColor = vec4(uColor * a * uOpacity * vBlink, 1.0);
-        #include <fog_fragment>
+        ${ADDITIVE_FOG_FRAGMENT}
       }
     `,
     transparent: true,

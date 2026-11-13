@@ -23,6 +23,21 @@ export const globalUniforms = {
   uCamPos: { value: new THREE.Vector3() },
 };
 
+/**
+ * Fog for additive glows, in place of three's `fog_fragment`: that mixes towards
+ * the fog colour, which on an additive quad adds a square of fog. This fades the
+ * glow out instead. Needs `fog_pars_fragment`.
+ */
+export const ADDITIVE_FOG_FRAGMENT = /* glsl */ `
+#ifdef USE_FOG
+  #ifdef FOG_EXP2
+    gl_FragColor.rgb *= exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+  #else
+    gl_FragColor.rgb *= 1.0 - smoothstep(fogNear, fogFar, vFogDepth);
+  #endif
+#endif
+`;
+
 const GLSL_HASH = /* glsl */ `
 float nc_hash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
