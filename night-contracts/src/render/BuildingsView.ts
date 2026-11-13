@@ -97,7 +97,14 @@ export class BuildingsView {
       const f = this.facade(b, tier.facade, isPlinth ? 38 : tier.facade === FACADE.curtain ? 16 : 22);
       const colour = isPlinth ? shade(b.trim === 0x3e5a64 ? 0x3e5a64 : b.color, 0.78) : wall;
       // walls + roof slab
-      g.box(tier.minX, tier.z0, tier.minY, tier.maxX, tier.z1, tier.maxY, colour, f, 0b110111, roofC);
+      if (isPlinth) {
+        // whole two-column shop units on every wall, and different shops on the long and short sides
+        const unitCol = (len: number): number => len / (2 * Math.max(1, Math.round(len / 76)));
+        g.box(tier.minX, tier.z0, tier.minY, tier.maxX, tier.z1, tier.maxY, colour, { ...f, colWidth: unitCol(tier.maxY - tier.minY), offset: 0 }, 0b000111, roofC);
+        g.box(tier.minX, tier.z0, tier.minY, tier.maxX, tier.z1, tier.maxY, colour, { ...f, colWidth: unitCol(tier.maxX - tier.minX), offset: 16 }, 0b110000);
+      } else {
+        g.box(tier.minX, tier.z0, tier.minY, tier.maxX, tier.z1, tier.maxY, colour, f, 0b110111, roofC);
+      }
       // cornice at the top of each tier
       const o = isPlinth ? 1.8 : 2.4;
       const ch = isPlinth ? 2.6 : 3.6;

@@ -13,6 +13,8 @@ export interface FacadeInfo {
   /** World units per window column. */
   colWidth: number;
   storey: number;
+  /** Facade x at each wall's start, in columns. Defaults to a step from the seed. */
+  offset?: number;
 }
 
 export class GeoBuilder {
@@ -107,7 +109,7 @@ export class GeoBuilder {
   ): void {
     const fu = (d: number): number => (facade ? d / facade.colWidth : 0);
     const fv = (h: number): number => (facade ? h / facade.storey : 0);
-    const off = facade ? (facade.seed % 7) * 0.37 : 0;
+    const off = facade ? (facade.offset ?? (facade.seed % 7) * 0.37) : 0;
     // +x wall (runs along z)
     if (faces & 1)
       this.quad(

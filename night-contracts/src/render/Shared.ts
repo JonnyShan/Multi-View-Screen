@@ -143,7 +143,7 @@ if (nc_style > 0.5 && nc_style < 1.5) {
   nc_win = (1.0 - nc_band(nc_f.x, -0.03, 0.03, nc_fwv.x)) * nc_band(nc_f.y, 0.12, 0.93, nc_fw);
   nc_pane = vec2(0.12, 0.93);
 } else if (nc_style > 3.5) {
-  // shopfronts: two 38 unit columns make a unit, open and lit or behind a roller shutter
+  // shopfronts: two columns of about 38 units make a unit, fitted to each wall, open and lit or behind a roller shutter
   float nc_ux = fract(vFuv.x * 0.5);
   float nc_unit = floor(vFuv.x * 0.5);
   float nc_uh = nc_hash(vec2(nc_unit * 0.37 + 1.3, nc_seed * 0.71));
