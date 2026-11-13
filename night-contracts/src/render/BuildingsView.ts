@@ -7,9 +7,13 @@ import type { Tuning } from '../config/tuning';
 import { hash01 } from '../core/RNG';
 import { FACADE, type Building, type City } from '../world/CityGenerator';
 import { GeoBuilder, type FacadeInfo } from './GeoBuilder';
-import { createBuildingMaterial, srgb } from './Shared';
+import { createBuildingMaterial, globalUniforms, srgb } from './Shared';
 
 const ROOF = 0x5c5a56;
+/** Shop awning canvas: red, green, teal, cream. */
+const AWNINGS = [0x9e2f27, 0x2f6a3c, 0x1d6a72, 0xe6dcc2];
+/** Lit band under some awnings. */
+const AWNING_LIGHTS = [0xfff1d6, 0xffa53d, 0x3ee0cf, 0xff4fa0, 0xff3b30];
 const tmp = new THREE.Color();
 
 function shade(hex: number, k: number): THREE.Color {
@@ -59,6 +63,14 @@ export class BuildingsView {
       this.group.add(mesh);
     }
     const stripMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: true });
+    // neon and soffit lights are switched off by day, leaving the dim tubes
+    stripMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uNight = globalUniforms.uNight;
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform float uNight;')
+        .replace('#include <opaque_fragment>', 'outgoingLight *= 0.12 + 0.88 * uNight;\n#include <opaque_fragment>');
+    };
+    stripMat.customProgramCacheKey = () => 'nc-strips';
     this.strips = new THREE.Mesh(this.stripBuilder.build(), stripMat);
     this.strips.name = 'neon-strips';
     this.group.add(this.strips);
@@ -88,8 +100,15 @@ export class BuildingsView {
       const ch = isPlinth ? 2.6 : 3.6;
       g.box(tier.minX - o, tier.z1 - ch, tier.minY - o, tier.maxX + o, tier.z1, tier.maxY + o, trim, null, 0b111111, shade(b.trim, 0.8));
       if (isPlinth) {
-        // awning band over the shopfronts
-        g.box(tier.minX - 4, tier.z1 - 9, tier.minY - 4, tier.maxX + 4, tier.z1 - 7.5, tier.maxY + 4, shade(b.trim, 0.6), null, 0b111111);
+        // awning band over the shopfronts, its underside a lit soffit in the strip mesh
+        const awning = srgb(AWNINGS[Math.floor(hash01(b.seed, 9) * AWNINGS.length)]);
+        g.box(tier.minX - 4, tier.z1 - 9, tier.minY - 4, tier.maxX + 4, tier.z1 - 7.5, tier.maxY + 4, awning, null, 0b110111);
+        this.stripBuilder.box(tier.minX - 4, tier.z1 - 9, tier.minY - 4, tier.maxX + 4, tier.z1 - 9, tier.maxY + 4, shade(0xffd9a0, 0.6), null, 0b001000);
+        if (hash01(b.seed, 30) < 0.6) {
+          // a coloured light strip hanging along the awning's edge
+          const c = shade(AWNING_LIGHTS[Math.floor(hash01(b.seed, 31) * AWNING_LIGHTS.length)], 1.8);
+          this.stripBuilder.box(tier.minX - 4.4, tier.z1 - 10, tier.minY - 4.4, tier.maxX + 4.4, tier.z1 - 7.8, tier.maxY + 4.4, c, null, 0b110011);
+        }
       }
       // deco fins on the corners of taller tiers
       if (!isPlinth && tier.z1 - tier.z0 > storey * 5 && tier.facade !== FACADE.curtain) {
