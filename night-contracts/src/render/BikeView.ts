@@ -16,8 +16,8 @@ const RED = 0xe0262b;
 /** Tail light on the brake; while running it shows TAIL_RUN of that. */
 const TAIL = new THREE.Color(1.4, 0.04, 0.025);
 const TAIL_RUN = 0.45;
-/** Its red glow on the road behind at night, on the brake. */
-const TAIL_GLOW = new THREE.Color(0.3, 0.012, 0.008);
+/** Its red glow on the road behind at night, on the brake (a faint spill while running). */
+const TAIL_GLOW = new THREE.Color(0.22, 0.01, 0.006);
 
 export interface BikeModel {
   root: THREE.Group;
@@ -372,8 +372,9 @@ export class BikeView {
     this.brakeVis += ((b.brake > 0 ? 1 : 0) - this.brakeVis) * Math.min(1, dt * 20);
     const tail = (TAIL_RUN + (1 - TAIL_RUN) * this.brakeVis) * k;
     (this.model.taillight.material as THREE.MeshBasicMaterial).color.copy(TAIL).multiplyScalar(tail);
-    // and its glow on the road behind at night, thrown further back on a wet road
-    const glow = on ? THREE.MathUtils.smoothstep(night, 0.25, 0.7) * tail * (1 + sim.wet * 0.5) : 0;
+    // and its glow on the road behind at night, thrown further back on a wet road: squared, so the
+    // running light only spills a little and the brake stands out
+    const glow = on ? THREE.MathUtils.smoothstep(night, 0.25, 0.7) * tail * tail * (1 + sim.wet * 0.5) : 0;
     this.tailGlow.visible = glow > 0.01;
     if (this.tailGlow.visible) {
       this.tailGlow.material.color.copy(TAIL_GLOW).multiplyScalar(glow);
