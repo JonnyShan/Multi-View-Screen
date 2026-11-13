@@ -7,6 +7,8 @@ import http from 'node:http';
 import { chromium } from '@playwright/test';
 
 const out = process.argv[2] ?? 'dist-artifact';
+// software rendering can take a while to produce a frame
+const SHOT_MS = 120000;
 const CSP = "default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src data:; connect-src 'none'";
 const html = fs.readFileSync(process.argv[3] ?? 'dist-artifact/night-contracts.html');
 const server = http.createServer((req, res) => res.writeHead(200, { 'content-type': 'text/html', 'content-security-policy': CSP }).end(html)).listen(0);
@@ -21,10 +23,10 @@ try {
   await page.evaluate(() => window.__nc.setClock(9.5));
   await page.locator('[data-act="ride"]').click();
   await page.waitForTimeout(4000);
-  await page.screenshot({ path: `${out}/check-day.png` });
+  await page.screenshot({ path: `${out}/check-day.png`, timeout: SHOT_MS });
   await page.evaluate(() => window.__nc.setClock(22));
   await page.waitForTimeout(2500);
-  await page.screenshot({ path: `${out}/check-night.png` });
+  await page.screenshot({ path: `${out}/check-night.png`, timeout: SHOT_MS });
   // a row of parked cars by day, close up
   await page.evaluate(() => {
     const sim = window.__nc.sim();
@@ -33,7 +35,7 @@ try {
     window.__nc.camera({ x: 492, y: 372, z: 9, tx: 470, ty: 400, tz: 4 });
   });
   await page.waitForTimeout(1500);
-  await page.screenshot({ path: `${out}/check-cars.png` });
+  await page.screenshot({ path: `${out}/check-cars.png`, timeout: SHOT_MS });
   // materials from the generated GLBs are named (code-built ones are not) and have metal 1 and
   // rough 1 factors scaled by their maps: a missing map means a texture failed to load
   const untextured = await page.evaluate(() => {

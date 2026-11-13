@@ -113,6 +113,9 @@ export class GlbRiderView {
   private readonly b: Record<BoneKey, THREE.Bone>;
   private readonly bones: THREE.Bone[] = [];
   private readonly rest = new Map<THREE.Bone, [THREE.Vector3, THREE.Quaternion]>();
+  /** Each bone's turn as the mixer last left it, before the layers on top (see update). */
+  private readonly mixed: THREE.Quaternion[] = [];
+  private mixedOnce = false;
   private readonly katana: THREE.Group;
   private readonly saya: THREE.Object3D;
   private readonly gun: THREE.Group;
@@ -151,6 +154,7 @@ export class GlbRiderView {
     }
     this.b = found;
     for (const bone of this.bones) this.rest.set(bone, [bone.position.clone(), bone.quaternion.clone()]);
+    for (const _ of this.bones) this.mixed.push(new THREE.Quaternion());
 
     this.mixer = new THREE.AnimationMixer(scene);
     const find = (key: string): THREE.AnimationClip | undefined => clips.find((c) => c.name.toLowerCase() === key) ?? clips.find((c) => c.name.toLowerCase().startsWith(key));
@@ -371,7 +375,13 @@ export class GlbRiderView {
     const action = this.play(key, slashing ? 0.06 : 0.22);
     if (key === 'run') action.timeScale = THREE.MathUtils.clamp(speed / 44, 0.7, 1.5);
     if (key === 'walk') action.timeScale = THREE.MathUtils.clamp(speed / 12, 0.6, 1.8);
+    // the mixer only writes a bone when its value changes, so under a held pose (riding, crouching)
+    // the head counter-lean and aim layers below would pile up frame on frame and spin the head
+    // round in a long corner: start every frame from the pose the mixer last gave
+    if (this.mixedOnce) this.bones.forEach((bone, i) => bone.quaternion.copy(this.mixed[i]));
     this.mixer.update(dt);
+    this.bones.forEach((bone, i) => this.mixed[i].copy(bone.quaternion));
+    this.mixedOnce = true;
     this.root.updateMatrixWorld(true);
 
     const b = this.b;
