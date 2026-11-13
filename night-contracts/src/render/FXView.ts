@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import type { SimEvent } from '../sim/events';
 import type { Sim } from '../sim/Sim';
 import { radialTexture } from './LampsView';
-import { ADDITIVE_FOG_FRAGMENT, srgb } from './Shared';
+import { ADDITIVE_FOG_FRAGMENT, additiveFog, srgb } from './Shared';
 
 let starTex: THREE.Texture | null = null;
 /** A small spiky star with a hot core for muzzle flashes and glints; like the radial sprite, the shape is all in alpha. */
@@ -245,7 +245,8 @@ interface Tracer {
   color: THREE.Color;
 }
 
-const TRACERS = 64;
+// enemy bullets hold a slot for two frames, so leave room for a full police volley plus the player's bolts
+const TRACERS = 128;
 /** How long the katana arc lasts (s). */
 const SLASH_TIME = 0.16;
 /** Speed of a player's bolt (units/s), and how long a bolt may last. */
@@ -305,7 +306,11 @@ export class FXView {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.tracerPos, 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('color', new THREE.BufferAttribute(this.tracerCol, 3).setUsage(THREE.DynamicDrawUsage));
-    this.tracerMesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    const tracerMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    tracerMat.onBeforeCompile = (s) => {
+      s.fragmentShader = additiveFog(s.fragmentShader);
+    };
+    this.tracerMesh = new THREE.Mesh(g, tracerMat);
     this.tracerMesh.frustumCulled = false;
     this.tracerMesh.name = 'tracers';
     this.group.add(this.tracerMesh);
@@ -333,7 +338,7 @@ export class FXView {
           float t = mix(vArc.x, 1.0 - vArc.x, uFlip);
           float trail = smoothstep(uSweep - 0.5, uSweep, t) * (1.0 - smoothstep(uSweep - 0.04, uSweep, t));
           // a thin bright edge just inside the tip, falling off towards the hilt
-          float a = pow(vArc.y, 4.0) * (1.0 - smoothstep(0.88, 1.0, vArc.y)) * trail;
+          float a = pow(max(vArc.y, 0.0), 4.0) * (1.0 - smoothstep(0.88, 1.0, vArc.y)) * trail;
           gl_FragColor = vec4(uColor * a, 1.0);
         }
       `,

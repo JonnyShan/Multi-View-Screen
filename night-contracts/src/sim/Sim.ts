@@ -310,6 +310,7 @@ export class Sim {
       b.speed = 0;
       this.bikeBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
       b.cmdX = b.cmdY = 0;
+      b.brake = 0;
       if (b.fallen) b.fallT = Math.min(1, b.fallT + this.dt * 2.5);
       return;
     }

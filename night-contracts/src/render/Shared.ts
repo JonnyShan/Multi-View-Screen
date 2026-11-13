@@ -38,6 +38,11 @@ export const ADDITIVE_FOG_FRAGMENT = /* glsl */ `
 #endif
 `;
 
+/** A built-in material's fragment shader with its fog swapped for {@link ADDITIVE_FOG_FRAGMENT}. */
+export function additiveFog(fragmentShader: string): string {
+  return fragmentShader.replace('#include <fog_fragment>', ADDITIVE_FOG_FRAGMENT);
+}
+
 const GLSL_HASH = /* glsl */ `
 float nc_hash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
@@ -98,7 +103,7 @@ const vec3 NC_NEON[6] = vec3[6](vec3(1.0, 0.25, 0.6), vec3(0.2, 0.95, 0.85), vec
  */
 export function createBuildingMaterial(detail = true): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.0, envMapIntensity: 0.35 });
-  if (detail) mat.defines = { NC_DETAIL: '' };
+  if (detail) mat.defines = { ...mat.defines, NC_DETAIL: '' };
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uNight = globalUniforms.uNight;
     shader.uniforms.uWet = globalUniforms.uWet;

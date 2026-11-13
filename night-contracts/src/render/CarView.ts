@@ -9,7 +9,7 @@ import type { Car } from '../sim/Car';
 import type { Sim } from '../sim/Sim';
 import type { AssetRegistry, CarAsset } from './AssetRegistry';
 import { billboardMaterial, radialTexture } from './LampsView';
-import { srgb, yawToThree } from './Shared';
+import { additiveFog, srgb, yawToThree } from './Shared';
 
 const CAP = 48;
 const MODELS: CarModel[] = ['sedan', 'suv', 'limo', 'police', 'hatch', 'ute', 'van'];
@@ -330,6 +330,9 @@ export class CarView {
       polygonOffsetFactor: -6,
       polygonOffsetUnits: -6,
     });
+    poolMat.onBeforeCompile = (s) => {
+      s.fragmentShader = additiveFog(s.fragmentShader);
+    };
     this.pools = new THREE.InstancedMesh(poolGeo, poolMat, CAP);
     this.pools.count = 0;
     this.pools.frustumCulled = false;

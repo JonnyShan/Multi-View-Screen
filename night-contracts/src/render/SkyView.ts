@@ -65,7 +65,7 @@ export class SkyView {
           float toward = 0.5 + 0.5 * dot(normalize(vec3(uSunDir.x, 0.0, uSunDir.z)), normalize(vec3(d.x, 0.0, d.z)));
           col += uGlow * band * mix(0.35, 1.0, toward * uIsSun + (1.0 - uIsSun) * 0.6);
           // below the horizon fade to the horizon colour
-          col = mix(col, uHorizon * 0.7, smoothstep(0.0, -0.15, h));
+          col = mix(col, uHorizon * 0.7, (1.0 - smoothstep(-0.15, 0.0, h)));
           // sun or moon disc
           float cosA = dot(d, normalize(uSunDir));
           float disc = smoothstep(uIsSun > 0.5 ? 0.9994 : 0.99965, 1.0, cosA);
@@ -106,7 +106,7 @@ export class SkyView {
             vec2 q = vec2((fract(x) - 0.5) / 38.0, h - nTop - 1.5 * px);
             float blink = fract(uTime * 0.45 + r * 17.0);
             blink = smoothstep(0.0, 0.06, blink) * (1.0 - smoothstep(0.25, 0.4, blink));
-            col += vec3(1.0, 0.08, 0.04) * 3.0 * step(0.94, r) * land * uNight * blink * smoothstep(1.8 * px, 0.6 * px, length(q));
+            col += vec3(1.0, 0.08, 0.04) * 3.0 * step(0.94, r) * land * uNight * blink * (1.0 - smoothstep(0.6 * px, 1.8 * px, length(q)));
             city = max(far, near);
           }
           // lightning lights the sky behind the towers, not the towers

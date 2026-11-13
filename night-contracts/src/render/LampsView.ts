@@ -9,7 +9,7 @@ import type { City } from '../world/CityGenerator';
 import type { AssetPart } from './AssetRegistry';
 import { InstanceCuller } from './InstanceCuller';
 import { instancedParts } from './PropsView';
-import { ADDITIVE_FOG_FRAGMENT, globalUniforms, srgb, yawToThree } from './Shared';
+import { ADDITIVE_FOG_FRAGMENT, additiveFog, globalUniforms, srgb, yawToThree } from './Shared';
 
 export const SODIUM = 0xffa347;
 
@@ -131,6 +131,7 @@ export class LampsView {
     poolMat.onBeforeCompile = (s) => {
       s.uniforms.uOpacity = this.poolOpacity;
       s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uOpacity;').replace('#include <opaque_fragment>', 'outgoingLight *= uOpacity;\n#include <opaque_fragment>');
+      s.fragmentShader = additiveFog(s.fragmentShader);
     };
 
     const m = new THREE.Matrix4();

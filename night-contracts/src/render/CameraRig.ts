@@ -145,9 +145,12 @@ export class CameraRig {
     // tall screens (an upright phone) widen the vertical angle so the road ahead stays in view,
     // wide phones (19.5:9) narrow it a little so the hero stays big and the sides do not stretch
     const aspect = this.camera.aspect;
-    if (aspect < 1.2) fov = Math.min(100, fov * Math.pow(Math.min(1.5, 1.2 / aspect), 0.8));
+    // a hidden page can report a 0x0 window, which makes the aspect NaN or 0: keep the last angle
+    if (!(aspect > 0) || !Number.isFinite(aspect)) fov = this.camera.fov;
+    else if (aspect < 1.2) fov = Math.min(100, fov * Math.pow(Math.min(1.5, 1.2 / aspect), 0.8));
     else fov = wideFov(fov, aspect, c.wideAspect, c.wideFovKeep);
-    this.camera.fov += (fov - this.camera.fov) * dampFactor(3, dt);
+    // the first frame starts at the right angle instead of zooming in on wide phones
+    this.camera.fov = this.firstFrame ? fov : this.camera.fov + (fov - this.camera.fov) * dampFactor(3, dt);
 
     // focus in three space
     this.focus.set(fx, fz + c.lookHeight, fy);

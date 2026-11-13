@@ -14,7 +14,7 @@ import type { City } from '../world/CityGenerator';
 import { GeoBuilder } from './GeoBuilder';
 import { InstanceCuller } from './InstanceCuller';
 import { radialTexture } from './LampsView';
-import { globalUniforms, srgb } from './Shared';
+import { additiveFog, globalUniforms, srgb } from './Shared';
 
 const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789&';
 /** Atlas cell size in pixels and cells per row; the cell after the glyphs holds a straight tube for blade borders. */
@@ -343,6 +343,7 @@ export class NeonView {
     poolMat.onBeforeCompile = (sh) => {
       sh.uniforms.uOpacity = this.poolOpacity;
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uOpacity;').replace('#include <opaque_fragment>', 'outgoingLight *= uOpacity;\n#include <opaque_fragment>');
+      sh.fragmentShader = additiveFog(sh.fragmentShader);
     };
     const glow = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), poolMat, Math.max(1, pools.length));
     pools.forEach((p, k) => {
