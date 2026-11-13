@@ -27,22 +27,40 @@ function rig(): THREE.Group {
   return root;
 }
 
-/** Riding at a steady lean, optionally firing out to one side. */
-function riding(firing: boolean): Sim {
+/** Riding at a steady lean and yaw rate, optionally firing out to one side. */
+function riding(firing: boolean, yawRate = 0, lean = 0.7): Sim {
   return {
     player: { mode: 'riding', x: 0, y: 0, vx: 120, vy: 0, slashAnim: 1, firing, whistleT: 0, aimX: 0, aimY: 80 },
-    bike: { lean: 0.7, pLean: 0.7, heading: 0 },
+    bike: { lean, pLean: lean, heading: 0, yawRate },
   } as unknown as Sim;
+}
+
+/** The head's turn on `parent` (Neck or Spine, the chest). */
+function headOn(scene: THREE.Object3D, parent: string): THREE.Quaternion {
+  const head = scene.getObjectByName('Head')!;
+  const p = scene.getObjectByName(parent)!;
+  return p.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(head.getWorldQuaternion(new THREE.Quaternion()));
+}
+
+/** Update a rider `frames` times; `each` may change the sim before frame i and sees the scene after it. */
+function ride(sim: Sim, frames: number, each?: (i: number, scene: THREE.Group) => void): THREE.Group {
+  const scene = rig();
+  const view = new GlbRiderView(buildBikeModel(false), scene, []);
+  for (let i = 0; i < frames; i++) {
+    view.update(sim, 1, 1 / 60);
+    each?.(i, scene);
+  }
+  return scene;
 }
 
 /** The head's turn on the neck after `frames` updates. */
 function headAfter(sim: Sim, frames: number): THREE.Quaternion {
-  const scene = rig();
-  const view = new GlbRiderView(buildBikeModel(false), scene, []);
-  for (let i = 0; i < frames; i++) view.update(sim, 1, 1 / 60);
-  const head = scene.getObjectByName('Head')!;
-  const neck = scene.getObjectByName('Neck')!;
-  return neck.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(head.getWorldQuaternion(new THREE.Quaternion()));
+  return headOn(ride(sim, frames), 'Neck');
+}
+
+/** Where the head looks, in world space (the model faces +z, so its right is -x). */
+function headForward(scene: THREE.Object3D): THREE.Vector3 {
+  return new THREE.Vector3(0, 0, 1).applyQuaternion(scene.getObjectByName('Head')!.getWorldQuaternion(new THREE.Quaternion()));
 }
 
 describe('Rider on the bike', () => {
@@ -55,5 +73,43 @@ describe('Rider on the bike', () => {
   it('holds its head steady while shooting through a corner', () => {
     const settled = headAfter(riding(true), 300);
     for (const frames of [303, 340, 600]) expect(settled.angleTo(headAfter(riding(true), frames))).toBeLessThan(1e-3);
+  });
+
+  it('glances a little into a right turn', () => {
+    const straight = ride(riding(false), 120);
+    const turning = ride(riding(false, 2), 120);
+    const glance = headOn(straight, 'Spine').angleTo(headOn(turning, 'Spine'));
+    expect(glance).toBeGreaterThan(0.1);
+    expect(glance).toBeLessThan(0.16);
+    expect(headForward(turning).x).toBeLessThan(headForward(straight).x);
+  });
+
+  it('looks along the aim, not the turn, while shooting', () => {
+    const straight = headOn(ride(riding(true), 300), 'Spine');
+    expect(straight.angleTo(headOn(ride(riding(true, 2), 300), 'Spine'))).toBeLessThan(1e-3);
+  });
+
+  it('settles into the same head motion through quick bends', () => {
+    const still = headOn(ride(riding(false, 0, 0), 2), 'Spine');
+    const sim = riding(false);
+    const seen: THREE.Quaternion[] = [];
+    let worst = 0;
+    ride(sim, 600, (i, scene) => {
+      const q = headOn(scene, 'Spine');
+      seen.push(q);
+      worst = Math.max(worst, still.angleTo(q));
+      // flip the bend every half second
+      const s = Math.floor((i + 1) / 30) % 2 ? -1 : 1;
+      sim.bike.lean = sim.bike.pLean = 0.7 * s;
+      sim.bike.yawRate = 2 * s;
+    });
+    expect(worst).toBeLessThan(0.6);
+    expect(seen[119].angleTo(seen[599])).toBeLessThan(1e-3);
+  });
+
+  it('never turns its head far off the chest, whatever piles up', () => {
+    const still = headOn(ride(riding(false, 0, 0), 2), 'Spine');
+    // a lean no bike reaches, while shooting out to the side
+    expect(still.angleTo(headOn(ride(riding(true, 3, 4), 60), 'Spine'))).toBeLessThan(1.2 + 1e-3);
   });
 });

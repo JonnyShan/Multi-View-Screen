@@ -3,9 +3,9 @@
  * RightHand...) driven by an AnimationMixer. Clips come from the file (idle,
  * walk, run, jump, slash, fall). The riding and roof-crouch poses are solved
  * here with two-bone IK against the bike's seat, grips and pegs, and aiming,
- * the riding slash, the whistle and lean are layered on top every frame (on the
- * bike the left hand stays on its grip). The katana and gun are the code-built
- * ones from RiderView, placed by hand each frame.
+ * the riding slash, the whistle, lean and a glance into the turn are layered
+ * on top every frame (on the bike the left hand stays on its grip). The katana
+ * and gun are the code-built ones from RiderView, placed by hand each frame.
  */
 import * as THREE from 'three';
 import type { Sim } from '../sim/Sim';
@@ -52,6 +52,12 @@ const RIDE_SLASH = [new THREE.Vector3(-0.8, 2.6, -1.4), new THREE.Vector3(-3, -1
 const RIDE_SLASH_AT = [0, 0.3, 0.5, 0.7, 1];
 /** How fast the aim eases in and out and follows its target (per second). */
 const AIM_EASE = 14;
+/** On the bike the head glances into the turn: rad per rad/s of yaw rate, its limit, and how fast it follows (per second). */
+const GLANCE_PER_YAW = 0.08;
+const GLANCE_MAX = 0.15;
+const GLANCE_EASE = 6;
+/** However the layers stack up, the head never turns further than this off the clip's pose on the chest (rad). */
+const HEAD_TURN_MAX = 1.2;
 
 const X = new THREE.Vector3(1, 0, 0);
 const Y = new THREE.Vector3(0, 1, 0);
@@ -116,6 +122,8 @@ export class GlbRiderView {
   /** Each bone's turn as the mixer last left it, before the layers on top (see update). */
   private readonly mixed: THREE.Quaternion[] = [];
   private mixedOnce = false;
+  private readonly neckI: number;
+  private readonly headI: number;
   private readonly katana: THREE.Group;
   private readonly saya: THREE.Object3D;
   private readonly gun: THREE.Group;
@@ -126,6 +134,8 @@ export class GlbRiderView {
   /** How far the aim pose is blended in (0 to 1), and its smoothed angle off the body's heading. */
   private aimW = 0;
   private aimRel = 0;
+  /** Smoothed glance into the turn (rad, positive to the right). */
+  private glance = 0;
   private readonly aimTarget = new THREE.Vector3();
   /** Holster transform in the right thigh's space, found at the rest pose. */
   private readonly holster: [THREE.Vector3, THREE.Quaternion, THREE.Vector3];
@@ -157,6 +167,8 @@ export class GlbRiderView {
     this.b = found;
     for (const bone of this.bones) this.rest.set(bone, [bone.position.clone(), bone.quaternion.clone()]);
     for (const _ of this.bones) this.mixed.push(new THREE.Quaternion());
+    this.neckI = this.bones.indexOf(found.neck);
+    this.headI = this.bones.indexOf(found.head);
 
     this.mixer = new THREE.AnimationMixer(scene);
     const find = (key: string): THREE.AnimationClip | undefined => clips.find((c) => c.name.toLowerCase() === key) ?? clips.find((c) => c.name.toLowerCase().startsWith(key));
@@ -388,11 +400,6 @@ export class GlbRiderView {
     this.root.updateMatrixWorld(true);
 
     const b = this.b;
-    if (riding) {
-      // keep the head nearer level than the bike through a lean
-      const bike = sim.bike;
-      turnAxis(b.head, this.forward(), -(bike.pLean + (bike.lean - bike.pLean) * alpha) * 0.35);
-    }
     const shooting = pl.firing && pl.mode !== 'dead' && pl.mode !== 'down' && !slashing;
     // ease the aim in and out and follow its target smoothly, so a new target swings the arm round instead of snapping it
     const ease = 1 - Math.exp(-dt * AIM_EASE);
@@ -401,13 +408,47 @@ export class GlbRiderView {
       this.aimRel = this.aimW < 0.05 ? rel : this.aimRel + (rel - this.aimRel) * ease;
     }
     this.aimW += ((shooting ? 1 : 0) - this.aimW) * ease;
+    if (riding) {
+      const bike = sim.bike;
+      // glance into the turn, handing the head over to the aim while shooting
+      const want = THREE.MathUtils.clamp(bike.yawRate * GLANCE_PER_YAW, -GLANCE_MAX, GLANCE_MAX);
+      this.glance += (want - this.glance) * (1 - Math.exp(-dt * GLANCE_EASE));
+      const glance = this.glance * (1 - this.aimW);
+      const up = this.up();
+      // increasing sim angle turns right; right of a +z model is -x, a negative turn about up
+      turnAxis(b.neck, up, -glance * 0.4);
+      turnAxis(b.head, up, -glance * 0.6);
+      // keep the head nearer level than the bike through a lean
+      turnAxis(b.head, this.forward(), -(bike.pLean + (bike.lean - bike.pLean) * alpha) * 0.35);
+    } else this.glance = 0;
     if (this.aimW > 0.01) this.aimGun(sim, riding);
     if (shooting) this.drawGun();
     else if (this.gunDrawn) this.holsterGun();
     if (!shooting && pl.mode === 'foot' && pl.whistleT > 0) this.whistle(sim);
     if (slashing && riding) this.rideSlash(pl.slashAnim / 0.34);
+    this.limitHead();
     if (slashing) this.holdKatana();
     else if (this.katanaDrawn) this.sheathKatana();
+  }
+
+  /**
+   * A safety net over every layer: the head may turn at most HEAD_TURN_MAX
+   * off the clip's pose on the chest. The neck's and the head's own turns are
+   * scaled back together until their angles sum to the limit, which bounds
+   * the turn of the two combined.
+   */
+  private limitHead(): void {
+    const { neck, head } = this.b;
+    const neck0 = this.mixed[this.neckI];
+    const head0 = this.mixed[this.headI];
+    const turn = neck0.angleTo(neck.quaternion) + head0.angleTo(head.quaternion);
+    if (turn <= HEAD_TURN_MAX) return;
+    const k = HEAD_TURN_MAX / turn;
+    _q1.copy(neck.quaternion);
+    neck.quaternion.copy(neck0).slerp(_q1, k);
+    _q1.copy(head.quaternion);
+    head.quaternion.copy(head0).slerp(_q1, k);
+    neck.updateMatrixWorld(true);
   }
 
   /** The rider's up direction in world space (leans with the bike). */
