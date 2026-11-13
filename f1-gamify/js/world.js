@@ -340,7 +340,7 @@ export class World {
     water.position.set(800, RIVER_Y + 1.5, 300);
     this.scene.add(water);
 
-    // Young's High Bridge–style steel viaduct across the gorge (landmark on the skyline).
+    // Young's High Bridge style steel viaduct across the gorge (landmark on the skyline).
     const bridge = new THREE.Group();
     const steel = new THREE.MeshStandardMaterial({ color: 0x3b3430, metalness: 0.6, roughness: 0.55 });
     const z = 1080, y = 18, x0 = 600, x1 = 1010;
