@@ -296,7 +296,10 @@ export class GameRenderer {
     this.rain.update(cam, dt, sim.raining ? 0.75 : 0, sim.wet);
 
     this.flash = Math.max(0, this.flash - dt * 3.5);
-    this.sky.update(l, this.rig.focusPoint, cam.position, this.flash * 0.6);
+    // three z is sim y; the sea lies south of shoreY
+    const toShore = cam.position.z - sim.city.shoreY;
+    const sea = 1 - THREE.MathUtils.smoothstep(toShore, cam.far * 0.6, cam.far * 0.9);
+    this.sky.update(l, this.rig.focusPoint, cam.position, this.flash * 0.6, sea);
     this.water.update(l);
     this.fog.color.setHex(l.fog, THREE.SRGBColorSpace);
     this.fog.density = l.fogDensity * (1 + sim.wet * 0.4);

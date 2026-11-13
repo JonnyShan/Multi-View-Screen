@@ -19,6 +19,7 @@ export class SkyView {
     uIsSun: { value: 1 },
     uStars: { value: 0 },
     uFlash: { value: 0 },
+    uSea: { value: 1 },
     uTime: globalUniforms.uTime,
     uNight: globalUniforms.uNight,
   };
@@ -49,6 +50,7 @@ export class SkyView {
         uniform float uFlash;
         uniform float uTime;
         uniform float uNight;
+        uniform float uSea;
         varying vec3 vDir;
         float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
         void main() {
@@ -81,7 +83,8 @@ export class SkyView {
           float city = 0.0;
           if (h > -0.03 && h < 0.125) {
             float az = atan(d.z, d.x);
-            float land = smoothstep(-0.55, -0.2, d.z);
+            // the sea only opens a gap when it is inside the draw distance
+            float land = 1.0 - uSea * (1.0 - smoothstep(-0.55, -0.2, d.z));
             // bases fade into the haze where the clipped ground ends
             float base = smoothstep(-0.03, -0.02, h);
             vec3 tint = mix(uHorizon, uZenith, 0.35);
@@ -140,7 +143,7 @@ export class SkyView {
     scene.add(this.sun.target);
   }
 
-  update(l: Lighting, focus: THREE.Vector3, camPos: THREE.Vector3, flash: number): void {
+  update(l: Lighting, focus: THREE.Vector3, camPos: THREE.Vector3, flash: number, sea: number): void {
     this.dome.position.copy(camPos);
     const u = this.uniforms;
     u.uZenith.value.setHex(l.zenith, THREE.SRGBColorSpace);
@@ -152,6 +155,7 @@ export class SkyView {
     u.uIsSun.value = l.night < 0.6 ? 1 : 0;
     u.uStars.value = l.starAlpha;
     u.uFlash.value = flash;
+    u.uSea.value = sea;
 
     this.hemi.color.setHex(l.hemiSky, THREE.SRGBColorSpace);
     this.hemi.groundColor.setHex(l.hemiGround, THREE.SRGBColorSpace);
