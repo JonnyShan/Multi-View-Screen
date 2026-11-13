@@ -57,14 +57,16 @@ export function createBuildingMaterial(): THREE.MeshStandardMaterial {
     shader.uniforms.uWet = globalUniforms.uWet;
     shader.uniforms.uTime = globalUniforms.uTime;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec2 aFuv;\nattribute vec3 aFacade;\nvarying vec2 vFuv;\nvarying vec3 vFacade;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFuv = aFuv;\nvFacade = aFacade;');
+      .replace('#include <common>', '#include <common>\nattribute vec2 aFuv;\nattribute vec3 aFacade;\nvarying vec2 vFuv;\nvarying vec3 vFacade;\nvarying float vNcY;')
+      // chunk meshes sit at identity, so position.y is the height above sea level
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFuv = aFuv;\nvFacade = aFacade;\nvNcY = position.y;');
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
         `#include <common>
 varying vec2 vFuv;
 varying vec3 vFacade;
+varying float vNcY;
 uniform float uNight;
 uniform float uWet;
 uniform float uTime;
@@ -78,37 +80,66 @@ vec2 nc_f = fract(vFuv);
 vec2 nc_id = floor(vFuv);
 float nc_win = 0.0;
 float nc_frame = 0.0;
+// sill and head of the glazing within a storey
+vec2 nc_pane = vec2(0.0, 1.0);
 if (nc_style > 0.5 && nc_style < 1.5) {
   // art deco ribbon: continuous horizontal glazing with thin mullions
   nc_win = nc_band(nc_f.y, 0.34, 0.84) * (1.0 - nc_band(nc_f.x, -0.02, 0.05));
   nc_frame = nc_band(nc_f.y, 0.9, 0.97) * 0.5;
+  nc_pane = vec2(0.34, 0.84);
 } else if (nc_style > 1.5 && nc_style < 2.5) {
   // punched windows between pilasters
   nc_win = nc_band(nc_f.x, 0.24, 0.76) * nc_band(nc_f.y, 0.3, 0.84);
   nc_frame = nc_band(nc_f.y, 0.24, 0.3) * nc_band(nc_f.x, 0.2, 0.8);
+  nc_pane = vec2(0.3, 0.84);
 } else if (nc_style > 2.5 && nc_style < 3.5) {
   // curtain wall with spandrels
   nc_win = (1.0 - nc_band(nc_f.x, -0.03, 0.03)) * nc_band(nc_f.y, 0.12, 0.93);
+  nc_pane = vec2(0.12, 0.93);
 } else if (nc_style > 3.5) {
   // shopfront
   nc_win = nc_band(nc_f.x, 0.05, 0.95) * nc_band(nc_f.y, 0.1, 0.7);
   nc_frame = nc_band(nc_f.y, 0.78, 0.95);
+  nc_pane = vec2(0.1, 0.7);
 }
 float nc_seed = floor(vFacade.y + 0.5);
+float nc_shop = step(3.5, nc_style);
+float nc_curtain = step(2.5, nc_style) * (1.0 - nc_shop);
 float nc_h = nc_hash(nc_id + vec2(nc_seed * 1.37, nc_seed * 0.71));
 float nc_h2 = nc_hash(nc_id.yx * 1.13 + vec2(nc_seed * 0.53, 7.1));
-float nc_lit = step(nc_h, nc_style > 3.5 ? 0.65 : vFacade.z);
-vec3 nc_glass = mix(vec3(0.035, 0.05, 0.065), vec3(0.09, 0.13, 0.16), nc_h2 * (1.0 - uNight));
+float nc_h3 = nc_hash(nc_id * 0.71 + vec2(nc_seed * 0.29, 3.7));
+// towers light whole office floors and fewer single panes
+float nc_ratio = nc_shop > 0.5 ? 0.65 : vFacade.z * mix(1.0, 0.4, nc_curtain);
+float nc_floor = nc_curtain * step(nc_hash(vec2(nc_id.y * 0.37, nc_seed * 0.13 + 1.7)), 0.25);
+float nc_lit = max(step(nc_h, nc_ratio), nc_floor);
+// 0 to 1 over the lit panes, so the brightest of them reach the bloom
+float nc_hl = mix(nc_h / max(nc_ratio, 0.05), 0.15 + 0.6 * nc_hash(vec2(nc_id.y, nc_seed)), nc_floor);
+// pane space: 0 at the sill, 1 at the head
+float nc_py = clamp((nc_f.y - nc_pane.x) / (nc_pane.y - nc_pane.x), 0.0, 1.0);
+// detail inside a pane fades to its average once a storey is a few pixels tall
+float nc_det = 1.0 - smoothstep(0.06, 0.25, fwidth(vFuv.y));
+// blinds on about half the panes, pulled down to a different height on each
+float nc_bedge = mix(0.3, 0.8, fract(nc_h3 * 7.3));
+float nc_blind = step(nc_h3, 0.5) * (1.0 - nc_shop) * (1.0 - nc_floor) * mix(1.0 - nc_bedge, nc_band(nc_py, nc_bedge, 2.0), nc_det);
+// glass tint per building: blue grey, bronze or green grey
+float nc_bt = nc_hash(vec2(nc_seed * 0.61, 5.3));
+vec3 nc_tint = nc_bt < 0.45 ? vec3(0.86, 1.0, 1.14) : (nc_bt < 0.72 ? vec3(1.3, 1.0, 0.7) : vec3(0.88, 1.1, 0.96));
+vec3 nc_glass = mix(vec3(0.035, 0.05, 0.065), vec3(0.09, 0.13, 0.16), nc_h2 * (1.0 - uNight)) * mix(vec3(1.0), nc_tint, 1.0 - nc_shop);
+// the room reads darker at the bottom of each pane, blinds paler (but not at night)
+nc_glass *= 1.0 - 0.25 * mix(0.33, nc_band(nc_py, -1.0, 0.33), nc_det) * (1.0 - nc_shop);
+nc_glass = mix(nc_glass, vec3(0.3, 0.28, 0.25) * (0.7 + 0.3 * nc_h2) * (1.0 - 0.75 * uNight), nc_blind);
 diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.72, nc_frame);
 diffuseColor.rgb = mix(diffuseColor.rgb, nc_glass, nc_win);
+// at night the walls fall off into the dark above the street lights
+float nc_street = exp(-max(vNcY - 8.0, 0.0) / 90.0);
+diffuseColor.rgb *= mix(vec3(1.0), mix(vec3(0.3), vec3(1.08, 0.98, 0.86), nc_street), uNight * (1.0 - nc_win));
 diffuseColor.rgb *= 1.0 - 0.28 * uWet * (1.0 - nc_win);
 `,
       )
       .replace(
         '#include <roughnessmap_fragment>',
         `#include <roughnessmap_fragment>
-float nc_shop_r = step(3.5, nc_style);
-roughnessFactor = mix(roughnessFactor, mix(0.16, 0.3, nc_shop_r), nc_win);
+roughnessFactor = mix(roughnessFactor, mix(mix(0.08, 0.3, nc_h2), 0.3, nc_shop), nc_win);
 roughnessFactor = mix(roughnessFactor, roughnessFactor * 0.55, uWet);
 `,
       )
@@ -117,10 +148,17 @@ roughnessFactor = mix(roughnessFactor, roughnessFactor * 0.55, uWet);
         `#include <emissivemap_fragment>
 vec3 nc_warm = mix(vec3(1.0, 0.62, 0.3), vec3(1.0, 0.82, 0.55), nc_h2);
 vec3 nc_cool = vec3(0.7, 0.82, 1.0);
-vec3 nc_col = mix(nc_warm, nc_cool, step(0.82, nc_h2));
-float nc_shop = step(3.5, nc_style);
-float nc_inner = mix(1.0, 0.55 + 0.45 * smoothstep(0.1, 0.7, nc_f.y), nc_shop);
-totalEmissiveRadiance += nc_win * nc_lit * nc_col * uNight * nc_inner * mix(0.18 + 0.5 * nc_h, 0.22 + 0.25 * nc_h, nc_shop);
+vec3 nc_col = mix(mix(nc_warm, nc_cool, step(0.82, nc_h2)), vec3(0.85, 0.92, 1.0), nc_floor);
+// a glow under the ceiling, dark furniture along the sill, blinds lit from behind
+float nc_room = mix(0.7, mix(0.55, 1.0, smoothstep(0.3, 0.95, nc_py)) * (1.0 - 0.55 * nc_band(nc_py, -1.0, 0.15)), nc_det);
+nc_room *= 1.0 - 0.6 * nc_blind;
+nc_col *= mix(vec3(1.0), vec3(1.0, 0.88, 0.7), nc_blind);
+// the odd room lit only by a television
+float nc_tv = step(0.965, nc_h2) * (1.0 - nc_floor) * (1.0 - nc_shop);
+nc_col = mix(nc_col, vec3(0.42, 0.6, 1.0) * (0.55 + 0.3 * sin(uTime * 9.0 + nc_h * 60.0) + 0.15 * sin(uTime * 23.0 + nc_h * 31.0)), nc_tv);
+float nc_inner = 0.55 + 0.45 * smoothstep(0.1, 0.7, nc_f.y);
+float nc_glow = mix(nc_room * (0.55 + 0.95 * nc_hl), nc_inner * (0.22 + 0.25 * nc_h), nc_shop);
+totalEmissiveRadiance += nc_win * nc_lit * nc_col * uNight * nc_glow;
 `,
       );
   };
