@@ -365,14 +365,19 @@ export const tuning = {
   },
 
   camera: {
-    distance: 44,
-    distanceFast: 58,
+    distance: 38,
+    distanceFast: 46,
     height: 16,
-    heightFast: 19,
-    lookAhead: 34,
-    lookHeight: 9,
+    heightFast: 15,
+    lookAhead: 40,
+    lookAheadFast: 70,
+    lookHeight: 8,
     fov: 62,
-    fovFast: 72,
+    fovFast: 76,
+    /** Screens wider than this narrow the vertical angle (see wideFovKeep). */
+    wideAspect: 16 / 9,
+    /** 0 keeps the vertical angle on wider screens, 1 keeps the horizontal angle. */
+    wideFovKeep: 0.5,
     yawDamping: 6.5,
     posDamping: 11,
     footDistance: 40,

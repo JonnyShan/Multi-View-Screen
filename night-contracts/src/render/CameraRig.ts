@@ -8,6 +8,17 @@ import type { Tuning } from '../config/tuning';
 import { angleDiff, clamp, dampFactor, lerp } from '../core/math';
 import type { Sim } from '../sim/Sim';
 
+/**
+ * Vertical field of view (degrees) for a screen wider than `refAspect`. `keep`
+ * 0 holds the vertical angle (the sides stretch), 1 holds the horizontal angle
+ * (the hero shrinks). In between trims part of the extra width.
+ */
+export function wideFov(fov: number, aspect: number, refAspect: number, keep: number): number {
+  if (aspect <= refAspect) return fov;
+  const half = Math.tan((fov * Math.PI) / 360) * Math.pow(refAspect / aspect, keep);
+  return (Math.atan(half) * 360) / Math.PI;
+}
+
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
   /** Extra yaw from touch drag or keys, decays back to zero on the bike. */
@@ -23,6 +34,9 @@ export class CameraRig {
   private readonly noiseSeed = Math.random() * 100;
   private time = 0;
   private initialised = false;
+  /** Bike focus last frame (sim x, y), so the camera can ride along with it. */
+  private readonly lastFocus = new THREE.Vector2();
+  private carry = false;
 
   constructor(private readonly t: Tuning) {
     const c = t.camera;
@@ -65,7 +79,7 @@ export class CameraRig {
       dist = lerp(c.distance, c.distanceFast, k);
       height = lerp(c.height, c.heightFast, k);
       fov = lerp(c.fov, c.fovFast, k * k);
-      lookAhead = c.lookAhead + k * 30;
+      lookAhead = lerp(c.lookAhead, c.lookAheadFast, k);
       this.orbit *= Math.exp(-dt * 2.5);
     } else {
       fx = pl.px + (pl.x - pl.px) * alpha;
@@ -112,9 +126,11 @@ export class CameraRig {
 
     this.dist += (dist - this.dist) * dampFactor(4, dt);
     this.height += (height - this.height) * dampFactor(4, dt);
-    // tall screens (an upright phone) widen the vertical angle so the road ahead stays in view
+    // tall screens (an upright phone) widen the vertical angle so the road ahead stays in view,
+    // wide phones (19.5:9) narrow it a little so the hero stays big and the sides do not stretch
     const aspect = this.camera.aspect;
     if (aspect < 1.2) fov = Math.min(100, fov * Math.pow(Math.min(1.5, 1.2 / aspect), 0.8));
+    else fov = wideFov(fov, aspect, c.wideAspect, c.wideFovKeep);
     this.camera.fov += (fov - this.camera.fov) * dampFactor(3, dt);
 
     // focus in three space
@@ -133,6 +149,17 @@ export class CameraRig {
     // never below the ground under the camera
     const g = sim.city.heightAt(this.pos.x, this.pos.z) + 3;
     if (this.pos.y < g) this.pos.y = g;
+
+    // on the bike, move along with it before smoothing: a plain follow trails by
+    // speed / posDamping, which is about 30 units at top speed on a 60 Hz screen
+    if (pl.mode === 'riding') {
+      if (this.carry) {
+        this.camera.position.x += fx - this.lastFocus.x;
+        this.camera.position.z += fy - this.lastFocus.y;
+      }
+      this.lastFocus.set(fx, fy);
+    }
+    this.carry = pl.mode === 'riding';
 
     if (this.camera.position.lengthSq() === 0 || this.firstFrame) {
       this.camera.position.copy(this.pos);
