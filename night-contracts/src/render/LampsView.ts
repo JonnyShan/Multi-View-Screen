@@ -45,7 +45,8 @@ export function billboardMaterial(color: THREE.Color, opacityUniform: { value: n
         vUv = uv;
         vec4 center = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
         float size = length(instanceMatrix[0].xyz);
-        float closeK = clamp(-center.z / 120.0, 0.45, 1.0);
+        // smaller up close, and a little larger far away so a soft glow still reads as a light
+        float closeK = clamp(-center.z / 120.0, 0.45, 1.5);
         vec4 mvPosition = center + vec4(position.xy * size * closeK, 0.0, 0.0);
         vBlink = ${blink ? 'step(0.5, fract(uTime * 0.7 + instanceMatrix[3].x * 0.001))' : '1.0'};
         gl_Position = projectionMatrix * mvPosition;
@@ -61,7 +62,8 @@ export function billboardMaterial(color: THREE.Color, opacityUniform: { value: n
       #include <common>
       #include <fog_pars_fragment>
       void main() {
-        float a = texture2D(uMap, vUv).r;
+        // the falloff lives in alpha only: rgb reads 1 anywhere inside the disc
+        float a = texture2D(uMap, vUv).a;
         gl_FragColor = vec4(uColor * a * uOpacity * vBlink, 1.0);
         #include <fog_fragment>
       }
@@ -110,7 +112,7 @@ export class LampsView {
     const headMesh = new THREE.InstancedMesh(headGeo, this.headMat, lamps.length);
 
     const quad = new THREE.PlaneGeometry(1, 1);
-    const glow = new THREE.InstancedMesh(quad, billboardMaterial(srgb(SODIUM).multiplyScalar(0.7), this.glowOpacity), lamps.length);
+    const glow = new THREE.InstancedMesh(quad, billboardMaterial(srgb(SODIUM), this.glowOpacity), lamps.length);
     const poolGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
     const poolMat = new THREE.MeshBasicMaterial({
       map: radialTexture(),
@@ -142,7 +144,7 @@ export class LampsView {
       const hx = l.x + Math.cos(l.a) * (arm - 1);
       const hy = l.y + Math.sin(l.a) * (arm - 1);
       this.lampPos.push(new THREE.Vector3(hx, l.z + H - 3, hy));
-      m.compose(p.set(hx, l.z + H - 3, hy), q.identity(), s.set(9, 9, 9));
+      m.compose(p.set(hx, l.z + H - 3, hy), q.identity(), s.set(20, 20, 20));
       glow.setMatrixAt(i, m);
       const ground = city.heightAt(hx, hy) + (city.heightAt(hx, hy) > 0.5 ? 0.3 : 1.4);
       m.compose(p.set(hx, ground, hy), q.identity(), s.set(150, 1, 150));
@@ -268,7 +270,7 @@ export class LampsView {
     if (beacons.length) {
       const bm = new THREE.InstancedMesh(quad, billboardMaterial(srgb(0xff2a1a).multiplyScalar(2), this.beaconOpacity, true), beacons.length);
       beacons.forEach((b, i) => {
-        m.compose(b, q.identity(), s.set(14, 14, 14));
+        m.compose(b, q.identity(), s.set(18, 18, 18));
         bm.setMatrixAt(i, m);
       });
       bm.frustumCulled = false;

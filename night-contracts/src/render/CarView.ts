@@ -456,7 +456,7 @@ export class CarView {
             this.bars.setMatrixAt(bari, this.m);
             this.bars.setColorAt(bari++, on ? (red ? this.c.setRGB(5, 0.2, 0.15) : this.c.setRGB(0.2, 0.6, 6)) : this.c.setRGB(0.05, 0.05, 0.05));
             if (on) {
-              this.m.compose(bp, this.q, this.s.set(22, 22, 22));
+              this.m.compose(bp, this.q, this.s.set(28, 28, 28));
               if (red) this.sirenRed.setMatrixAt(sr++, this.m);
               else this.sirenBlue.setMatrixAt(sb++, this.m);
             }

@@ -61,7 +61,7 @@ class Particles {
         #include <common>
         #include <fog_pars_fragment>
         void main() {
-          float a = texture2D(uMap, gl_PointCoord).r * vColor.a;
+          float a = texture2D(uMap, gl_PointCoord).a * vColor.a;
           if (a < 0.01) discard;
           gl_FragColor = vec4(vColor.rgb * ${additive ? 'a' : '1.0'}, ${additive ? '1.0' : 'a'});
           #include <fog_fragment>
@@ -232,7 +232,7 @@ export class FXView {
         for (let i = 0; i < e.count; i++) {
           const a = Math.random() * Math.PI * 2;
           const s = 40 + Math.random() * 140;
-          this.sparks.emit(e.x, e.z, e.y, Math.cos(a) * s, 30 + Math.random() * 90, Math.sin(a) * s, 2.2, 0.35 + Math.random() * 0.4, 3, 1.6, 0.5, 1);
+          this.sparks.emit(e.x, e.z, e.y, Math.cos(a) * s, 30 + Math.random() * 90, Math.sin(a) * s, 3, 0.35 + Math.random() * 0.4, 3, 1.6, 0.5, 1);
         }
         break;
       case 'shot': {
@@ -246,7 +246,7 @@ export class FXView {
           this.flashT = 0.05;
           this.sparks.emit(e.x, e.z, e.y, 0, 0, 0, 5, 0.04, 3, 2, 0.8, 0.8);
         }
-        if (e.hit === 'car' || e.hit === 'wall') for (let i = 0; i < 3; i++) this.sparks.emit(e.tx, e.tz, e.ty, (Math.random() - 0.5) * 120, Math.random() * 80, (Math.random() - 0.5) * 120, 1.8, 0.25, 3, 1.8, 0.6, 1);
+        if (e.hit === 'car' || e.hit === 'wall') for (let i = 0; i < 3; i++) this.sparks.emit(e.tx, e.tz, e.ty, (Math.random() - 0.5) * 120, Math.random() * 80, (Math.random() - 0.5) * 120, 2.4, 0.25, 3, 1.8, 0.6, 1);
         break;
       }
       case 'explosion': {
@@ -256,7 +256,7 @@ export class FXView {
         for (let i = 0; i < 70; i++) {
           const a = Math.random() * Math.PI * 2;
           const s = Math.random() * 120;
-          this.fire.emit(e.x, e.z + 4, e.y, Math.cos(a) * s, 30 + Math.random() * 110, Math.sin(a) * s, 14 + Math.random() * 12, 0.5 + Math.random() * 0.5, 2.6, 0.9, 0.2, 0.7, 18);
+          this.fire.emit(e.x, e.z + 4, e.y, Math.cos(a) * s, 30 + Math.random() * 110, Math.sin(a) * s, 20 + Math.random() * 17, 0.5 + Math.random() * 0.5, 2.6, 0.9, 0.2, 0.7, 25);
         }
         for (let i = 0; i < 40; i++) {
           const a = Math.random() * Math.PI * 2;
@@ -266,7 +266,7 @@ export class FXView {
         for (let i = 0; i < 40; i++) {
           const a = Math.random() * Math.PI * 2;
           const s = 80 + Math.random() * 220;
-          this.sparks.emit(e.x, e.z + 5, e.y, Math.cos(a) * s, 60 + Math.random() * 160, Math.sin(a) * s, 3, 0.8 + Math.random() * 0.6, 3, 1.4, 0.4, 1);
+          this.sparks.emit(e.x, e.z + 5, e.y, Math.cos(a) * s, 60 + Math.random() * 160, Math.sin(a) * s, 4, 0.8 + Math.random() * 0.6, 3, 1.4, 0.4, 1);
         }
         break;
       }
@@ -299,7 +299,7 @@ export class FXView {
     const rx = b.x - Math.cos(b.heading) * 5.7;
     const ry = b.y - Math.sin(b.heading) * 5.7;
     this.skids.add('bike', rx, ry, b.z, 1.6, b.skidding && !b.riderless);
-    if (b.skidding && tick && Math.abs(b.speed) > 60) this.smoke.emit(rx, b.z + 2, ry, 0, 8, 0, 8, 1.1, 0.55, 0.55, 0.55, 0.35, 16);
+    if (b.skidding && tick && Math.abs(b.speed) > 60) this.smoke.emit(rx, b.z + 2, ry, 0, 8, 0, 8, 1.1, 0.55, 0.55, 0.55, 0.5, 16);
     for (const car of sim.cars) {
       const sliding = car.spinT > 0 || (Math.abs(car.vx * -Math.sin(car.a) + car.vy * Math.cos(car.a)) > 40 && Math.abs(car.speed) > 20);
       for (const side of [-1, 1]) {
@@ -317,7 +317,7 @@ export class FXView {
         this.smoke.emit(fx, z + car.spec.roof * 0.7, fy, (Math.random() - 0.5) * 6, 14 + Math.random() * 8, (Math.random() - 0.5) * 6, 9, car.dead ? 3 : 1.8, dark, dark, dark * 1.05, car.dead ? 0.5 : 0.4, 12);
       }
       if (car.burning) {
-        this.fire.emit(fx + (Math.random() - 0.5) * 6, z + car.spec.roof * 0.6, fy + (Math.random() - 0.5) * 6, 0, 22 + Math.random() * 20, 0, 7 + Math.random() * 5, 0.5, 2.6, 0.9, 0.2, 0.8, 6);
+        this.fire.emit(fx + (Math.random() - 0.5) * 6, z + car.spec.roof * 0.6, fy + (Math.random() - 0.5) * 6, 0, 22 + Math.random() * 20, 0, 10 + Math.random() * 7, 0.5, 2.6, 0.9, 0.2, 0.8, 8);
       }
       if (car.spinT > 0 && Math.abs(car.speed) + Math.abs(car.w) * 20 > 40) {
         this.smoke.emit(car.x, z + 2, car.y, 0, 6, 0, 10, 1.3, 0.6, 0.6, 0.6, 0.4, 20);
