@@ -203,7 +203,7 @@ function decalAtlas() {
     const px = (w - cw) / 2, py = (h - ch) / 2;
     cells[name] = { u: (x + px) / W, v: 1 - (y + py + ch) / H, du: cw / W, dv: ch / H, aspect: cw / ch };
   };
-  const word = String(BRAND.wordmark || 'LIVEWIRE').toUpperCase();
+  const word = String(BRAND.wordmark || 'GAMIFY').toUpperCase();
   const art = logoArt();
   const logo = (fill, outline) => (x, y, w, h) => {
     if (art) {
