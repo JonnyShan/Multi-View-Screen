@@ -22,7 +22,7 @@ function shade(hex: number, k: number): THREE.Color {
 
 export class BuildingsView {
   readonly group = new THREE.Group();
-  readonly material = createBuildingMaterial();
+  readonly material: THREE.MeshStandardMaterial;
   /** Emissive neon strips along some roof lines. */
   readonly strips: THREE.Mesh;
   readonly beacons: THREE.Vector3[] = [];
@@ -35,8 +35,11 @@ export class BuildingsView {
     private readonly city: City,
     private readonly t: Tuning,
     castShadow: boolean,
+    /** Pane and shop interior detail in the facade shader (off on low quality). */
+    detail = true,
   ) {
     this.group.name = 'buildings';
+    this.material = createBuildingMaterial(detail);
     const chunkSize = city.pitch * 2;
     const chunks = new Map<string, GeoBuilder>();
     const chunkFor = (x: number, y: number): GeoBuilder => {

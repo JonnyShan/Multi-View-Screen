@@ -97,7 +97,7 @@ export class GameRenderer {
     this.water = new WaterView(city.shoreY, city.bounds.minX, city.bounds.maxX);
     this.scene.add(this.water.mesh);
     this.scene.add(new CityView(city, t).group);
-    const buildings = new BuildingsView(city, t, q.shadows);
+    const buildings = new BuildingsView(city, t, q.shadows, q.level !== 'low');
     this.scene.add(buildings.group);
     const props = new PropsView(city, q.shadows, assets);
     this.scene.add(props.group);

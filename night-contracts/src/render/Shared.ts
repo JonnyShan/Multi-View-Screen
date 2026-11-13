@@ -79,9 +79,11 @@ const vec3 NC_NEON[6] = vec3[6](vec3(1.0, 0.25, 0.6), vec3(0.2, 0.95, 0.85), vec
  * Building material: vertex colour is the wall tint, `aFuv` is facade space
  * (x = window columns, y = storeys) and `aFacade` = (style, seed, litRatio).
  * Windows, mullions and lit interiors are procedural, antialiased with fwidth.
+ * Without `detail` (low quality) panes and shop interiors keep their far-away average.
  */
-export function createBuildingMaterial(): THREE.MeshStandardMaterial {
+export function createBuildingMaterial(detail = true): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.0, envMapIntensity: 0.35 });
+  if (detail) mat.defines = { NC_DETAIL: '' };
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uNight = globalUniforms.uNight;
     shader.uniforms.uWet = globalUniforms.uWet;
@@ -115,8 +117,12 @@ float nc_seed = floor(vFacade.y + 0.5);
 // widths from the unwrapped coordinate: fract() jumps at every storey and column edge
 vec2 nc_fwv = max(fwidth(vFuv), vec2(1e-4));
 float nc_fw = nc_fwv.y;
+#ifdef NC_DETAIL
 // detail inside a pane fades to its average once a storey is a few pixels tall
 float nc_det = 1.0 - smoothstep(0.06, 0.25, nc_fw);
+#else
+const float nc_det = 0.0;
+#endif
 // sill and head of the glazing within a storey
 vec2 nc_pane = vec2(0.0, 1.0);
 // shopfront paint over the wall (shutters, fascia boards) and the shop's own light
@@ -154,14 +160,16 @@ if (nc_style > 0.5 && nc_style < 1.5) {
   nc_paint = vec4(0.03, 0.03, 0.035, nc_dframe * nc_glaze * nc_open);
   // inside: a lit back wall, two shelves of goods, a counter and ceiling lights
   vec3 nc_back = NC_ROOM[int(fract(nc_uh * 7.31) * 5.999)];
+  vec3 nc_in = nc_back * 0.75;
+#ifdef NC_DETAIL
   float nc_gh = nc_hash(floor(vFuv * vec2(9.0, 14.0)) + nc_seed);
   vec3 nc_goods = 0.5 + 0.5 * cos(6.283 * (nc_gh + vec3(0.0, 0.33, 0.67)));
-  vec3 nc_in = mix(nc_back, nc_back * (0.3 + 0.9 * nc_goods), (nc_band(nc_f.y, 0.39, 0.47, nc_fw) + nc_band(nc_f.y, 0.53, 0.61, nc_fw)) * step(0.25, nc_gh) * 0.85);
-  nc_in *= 1.0 - 0.65 * (nc_band(nc_f.y, 0.36, 0.39, nc_fw) + nc_band(nc_f.y, 0.5, 0.53, nc_fw));
-  nc_in *= 1.0 - 0.55 * nc_band(nc_f.y, 0.1, 0.22, nc_fw);
-  nc_in *= 1.0 + 0.4 * nc_band(nc_f.y, 0.66, 0.74, nc_fw);
-  nc_in = mix(nc_in, nc_back * 0.85, nc_dglass);
-  nc_in = mix(nc_back * 0.75, nc_in, nc_det);
+  vec3 nc_shelves = mix(nc_back, nc_back * (0.3 + 0.9 * nc_goods), (nc_band(nc_f.y, 0.39, 0.47, nc_fw) + nc_band(nc_f.y, 0.53, 0.61, nc_fw)) * step(0.25, nc_gh) * 0.85);
+  nc_shelves *= 1.0 - 0.65 * (nc_band(nc_f.y, 0.36, 0.39, nc_fw) + nc_band(nc_f.y, 0.5, 0.53, nc_fw));
+  nc_shelves *= 1.0 - 0.55 * nc_band(nc_f.y, 0.1, 0.22, nc_fw);
+  nc_shelves *= 1.0 + 0.4 * nc_band(nc_f.y, 0.66, 0.74, nc_fw);
+  nc_in = mix(nc_in, mix(nc_shelves, nc_back * 0.85, nc_dglass), nc_det);
+#endif
   // the room falls off towards the floor and the sides of each bay
   nc_in *= (0.6 + 0.4 * smoothstep(0.0, 0.5, nc_f.y)) * (1.0 - 0.3 * (2.0 * nc_f.x - 1.0) * (2.0 * nc_f.x - 1.0));
   // kept under the bloom: a whole lit shopfront blooming would wash out the street
@@ -253,9 +261,11 @@ vec3 nc_col = mix(mix(nc_warm, nc_cool, step(0.82, nc_h2)), vec3(0.85, 0.92, 1.0
 float nc_room = mix(0.7, mix(0.55, 1.0, smoothstep(0.3, 0.95, nc_py)) * (1.0 - 0.55 * nc_band(nc_py, -1.0, 0.15, nc_pyw)), nc_det);
 nc_room *= 1.0 - 0.6 * nc_blind;
 nc_col *= mix(vec3(1.0), vec3(1.0, 0.88, 0.7), nc_blind);
+#ifdef NC_DETAIL
 // the odd room lit only by a television
 float nc_tv = step(0.965, nc_h2) * (1.0 - nc_floor) * (1.0 - nc_shop);
 nc_col = mix(nc_col, vec3(0.42, 0.6, 1.0) * (0.55 + 0.3 * sin(uTime * 9.0 + nc_h * 60.0) + 0.15 * sin(uTime * 23.0 + nc_h * 31.0)), nc_tv);
+#endif
 totalEmissiveRadiance += nc_win * nc_lit * nc_col * uNight * nc_room * (0.55 + 0.95 * nc_hl) * (1.0 - nc_shop) + nc_em;
 // about a fifth of buildings hide coloured uplights on the shop cornice (32 up)
 float nc_ws = nc_hash(vec2(nc_seed * 0.37, 11.3));
@@ -269,7 +279,7 @@ totalEmissiveRadiance += nc_wcol * uNight * nc_wash * step(0.5, vFacade.x) * (1.
 `,
       );
   };
-  mat.customProgramCacheKey = () => 'nc-building';
+  mat.customProgramCacheKey = () => `nc-building-${detail}`;
   return mat;
 }
 
