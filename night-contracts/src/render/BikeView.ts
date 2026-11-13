@@ -14,7 +14,7 @@ const GUNMETAL = 0x3a3d44;
 const GOLD = 0xd9a441;
 const RED = 0xe0262b;
 /** Tail light on the brake; while running it shows TAIL_RUN of that. */
-const TAIL = new THREE.Color(5, 0.16, 0.1);
+const TAIL = new THREE.Color(1.4, 0.04, 0.025);
 const TAIL_RUN = 0.45;
 /** Its red glow on the road behind at night, on the brake. */
 const TAIL_GLOW = new THREE.Color(0.3, 0.012, 0.008);
