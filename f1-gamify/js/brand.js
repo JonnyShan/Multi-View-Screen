@@ -7,7 +7,7 @@ const CORE = {
   name: 'Gamify',                   // brand name in page copy
   mark: '',                           // shown after the name in the legal bar ('' for none)
   wordmark: 'GAMIFY',               // text stand-in wherever the logo image is missing
-  game: 'HOT LAP',                    // game name on boards, the gantry and the title screen (placeholder: confirm)
+  game: 'GRAND PRIX',                 // game name on boards, the gantry and the title screen
   circuit: 'Gamify Raceway',        // fictional
   mode: 'Time Attack',
   riderNumber: '7',                   // race number on the car and the timing tower
@@ -52,16 +52,16 @@ const CORE = {
   product: null,
 
   // Page title and link-preview text.
-  title: 'Gamify Hot Lap',
-  description: 'Gamify HOT LAP: a time-attack F1 racing game on the fictional Gamify Raceway.',
+  title: 'Gamify Grand Prix',
+  description: 'Gamify GRAND PRIX: a time-attack F1 racing game on the fictional Gamify Raceway.',
 
   // Text painted on trackside signage.
   signs: {
     tagline: 'TIME ATTACK',
     productLine: 'ONE LAP · FLAT OUT',
     safety: 'BEAT THE GHOST',
-    safetySub: 'GAMIFY · HOT LAP',
-    place: 'HOME OF THE HOT LAP',
+    safetySub: 'GAMIFY · GRAND PRIX',
+    place: 'HOME OF THE GRAND PRIX',
   },
   // Corner names, in track order (shown in the HUD as you reach them).
   corners: ['Spark Hairpin', 'Ridge Esses', 'The Coil', 'Warehouse Row', 'Surge Hairpin', 'Mill Creek',
@@ -106,10 +106,10 @@ async function brandFor(id) {
   const link = `${location.origin}${location.pathname}?brand=${id}`;
   const derived = {
     id: `${id.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_f1_v1`,
-    name, wordmark: NAME, circuit: `${name} Raceway`, title: `${name} Hot Lap`,
-    description: `${name} HOT LAP: a time-attack F1 racing game on the fictional ${name} Raceway.`,
+    name, wordmark: NAME, circuit: `${name} Raceway`, title: `${name} Grand Prix`,
+    description: `${name} GRAND PRIX: a time-attack F1 racing game on the fictional ${name} Raceway.`,
     primaryHot: accent, accent,
-    signs: { ...CORE.signs, safetySub: `${NAME} · HOT LAP` },
+    signs: { ...CORE.signs, safetySub: `${NAME} · GRAND PRIX` },
     share: { url: link, text: `I just lapped ${name} Raceway in {time}. Beat that: ${link}` },
     introLines: false,
     car: { ...CORE.car, accent, ...(pack.dark ? { body: pack.dark } : {}) },

@@ -1,4 +1,4 @@
-# Gamify HOT LAP (F1 car)
+# Gamify GRAND PRIX (F1 car)
 
 A time-attack F1 racing game on the fictional Gamify Raceway, the 8th Gamify core game. It is the Gamify bike game (`motogp-gamify/`) with the bike swapped for the procedural F1 car that Claude Code built on 30 Sep 2026 (`f1-livewire/` at commit 9e26850, retired the same day). Everything else (track, scenery, ghost, worldwide leaderboard, share card, brand packs) is the current bike build.
 
