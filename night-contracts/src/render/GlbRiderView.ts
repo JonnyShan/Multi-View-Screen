@@ -119,6 +119,8 @@ export class GlbRiderView {
   private readonly katana: THREE.Group;
   private readonly saya: THREE.Object3D;
   private readonly gun: THREE.Group;
+  /** The gun's muzzle, where shots leave. */
+  readonly muzzle: THREE.Object3D;
   private katanaDrawn = false;
   private gunDrawn = false;
   /** How far the aim pose is blended in (0 to 1), and its smoothed angle off the body's heading. */
@@ -176,6 +178,7 @@ export class GlbRiderView {
     const kit = buildRiderModel();
     this.katana = kit.katana;
     this.gun = kit.gun;
+    this.muzzle = kit.muzzle;
     this.saya = kit.saya;
     this.restPose();
     this.root.updateMatrixWorld(true);

@@ -127,7 +127,7 @@ export class GameRenderer {
     this.scene.add(this.cars.group);
     this.peds = new PedView(Math.max(8, Math.round(t.peds.count * q.pedScale) + 4));
     this.scene.add(this.peds.group);
-    this.fx = new FXView(this.rig.camera);
+    this.fx = new FXView(this.rig.camera, this.rider);
     this.scene.add(this.fx.group);
     this.rain = new RainView(q.rainDrops);
     this.scene.add(this.rain.group);

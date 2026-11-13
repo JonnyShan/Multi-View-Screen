@@ -253,6 +253,11 @@ export class RiderView {
   get root(): THREE.Group {
     return this.model.root;
   }
+
+  /** The gun's muzzle, where shots leave. */
+  get muzzle(): THREE.Object3D {
+    return this.model.muzzle;
+  }
   private runPhase = 0;
   private blend = new Map<string, THREE.Euler>();
   private katanaInHand = false;
