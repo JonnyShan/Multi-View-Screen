@@ -104,7 +104,8 @@ export class GameRenderer {
     this.lamps = new LampsView(city, t, q.lampLights, q.lightCones, buildings.beacons, assets.parts('models/props/lamp.glb'));
     this.cullers.push(...props.cullers, this.lamps.culler);
     this.scene.add(this.lamps.group);
-    this.neon = new NeonView(city);
+    this.neon = new NeonView(city, t);
+    this.cullers.push(this.neon.culler);
     this.scene.add(this.neon.group);
     this.bike = new BikeView(q.physicalPaint, assets.scene('models/bike/bike.glb'));
     this.scene.add(this.bike.model.root);
@@ -315,7 +316,7 @@ export class GameRenderer {
       this.lamps.update(this.rig.focusPoint, l.night, sim.wet, sim.raining ? 1 : 0);
       this.lampTimer = 0.1;
     }
-    this.neon.update(dt, l.night, this.time);
+    this.neon.update(dt, l.night, this.time, sim.wet);
     this.cullTimer -= dt;
     if (this.cullTimer <= 0) {
       for (const c of this.cullers) c.update(cam, this.q.cullRange);

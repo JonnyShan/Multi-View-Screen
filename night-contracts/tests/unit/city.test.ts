@@ -43,6 +43,25 @@ describe('CityGenerator', () => {
     expect(mid).toBeGreaterThan(5);
     expect(mid).toBeLessThan(t.world.boulevardElevation);
   });
+  it('hangs neon blades over the shopfronts without moving anything else', () => {
+    const c = generateCity(t);
+    const bare = cloneTuning();
+    bare.world.blades.share = 0;
+    const d = generateCity(bare);
+    for (const k of ['buildings', 'palms', 'colliders', 'lamps', 'props', 'parking'] as const) expect(JSON.stringify(d[k])).toBe(JSON.stringify(c[k]));
+    const flat = c.neon.filter((n) => !n.blade);
+    expect(JSON.stringify(d.neon.filter((n) => !n.blade))).toBe(JSON.stringify(flat));
+    const blades = c.neon.filter((n) => n.blade);
+    expect(blades.length).toBeGreaterThan(70);
+    expect(blades.length).toBeLessThan(140);
+    const bl = t.world.blades;
+    for (const n of blades) {
+      expect(n.z - n.h / 2).toBeGreaterThanOrEqual(bl.base);
+      // clear of lamp posts and palm trunks
+      for (const l of c.lamps) expect(Math.hypot(l.x - n.x, l.y - n.y)).toBeGreaterThan(bl.lampGap - 2);
+      for (const p of c.palms) expect(Math.hypot(p.x - n.x, p.y - n.y)).toBeGreaterThan(bl.palmGap - 2);
+    }
+  });
   it('puts building colliders on every building and none on roads', () => {
     const c = generateCity(t);
     expect(c.colliders.filter((k) => k.kind === 'building')).toHaveLength(c.buildings.length);

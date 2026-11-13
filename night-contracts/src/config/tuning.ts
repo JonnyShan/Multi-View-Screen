@@ -66,6 +66,24 @@ export const tuning = {
     },
     /** Fraction of blocks of each type (rest are towers). */
     blockMix: { split: 0.3, quad: 0.2, plaza: 0.1, carpark: 0.08 },
+    /** Neon blade signs standing out from the walls above the shopfronts. */
+    blades: {
+      /** Share of street-front buildings that get one or two. */
+      share: 0.7,
+      /** How far a blade stands out from the wall, and how tall it is. */
+      width: [10, 14] as [number, number],
+      height: [40, 76] as [number, number],
+      /** Gap between the wall and the blade's inner edge. */
+      wallGap: 2,
+      /** Lowest bottom edge: clear of the shop plinth and its cornice. */
+      base: 36,
+      /** Extra height the bottom edge may sit above the base. */
+      lift: 20,
+      /** Clearance along the street from lamp posts, palms and the next blade. */
+      lampGap: 12,
+      palmGap: 25,
+      bladeGap: 60,
+    },
   },
 
   bike: {

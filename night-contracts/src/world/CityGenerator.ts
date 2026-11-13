@@ -101,16 +101,21 @@ export interface Prop {
 }
 
 export interface NeonSign {
+  /** Centre of the sign in plan; `z` is the height of its centre. */
   x: number;
   y: number;
   z: number;
   /** Outward normal angle of the facade it hangs on. */
   a: number;
+  /** Width across its face (for a blade: how far it stands out from the wall) and height. */
   w: number;
   h: number;
   text: string;
   color: number;
+  /** Letters stacked top to bottom. */
   vertical: boolean;
+  /** Stands out from the wall at right angles, lettered on both sides; otherwise flat on the facade. */
+  blade: boolean;
 }
 
 export interface Place {
@@ -199,7 +204,13 @@ export interface City {
 
 export const BUILDING_COLOURS = [0xefe3c8, 0xf2c4a0, 0x9fd3c7, 0xeeb8b0, 0xf3e1a0, 0xe8e4da, 0xbfe3c0, 0xa9c9e0, 0xe9a58c, 0xf5efe2];
 const TRIMS = [0xf7f3ea, 0xdfd6c4, 0x6f8f8c, 0xcf9c7c, 0x3e5a64];
-const NEON_COLOURS = { amber: 0xffa53d, red: 0xff3b30, teal: 0x3ee0cf, white: 0xfff1d6, green: 0x3ddc84 };
+const NEON_COLOURS = { amber: 0xffa53d, red: 0xff3b30, teal: 0x3ee0cf, white: 0xfff1d6, green: 0x3ddc84, pink: 0xff4fa8, blue: 0x4fa3ff, violet: 0xb46bff };
+/** Generic shop words for the blade signs. */
+const BLADE_WORDS = [
+  'BAR', 'HOTEL', 'MOTEL', 'NOODLES', 'RAMEN', 'PHO', 'TACOS', 'PIZZA', 'DONUTS', 'LIQUOR', 'PAWN', 'TATTOO', 'KARAOKE', 'CLUB', 'ARCADE',
+  'LAUNDRY', 'NAILS', 'SUSHI', 'CAFE', '24H', 'PHARMACY', 'DINER', 'OPEN', 'VACANCY', 'POOL', 'GARAGE', 'DANCE', 'GRILL', 'CASH', 'VIDEO', 'BBQ', 'JUICE',
+];
+const BLADE_COLOURS = [NEON_COLOURS.pink, NEON_COLOURS.teal, NEON_COLOURS.amber, NEON_COLOURS.red, NEON_COLOURS.blue, NEON_COLOURS.violet, NEON_COLOURS.green, NEON_COLOURS.white, NEON_COLOURS.pink, NEON_COLOURS.teal];
 
 /** Uniform grid over static colliders for fast point and ray queries. */
 export class CityIndex {
@@ -470,6 +481,8 @@ export function generateCity(t: Tuning, seed = t.world.seed): City {
     });
   };
 
+  /** Building faces (id * 4 + side) that carry one of the flat signs. */
+  const signFaces = new Set<number>();
   const addNeon = (b: Building, text: string, color: number): void => {
     // hang on the facade facing the widest road side (pick deterministically)
     const side = rng.int(0, 3);
@@ -487,7 +500,8 @@ export function generateCity(t: Tuning, seed = t.world.seed): City {
       { x: b.minX - off, y: cy, a: Math.PI },
       { x: cx, y: b.minY - off, a: -Math.PI / 2 },
     ][side];
-    neon.push({ x: pos.x, y: pos.y, z, a: pos.a, w: wid, h: hgt, text, color, vertical });
+    neon.push({ x: pos.x, y: pos.y, z, a: pos.a, w: wid, h: hgt, text, color, vertical, blade: false });
+    signFaces.add(b.id * 4 + side);
   };
 
   // ---------------------------------------------------------------- blocks
@@ -842,6 +856,68 @@ export function generateCity(t: Tuning, seed = t.world.seed): City {
     const n = graph.nodeAt(gi, gj);
     return { name, node: n.id, x: n.x, y: n.y };
   });
+
+  // ------------------------------------------------ neon blade signs
+  // Their own seeded stream, so everything above (and every save) stays put.
+  const bl = w.blades;
+  const srng = new RNG(seed ^ 0x5f3a);
+  const normals: [number, number][] = [
+    [1, 0],
+    [0, 1],
+    [-1, 0],
+    [0, -1],
+  ];
+  /** True when (x, y) stands less than `ahead` in front of the wall at (px, py) and less than `gap` along it from `along`. */
+  const near = (px: number, py: number, nx: number, ny: number, along: number, x: number, y: number, ahead: number, gap: number): boolean => {
+    const dn = (x - px) * nx + (y - py) * ny;
+    const dt = nx !== 0 ? y - along : x - along;
+    return dn > -4 && dn < ahead && Math.abs(dt) < gap;
+  };
+  for (const block of blocks) {
+    const market = block.kind === 'market';
+    for (const id of block.buildings) {
+      const b = buildings[id];
+      if (b.roof === 'pagoda' || !srng.chance(market ? 1 : bl.share)) continue;
+      const body = b.tiers[1] ?? b.tiers[0];
+      // balconies run along the two longer faces
+      const balconyX = b.balconies && b.floors >= 3 ? body.maxX - body.minX >= body.maxY - body.minY : null;
+      // faces onto a street (not an alley), free of balconies and of the flat signs
+      const street = [block.maxX - b.maxX, block.maxY - b.maxY, b.minX - block.minX, b.minY - block.minY];
+      const faces = [0, 1, 2, 3].filter((s) => street[s] <= fp + 12 && !signFaces.has(b.id * 4 + s) && balconyX !== (s % 2 === 1));
+      if (!faces.length) continue;
+      const want = market || srng.chance(0.5) ? 2 : 1;
+      const placed: { side: number; along: number }[] = [];
+      for (let tries = 0; tries < 8 && placed.length < want; tries++) {
+        const side = srng.pick(faces);
+        const [nx, ny] = normals[side];
+        const lo = (nx !== 0 ? body.minY : body.minX) + 18;
+        const hi = (nx !== 0 ? body.maxY : body.maxX) - 18;
+        if (hi <= lo) continue;
+        const along = srng.range(lo, hi);
+        // the point on the wall above the plinth where it is fixed
+        const px = nx > 0 ? body.maxX : nx < 0 ? body.minX : along;
+        const py = ny > 0 ? body.maxY : ny < 0 ? body.minY : along;
+        // clear of the central fin, lamp heads, palm crowns and the other blade
+        if (Math.abs(along - (nx !== 0 ? (body.minY + body.maxY) / 2 : (body.minX + body.maxX) / 2)) < 10) continue;
+        if (lamps.some((l) => near(px, py, nx, ny, along, l.x, l.y, 40, bl.lampGap))) continue;
+        if (palms.some((p) => near(px, py, nx, ny, along, p.x, p.y, 50, bl.palmGap))) continue;
+        if (placed.some((p) => p.side === side && Math.abs(p.along - along) < bl.bladeGap)) continue;
+        const text = srng.pick(BLADE_WORDS);
+        const wid = srng.range(bl.width[0], bl.width[1]);
+        // letters stack about one blade width apart
+        let hgt = Math.min(bl.height[1], Math.max(bl.height[0], text.length * wid * srng.range(0.75, 0.95) + 10));
+        let bottom = bl.base + srng.range(0, bl.lift);
+        const roof = body.z1 - 6;
+        if (bottom + hgt > roof) bottom = Math.max(bl.base, roof - hgt);
+        if (bottom + hgt > roof) hgt = roof - bottom;
+        if (hgt < bl.height[0]) continue;
+        const color = srng.pick(BLADE_COLOURS);
+        const out = bl.wallGap + wid / 2;
+        placed.push({ side, along });
+        neon.push({ x: px + nx * out, y: py + ny * out, z: bottom + hgt / 2, a: Math.atan2(ny, nx), w: wid, h: hgt, text, color, vertical: true, blade: true });
+      }
+    }
+  }
 
   // solid street furniture: palm trunks and lamp posts in the drivable city
   if (w.solidStreetFurniture) {
