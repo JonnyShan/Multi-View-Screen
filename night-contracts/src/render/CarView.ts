@@ -334,6 +334,8 @@ export class CarView {
     this.pools.count = 0;
     this.pools.frustumCulled = false;
     this.pools.name = 'car-light-pools';
+    // under the contact shadows, like the lamp pools
+    this.pools.renderOrder = -2;
     const barGeo = new THREE.BoxGeometry(3.2, 1.1, 1.8);
     this.bars = new THREE.InstancedMesh(barGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }), CAP * 2);
     this.bars.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(CAP * 2 * 3), 3);

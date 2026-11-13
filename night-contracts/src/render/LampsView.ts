@@ -159,6 +159,8 @@ export class LampsView {
     headMesh.name = 'lamp-heads';
     glow.name = 'lamp-glow';
     pools.name = 'lamp-pools';
+    // ground light draws before the contact shadows (-1), which darken it
+    pools.renderOrder = -2;
     glow.frustumCulled = false;
     if (glb) {
       // handed-off lamp model replaces the code-built pole; keep the glowing head
@@ -285,6 +287,7 @@ export class LampsView {
     });
     streaks.frustumCulled = false;
     streaks.name = 'lamp-streaks';
+    streaks.renderOrder = -2;
     this.group.add(streaks);
 
     // blinking red beacons on masts and cranes

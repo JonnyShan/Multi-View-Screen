@@ -13,6 +13,7 @@ import { BuildingsView } from './BuildingsView';
 import { CameraRig } from './CameraRig';
 import { CarView } from './CarView';
 import { CityView } from './CityView';
+import { ContactShadows } from './ContactShadows';
 import { FXView } from './FXView';
 import { LampsView } from './LampsView';
 import { NeonView } from './NeonView';
@@ -41,6 +42,7 @@ export class GameRenderer {
   private readonly rider: RiderView | GlbRiderView;
   private readonly cars: CarView;
   private readonly peds: PedView;
+  private readonly shadows = new ContactShadows();
   private readonly fx: FXView;
   private readonly rain: RainView;
   private readonly fog: THREE.FogExp2;
@@ -127,6 +129,7 @@ export class GameRenderer {
     this.scene.add(this.cars.group);
     this.peds = new PedView(Math.max(8, Math.round(t.peds.count * q.pedScale) + 4));
     this.scene.add(this.peds.group);
+    this.scene.add(this.shadows.mesh);
     this.fx = new FXView(this.rig.camera, this.rider);
     this.scene.add(this.fx.group);
     this.rain = new RainView(q.rainDrops, this.lamps, this.bike.spot);
@@ -291,6 +294,7 @@ export class GameRenderer {
     globalUniforms.uCamPos.value.copy(cam.position);
     this.cars.update(sim, alpha, dt, l.night, cam.position);
     this.peds.update(sim, alpha, cam, Math.min(this.q.cullRange, 1000));
+    this.shadows.update(sim, alpha, l, cam.position, this.q.shadows);
     this.fx.update(sim, dt, this.renderer.domElement.height / Math.tan((cam.fov * Math.PI) / 360) / 2);
     // a lighter shower than the full drop count; splashes land on the road under the focus
     const focus = this.rig.focusPoint;

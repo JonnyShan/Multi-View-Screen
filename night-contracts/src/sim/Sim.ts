@@ -611,8 +611,8 @@ export class Sim {
     }
   }
 
-  /** Footpaths are raised by the kerb height. */
-  private kerbAt(x: number, y: number): number {
+  /** Footpaths are raised by the kerb height. Views read it to sit things on the pavement. */
+  kerbAt(x: number, y: number): number {
     const H = this.city.half;
     const P = this.city.pitch;
     const lx = ((x % P) + P) % P;
