@@ -450,6 +450,7 @@ export class FXView {
     this.sparks.setScale(height * 0.9);
     this.fire.setScale(height * 0.9);
     this.smoke.setScale(height * 0.9);
+    this.flashes.setScale(height * 0.9);
     // continuous emitters
     this.emitAcc += dt;
     const tick = this.emitAcc > 1 / 30;
