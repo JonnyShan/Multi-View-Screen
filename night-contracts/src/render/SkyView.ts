@@ -1,6 +1,6 @@
 /**
- * Sky dome (gradient, sun and moon discs, stars, horizon glow), scene lights
- * driven by the time of day, and the ocean surface.
+ * Sky dome (gradient, sun and moon discs, stars, horizon glow, a distant
+ * skyline), scene lights driven by the time of day, and the ocean surface.
  */
 import * as THREE from 'three';
 import type { Lighting } from '../world/DayNight';
@@ -20,6 +20,7 @@ export class SkyView {
     uStars: { value: 0 },
     uFlash: { value: 0 },
     uTime: globalUniforms.uTime,
+    uNight: globalUniforms.uNight,
   };
 
   constructor(scene: THREE.Scene, shadows: boolean, shadowSize: number) {
@@ -47,11 +48,14 @@ export class SkyView {
         uniform float uStars;
         uniform float uFlash;
         uniform float uTime;
+        uniform float uNight;
         varying vec3 vDir;
         float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
         void main() {
           vec3 d = normalize(vDir);
           float h = clamp(d.y, -0.2, 1.0);
+          // one screen pixel in h, taken outside the skyline branch
+          float px = max(fwidth(d.y), 1e-5);
           float t = pow(max(h, 0.0), 0.55);
           vec3 col = mix(uHorizon, uZenith, t);
           // warm band just above the horizon
@@ -72,7 +76,38 @@ export class SkyView {
             float tw = 0.6 + 0.4 * sin(uTime * 2.0 + s * 40.0);
             col += vec3(0.8, 0.85, 1.0) * step(0.9975, s) * uStars * tw * smoothstep(0.05, 0.3, h);
           }
-          col += vec3(0.6, 0.7, 1.0) * uFlash;
+          // distant skyline: two rows of towers on the horizon, open over the
+          // sea, drawn over the stars and a low moon. Only a thin band runs it.
+          float city = 0.0;
+          if (h > -0.03 && h < 0.125) {
+            float az = atan(d.z, d.x);
+            float land = smoothstep(-0.55, -0.2, d.z);
+            // bases fade into the haze where the clipped ground ends
+            float base = smoothstep(-0.03, -0.02, h);
+            vec3 tint = mix(uHorizon, uZenith, 0.35);
+            // far row: narrow, low, close to the haze
+            float fTop = mix(-0.06, 0.012 + 0.05 * pow(hash(vec3(floor(az * 70.0), 1.0, 5.0)), 2.0), land);
+            float far = clamp((fTop - h) / px + 0.5, 0.0, 1.0) * base;
+            col = mix(col, tint * mix(0.95, 0.8, uNight), far);
+            // near row: wider and taller, with gaps, setback crowns and lit windows
+            float x = az * 38.0;
+            float r = hash(vec3(floor(x), 3.0, 9.0));
+            float nTop = 0.02 + 0.075 * pow(r, 3.0) + step(0.6, r) * step(abs(fract(x) - 0.5), 0.22) * 0.012;
+            nTop = mix(-0.06, nTop, land * step(0.15, r));
+            float near = clamp((nTop - h) / px + 0.5, 0.0, 1.0) * base;
+            float lit = step(mix(0.8, 0.95, hash(vec3(floor(x), 7.0, 1.0))), hash(vec3(floor(az * 400.0), floor(h * 260.0), floor(x))));
+            // windows under two pixels tall shimmer, so they fade out instead
+            float win = lit * uNight * smoothstep(0.8, 2.0, 1.0 / (260.0 * px)) * smoothstep(-0.01, 0.01, h);
+            col = mix(col, tint * mix(0.9, 0.62, uNight) + vec3(1.0, 0.72, 0.42) * 0.7 * win, near);
+            // slow red aircraft light on the tallest crowns
+            vec2 q = vec2((fract(x) - 0.5) / 38.0, h - nTop - 1.5 * px);
+            float blink = fract(uTime * 0.45 + r * 17.0);
+            blink = smoothstep(0.0, 0.06, blink) * (1.0 - smoothstep(0.25, 0.4, blink));
+            col += vec3(1.0, 0.08, 0.04) * 3.0 * step(0.94, r) * land * uNight * blink * smoothstep(1.8 * px, 0.6 * px, length(q));
+            city = max(far, near);
+          }
+          // lightning lights the sky behind the towers, not the towers
+          col += vec3(0.6, 0.7, 1.0) * uFlash * (1.0 - 0.75 * city);
           gl_FragColor = vec4(col, 1.0);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
