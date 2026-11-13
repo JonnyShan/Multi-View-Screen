@@ -1,6 +1,7 @@
 /**
  * Low third-person chase camera. Follows the bike heading with damping, pulls
- * back and widens with speed, avoids clipping into buildings and shakes on
+ * back and widens with speed, eases back on the throttle and in on the brakes,
+ * looks a little into turns, avoids clipping into buildings and shakes on
  * impacts. Separate behaviour on foot, airborne and on a roof.
  */
 import * as THREE from 'three';
@@ -31,12 +32,17 @@ export class CameraRig {
   private readonly focus = new THREE.Vector3();
   private readonly look = new THREE.Vector3();
   private readonly pos = new THREE.Vector3();
+  /** Smoothed camera position before shake, so shake never feeds back into the follow. */
+  private readonly smooth = new THREE.Vector3();
   private readonly noiseSeed = Math.random() * 100;
   private time = 0;
   private initialised = false;
   /** Bike focus last frame (sim x, y), so the camera can ride along with it. */
   private readonly lastFocus = new THREE.Vector2();
   private carry = false;
+  /** A lagging copy of the bike speed: the gap to the real speed is the smoothed acceleration. */
+  private lagSpeed = 0;
+  private turnRate = 0;
 
   constructor(private readonly t: Tuning) {
     const c = t.camera;
@@ -68,20 +74,30 @@ export class CameraRig {
     let fov = c.fov;
     let lookAhead = c.lookAhead;
     let yawRate = c.yawDamping;
+    let pull = 0;
 
     if (pl.mode === 'riding') {
       fx = b.px + (b.x - b.px) * alpha;
       fy = b.py + (b.y - b.py) * alpha;
       fz = b.pz + (b.z - b.pz) * alpha;
-      const k = clamp(Math.abs(b.speed) / this.t.bike.topSpeed, 0, 1);
+      const sp = Math.abs(b.speed);
+      const k = clamp(sp / this.t.bike.topSpeed, 0, 1);
       // follow a blend of heading and travel direction so drifts read well
       targetYaw = b.speed < -5 ? b.heading : b.velAngle + angleDiff(b.velAngle, b.heading) * 0.35;
+      // ease back while speeding up and in while braking. The lag is clamped so a
+      // wall hit reads as one hard stop and lets go at once.
+      const gap = 1 / (c.accelPull * c.accelPullRate); // speed gap per unit of pull
+      this.lagSpeed = clamp(this.lagSpeed + (sp - this.lagSpeed) * dampFactor(c.accelPullRate, dt), sp - c.accelPullMax * gap, sp + c.brakeDiveMax * gap);
+      pull = (sp - this.lagSpeed) / gap;
       dist = lerp(c.distance, c.distanceFast, k);
       height = lerp(c.height, c.heightFast, k);
       fov = lerp(c.fov, c.fovFast, k * k);
       lookAhead = lerp(c.lookAhead, c.lookAheadFast, k);
       this.orbit *= Math.exp(-dt * 2.5);
+      this.turnRate += (b.yawRate - this.turnRate) * dampFactor(c.turnLookRate, dt);
     } else {
+      this.lagSpeed = Math.abs(b.speed);
+      this.turnRate -= this.turnRate * dampFactor(c.turnLookRate, dt);
       fx = pl.px + (pl.x - pl.px) * alpha;
       fy = pl.py + (pl.y - pl.py) * alpha;
       fz = pl.pz + (pl.z - pl.pz) * alpha;
@@ -137,13 +153,16 @@ export class CameraRig {
     this.focus.set(fx, fz + c.lookHeight, fy);
     const cy = Math.cos(this.yaw);
     const sy = Math.sin(this.yaw);
-    this.look.set(fx + cy * lookAhead, fz + c.lookHeight, fy + sy * lookAhead);
+    // look a little toward the corner exit (a positive yaw rate turns right)
+    const lookYaw = this.yaw + clamp(this.turnRate * c.turnLook, -c.turnLookMax, c.turnLookMax);
+    this.look.set(fx + Math.cos(lookYaw) * lookAhead, fz + c.lookHeight, fy + Math.sin(lookYaw) * lookAhead);
 
     // clip avoidance against buildings in the city index (2D rays in sim space)
-    let d = this.dist;
+    const free = this.dist + pull;
+    let d = free;
     const hit = sim.city.index.raycast(fx, fy, -cy, -sy, d + c.clipPadding, true, fz + this.height * 0.5);
     if (hit >= 0) d = Math.max(10, hit - c.clipPadding);
-    const clipK = d / this.dist;
+    const clipK = d / free;
     const h = this.height * (0.75 + 0.25 * clipK) + (1 - clipK) * 8;
     this.pos.set(fx - cy * d, fz + h, fy - sy * d);
     // never below the ground under the camera
@@ -154,28 +173,29 @@ export class CameraRig {
     // speed / posDamping, which is about 30 units at top speed on a 60 Hz screen
     if (pl.mode === 'riding') {
       if (this.carry) {
-        this.camera.position.x += fx - this.lastFocus.x;
-        this.camera.position.z += fy - this.lastFocus.y;
+        this.smooth.x += fx - this.lastFocus.x;
+        this.smooth.z += fy - this.lastFocus.y;
       }
       this.lastFocus.set(fx, fy);
     }
     this.carry = pl.mode === 'riding';
 
-    if (this.camera.position.lengthSq() === 0 || this.firstFrame) {
-      this.camera.position.copy(this.pos);
+    if (this.firstFrame) {
+      this.smooth.copy(this.pos);
       this.firstFrame = false;
     } else {
-      this.camera.position.lerp(this.pos, dampFactor(c.posDamping, dt));
+      this.smooth.lerp(this.pos, dampFactor(c.posDamping, dt));
     }
+    this.camera.position.copy(this.smooth);
 
-    // shake
+    // shake: an offset on top of the smoothed position, the same at any frame rate
     this.trauma = Math.max(0, this.trauma - dt * c.shakeDecay * 0.3);
     const s = this.trauma * this.trauma;
     if (s > 0.0001) {
       const n = (k: number): number => Math.sin(this.time * 37 + k * 11.3 + this.noiseSeed) * 0.6 + Math.sin(this.time * 23 + k * 5.1) * 0.4;
-      this.camera.position.x += n(1) * s * 4;
-      this.camera.position.y += n(2) * s * 3;
-      this.camera.position.z += n(3) * s * 4;
+      this.camera.position.x += n(1) * s * c.shakeMove;
+      this.camera.position.y += n(2) * s * c.shakeMove * 0.75;
+      this.camera.position.z += n(3) * s * c.shakeMove;
     }
     this.camera.lookAt(this.look);
     if (s > 0.0001) this.camera.rotation.z += Math.sin(this.time * 29 + this.noiseSeed) * s * 0.05;

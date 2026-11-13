@@ -380,6 +380,17 @@ export const tuning = {
     wideFovKeep: 0.5,
     yawDamping: 6.5,
     posDamping: 11,
+    /** Throttle eases the camera back and braking pulls it in: distance per unit/s2 of acceleration. */
+    accelPull: 0.04,
+    /** Smoothing rate (1/s) of that acceleration. */
+    accelPullRate: 4,
+    /** Most the camera eases back on the throttle and in on the brakes. */
+    accelPullMax: 6,
+    brakeDiveMax: 4,
+    /** Look toward the corner exit: radians of view per rad/s of yaw rate, up to the max. */
+    turnLook: 0.06,
+    turnLookMax: 0.14,
+    turnLookRate: 4,
     footDistance: 40,
     footHeight: 21,
     airDistance: 60,
@@ -388,6 +399,8 @@ export const tuning = {
     roofHeight: 38,
     clipPadding: 4,
     shakeDecay: 3.2,
+    /** Shake offset in units at full trauma (the vertical axis gets three quarters). */
+    shakeMove: 6,
     far: 5200,
   },
 
