@@ -40,7 +40,7 @@ export function step(st, input, track, dt, opts = {}) {
   const help = clamp(assist / 0.8, 0, 1) * into * smoothstep(0.0015, 0.006, Math.abs(kEff)) * Math.min(1, push / 0.35);
   let target = (manual + (aim - manual) * help) * hiSpeed;
   target = clamp(target, -gripLean, gripLean);
-  const rate = T.leanRateLow + (T.leanRateHigh - T.leanRateLow) * clamp(v / 90, 0, 1);
+  const rate = (T.leanRateLow + (T.leanRateHigh - T.leanRateLow) * clamp(v / 90, 0, 1)) * (input.raw ? 1 : T.steerRate);
   const dl = clamp((target - st.lean) * Math.min(1, dt * 9), -rate * dt, rate * dt);
   st.lean += dl;
 
