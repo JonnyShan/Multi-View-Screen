@@ -15,7 +15,7 @@ import { CarView } from './CarView';
 import { CityView } from './CityView';
 import { ContactShadows } from './ContactShadows';
 import { FXView } from './FXView';
-import { LampsView } from './LampsView';
+import { LampsView, SODIUM } from './LampsView';
 import { NeonView } from './NeonView';
 import { PedView } from './PedView';
 import { PostFX } from './PostFX';
@@ -27,6 +27,8 @@ import { GlbRiderView } from './GlbRiderView';
 import { RiderView } from './RiderView';
 import { globalUniforms } from './Shared';
 import { SkyView, WaterView } from './SkyView';
+
+const _kick = new THREE.Vector3();
 
 export class GameRenderer {
   readonly renderer: THREE.WebGLRenderer;
@@ -52,6 +54,11 @@ export class GameRenderer {
   private readonly heroMaterials: THREE.MeshStandardMaterial[] = [];
   /** 0 by day, 1 at night: a cool rim and a little fill on those materials so they keep their shape in the dark. */
   private readonly heroNight = { value: 0 };
+  /** Warm light from the nearest street lamp on them at night: its direction (view space) and colour. */
+  private readonly kickDir = { value: new THREE.Vector3(0, 1, 0) };
+  private readonly kickCol = { value: new THREE.Color(0, 0, 0) };
+  /** That lamp's direction from the hero in world space, eased so passing a lamp sweeps it over. */
+  private readonly kickWorld = new THREE.Vector3(0, 1, 0);
   private lampTimer = 0;
   private cullTimer = 0;
   private readonly cullers: InstanceCuller[] = [];
@@ -142,10 +149,15 @@ export class GameRenderer {
   private addHeroLight(mat: THREE.MeshStandardMaterial): void {
     mat.onBeforeCompile = (sh) => {
       sh.uniforms.uHeroNight = this.heroNight;
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uHeroNight;').replace(
+      sh.uniforms.uKickDir = this.kickDir;
+      sh.uniforms.uKickCol = this.kickCol;
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uHeroNight;\nuniform vec3 uKickDir;\nuniform vec3 uKickCol;').replace(
         '#include <opaque_fragment>',
         `float heroRim = pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 3.0);
         outgoingLight += uHeroNight * (vec3(0.3, 0.42, 0.6) * heroRim * 0.35 + diffuseColor.rgb * 0.5);
+        // the lamp lights the side facing it, with a sheen towards the edges that shows on black leather and paint
+        float heroKick = pow(saturate(dot(normal, uKickDir)), 2.0);
+        outgoingLight += uKickCol * heroKick * (diffuseColor.rgb * 0.7 + 0.02 + heroRim * 0.7);
         #include <opaque_fragment>`,
       );
     };
@@ -186,6 +198,31 @@ export class GameRenderer {
     this.envNight = make(0x0a1426, 0x22324a, 0x6a4630, true);
     this.envDay = make(0x4a86d0, 0xd0dce6, 0xf0dcc0, false);
     pmrem.dispose();
+  }
+
+  /**
+   * Point the warm kicker on the rider and bike at the nearest street lamp
+   * (the first of the lamp lights, kept nearest the focus) and fade it with
+   * the night and the lamp's distance. One direction and colour in the hero
+   * shader, so no extra light reaches the rest of the scene.
+   */
+  private kickLight(night: number, dt: number): void {
+    const on = THREE.MathUtils.smoothstep(night, 0.25, 0.7);
+    const lamp = this.lamps.lights[0];
+    if (!lamp || on <= 0) {
+      this.kickCol.value.setRGB(0, 0, 0);
+      return;
+    }
+    const hero = this.sim.player.mode === 'riding' ? this.bike.model.root.position : this.rider.root.position;
+    const to = _kick.copy(lamp.position).sub(hero);
+    // aim from about chest height
+    to.y -= 8;
+    const dist = to.length();
+    this.kickWorld.lerp(to.divideScalar(Math.max(dist, 1e-3)), 1 - Math.exp(-dt * 6)).normalize();
+    const cam = this.rig.camera;
+    cam.updateMatrixWorld();
+    this.kickDir.value.copy(this.kickWorld).transformDirection(cam.matrixWorldInverse);
+    this.kickCol.value.setHex(SODIUM, THREE.SRGBColorSpace).multiplyScalar(on * THREE.MathUtils.clamp(1 - dist / 350, 0.25, 1));
   }
 
   onEvent(e: SimEvent): void {
@@ -318,6 +355,7 @@ export class GameRenderer {
       m.envMapIntensity = l.night > 0.5 ? 2.2 : 0.9;
     }
     this.heroNight.value = l.night;
+    this.kickLight(l.night, dt);
 
     this.lampTimer -= dt;
     if (this.lampTimer <= 0) {

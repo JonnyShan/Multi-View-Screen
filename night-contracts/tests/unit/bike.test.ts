@@ -38,6 +38,18 @@ describe('Bike handling curves', () => {
     expect(b.speed).toBeLessThan(0);
     expect(b.speed).toBeGreaterThanOrEqual(-t.bike.reverseMax - 1e-6);
   });
+  it('lights the brake only while braking forwards', () => {
+    const b = new Bike(t);
+    b.speed = 200;
+    b.control({ steer: 0, throttle: 0, brake: 1, drift: false }, dt, 0);
+    expect(b.brake).toBe(1);
+    b.control({ steer: 0, throttle: 0, brake: 0, drift: false }, dt, 0);
+    expect(b.brake).toBe(0);
+    // held at a standstill the brake reverses instead
+    b.speed = 0;
+    b.control({ steer: 0, throttle: 0, brake: 1, drift: false }, dt, 0);
+    expect(b.brake).toBe(0);
+  });
   it('steering right increases heading and leans right', () => {
     const b = new Bike(t);
     b.speed = 200;

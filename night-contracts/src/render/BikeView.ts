@@ -6,12 +6,18 @@
 import * as THREE from 'three';
 import type { Sim } from '../sim/Sim';
 import { findNode } from './AssetRegistry';
+import { radialTexture } from './LampsView';
 import { srgb, yawToThree } from './Shared';
 
 const BLACK = 0x0c0d10;
 const GUNMETAL = 0x3a3d44;
 const GOLD = 0xd9a441;
 const RED = 0xe0262b;
+/** Tail light on the brake; while running it shows TAIL_RUN of that. */
+const TAIL = new THREE.Color(5, 0.16, 0.1);
+const TAIL_RUN = 0.45;
+/** Its red glow on the road behind at night, on the brake. */
+const TAIL_GLOW = new THREE.Color(0.3, 0.012, 0.008);
 
 export interface BikeModel {
   root: THREE.Group;
@@ -303,6 +309,10 @@ export class BikeView {
   readonly model: BikeModel;
   readonly spot: THREE.SpotLight;
   private steerVis = 0;
+  private brakeVis = 0;
+  /** The tail light's glow on the road: pitches with ramps but stays flat through a lean. */
+  private readonly tailPitch = new THREE.Group();
+  private readonly tailGlow: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
 
   constructor(physical: boolean, glb: THREE.Object3D | null = null) {
     this.model = glb ? bikeFromGlb(glb) : buildBikeModel(physical);
@@ -310,6 +320,24 @@ export class BikeView {
     this.spot.position.set(0, 6.4, 8.2);
     this.spot.target.position.set(0, 0, 60);
     this.model.leanPivot.add(this.spot, this.spot.target);
+    this.tailGlow = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({
+        map: radialTexture(),
+        color: 0x000000,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        fog: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -4,
+        polygonOffsetUnits: -4,
+      }),
+    );
+    this.tailGlow.name = 'tail-glow';
+    this.tailGlow.visible = false;
+    this.tailPitch.add(this.tailGlow);
+    this.model.root.add(this.tailPitch);
   }
 
   update(sim: Sim, alpha: number, dt: number, night: number): void {
@@ -340,7 +368,19 @@ export class BikeView {
     this.spot.intensity = on ? 2600 * (0.2 + night * 0.8) : 0;
     const k = on ? 1 : 0.12;
     (this.model.headlight.material as THREE.MeshBasicMaterial).color.setRGB(4 * k, 4 * k, 3.6 * k);
-    const brake = b.speed > 5 && sim.player.mode === 'riding' ? 1 : 0.6;
-    (this.model.taillight.material as THREE.MeshBasicMaterial).color.setRGB(3.2 * brake, 0.12, 0.08);
+    // tail light: a running light that brightens on the brake
+    this.brakeVis += ((b.brake > 0 ? 1 : 0) - this.brakeVis) * Math.min(1, dt * 20);
+    const tail = (TAIL_RUN + (1 - TAIL_RUN) * this.brakeVis) * k;
+    (this.model.taillight.material as THREE.MeshBasicMaterial).color.copy(TAIL).multiplyScalar(tail);
+    // and its glow on the road behind at night, thrown further back on a wet road
+    const glow = on ? night * tail * (1 + sim.wet * 0.5) : 0;
+    this.tailGlow.visible = glow > 0.01;
+    if (this.tailGlow.visible) {
+      this.tailGlow.material.color.copy(TAIL_GLOW).multiplyScalar(glow);
+      this.tailPitch.rotation.x = -b.pitch;
+      // under the tail light, which swings out sideways through a lean
+      this.tailGlow.position.set(-Math.sin(this.model.leanPivot.rotation.z) * 6, 0.4, -11 - sim.wet * 3);
+      this.tailGlow.scale.set(8, 1, 16 + sim.wet * 6);
+    }
   }
 }

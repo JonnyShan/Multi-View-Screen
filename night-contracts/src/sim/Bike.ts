@@ -41,6 +41,8 @@ export class Bike {
   fallSide = 1;
   /** Throttle actually applied, for engine audio. */
   throttle = 0;
+  /** Brake actually applied while rolling forwards, for the brake light. */
+  brake = 0;
   /** Commanded velocity this step. */
   cmdX = 0;
   cmdY = 0;
@@ -113,6 +115,7 @@ export class Bike {
     // longitudinal
     let s = this.speed;
     this.throttle = ctl.throttle;
+    this.brake = s > 2 ? ctl.brake : 0;
     if (ctl.throttle > 0) {
       if (s < 0) s = Math.min(0, s + b.brake * ctl.throttle * dt);
       else s += this.accelAt(s) * ctl.throttle * dt;
