@@ -38,5 +38,7 @@
     "game": "livewire_golf"
   },
   "loaderVideo": "loader-ball.mp4",
-  "loaderPoster": "loader-ball.jpg"
+  "loaderPoster": "loader-ball.jpg",
+  "flagVideo": "flag-wave.mp4",
+  "holeVideo": "cup-drop.mp4"
 }

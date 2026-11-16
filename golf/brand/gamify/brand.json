@@ -1,0 +1,40 @@
+{
+  "id": "gamify",
+  "name": "Gamify",
+  "gameTitle": "HOLE IN ONE",
+  "courseName": "Gamify National",
+  "tagline": "Play it. Own it. Gamify.",
+  "logo": "logo.png",
+  "mark": "mark.svg",
+  "font": "Barlow Condensed",
+  "colors": {
+    "primary": "#1F82D0",
+    "dark": "#1A1B1E",
+    "light": "#F1F1F1",
+    "onPrimary": "#FFFFFF"
+  },
+  "kit": {
+    "shirt": "#2B2D31",
+    "sleeve": "#1F82D0",
+    "shirtLogo": true,
+    "pants": "#3A3C40",
+    "cap": "#2B2D31",
+    "capLogo": true,
+    "shoes": "#F1F1F1",
+    "glove": "#F1F1F1"
+  },
+  "course": {
+    "flag": "#1F82D0",
+    "flagLogoColor": "#FFFFFF",
+    "pole": "#F1F1F1",
+    "teeMarker": "#1F82D0",
+    "board": "#1A1B1E",
+    "boardText": "#FFFFFF",
+    "tracer": "#1F82D0",
+    "ball": "#FFFFFF"
+  },
+  "leaderboard": {
+    "url": "https://gamify-leaderboard.jonny-13a.workers.dev",
+    "game": "gamify_golf"
+  }
+}
