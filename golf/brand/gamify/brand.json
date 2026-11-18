@@ -36,5 +36,6 @@
   "leaderboard": {
     "url": "https://gamify-leaderboard.jonny-13a.workers.dev",
     "game": "gamify_golf"
-  }
+  },
+  "golferKit": "gamify"
 }
